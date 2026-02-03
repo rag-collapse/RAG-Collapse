@@ -1,0 +1,6 @@
+huggingface_hub
+numpy
+tqdm
+transformers
+sentence-transformers
+vllm
