@@ -1,7 +1,9 @@
 from vllm import LLM, SamplingParams
 import numpy as np
 from transformers import AutoTokenizer
+from sentence_transformers import SentenceTransformer
 import warnings
+import gc
 
 
 class OpenSourceLLM:
@@ -109,35 +111,41 @@ class OpenSourceLLM:
     def shutdown(self):
         """Properly shutdown the vLLM engine."""
         del self.llm
-        import gc
-
         gc.collect()
 
 
 class EmbeddingModel:
-    def __init__(self, model_name: str, cache_dir: str = None) -> None:
-        raise NotImplementedError("This is a placeholder for an EmbeddingModel class.")
+    def __init__(
+        self, model_name: str, batch_size: int = 32, cache_dir: str = None
+    ) -> None:
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.cache_dir = cache_dir
+        self.model = SentenceTransformer(model_name, cache_folder=cache_dir)
 
-    # def embed_batch(self, texts: list[str]) -> np.ndarray | None:
-    #     try:
-    #         outputs = self.llm.embed(texts)
+    def __repr__(self) -> str:
+        return (
+            f"EmbeddingModel(model_name={self.model_name}, "
+            f"batch_size={self.batch_size}, cache_dir={self.cache_dir})"
+        )
 
-    #         embeddings = []
-    #         for output in outputs:
-    #             token_embeddings = output.token_embeddings
-    #             avg_embedding = np.mean(token_embeddings, axis=0)
-    #             embeddings.append(avg_embedding)
+    def embed_batch(self, texts: list[str], normalize: bool = True):
+        return self.model.encode(
+            texts,
+            batch_size=self.batch_size,
+            show_progress_bar=False,
+            normalize_embeddings=normalize,
+        )
 
-    #         return np.array(embeddings)
-    #     except ValueError as e:
-    #         warnings.warn(
-    #             f"Embedding API is not supported by model '{self.model_name}'. "
-    #             f"Error: {str(e)}. Try converting the model using `--convert embed` if needed. "
-    #             f"Returning None.",
-    #             UserWarning
-    #         )
-    #         return None
+    def embed_single(self, text: str, normalize: bool = True):
+        return self.model.encode(text, normalize_embeddings=normalize)
 
-    # def embed_single(self, text: str) -> np.ndarray | None:
-    #     result = self.embed_batch([text])
-    #     return result[0] if result is not None else None
+    def similarity(self, embed1: np.ndarray, embed2: np.ndarray) -> float:
+        return self.model.similarity(embed1, embed2)[0]
+
+    def similarity_batch(self, embeds1: np.ndarray, embeds2: np.ndarray) -> np.ndarray:
+        return self.model.similarity(embeds1, embeds2)
+
+    def shutdown(self):
+        del self.model
+        gc.collect()
