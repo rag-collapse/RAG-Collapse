@@ -1,5 +1,7 @@
-from litellm import completion, batch_completion
+from litellm import completion, batch_completion #,_turn_on_debug
 import os
+
+#_turn_on_debug() # Only turn on in case of debugging
 
 class ProprietaryLLM:
     def __init__(
@@ -29,6 +31,7 @@ class ProprietaryLLM:
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
+            "api_base": "https://thekeymaker.umass.edu/",
             **self.extra_params,
         }
         if self.api_key:
@@ -43,7 +46,12 @@ class ProprietaryLLM:
     def generate_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
         params = self._get_completion_params()
         responses = batch_completion(messages=conversations, **params)
-        return [response.choices[0].message.content for response in responses]
+        results = []
+        for response in responses:
+            if isinstance(response, Exception):
+                raise response
+            results.append(response.choices[0].message.content)
+        return results
 
     def inference_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
         return self.generate_batch(conversations)
