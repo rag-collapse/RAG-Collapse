@@ -1,11 +1,12 @@
 from litellm import completion, batch_completion #,_turn_on_debug
+from common_llm import CommonLLM
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 #_turn_on_debug() # Only turn on in case of debugging
 
-class ProprietaryLLM:
+class ProprietaryLLM(CommonLLM):
     def __init__(
         self,
         model_name: str,
