@@ -114,13 +114,6 @@ class OpenSourceLLM:
         gc.collect()
 
 
-class ProprietaryLLM:
-    def __init__(self) -> None:
-        raise NotImplementedError(
-            "This is a placeholder for a proprietary LLM class. Implement with LiteLLM later."
-        )
-
-
 class EmbeddingModel:
     def __init__(self, model_name: str, cache_dir: str = None) -> None:
         raise NotImplementedError("This is a placeholder for an EmbeddingModel class.")
