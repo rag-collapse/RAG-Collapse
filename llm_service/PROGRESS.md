@@ -4,6 +4,7 @@
 - If needed, we can create a `baseLLM` class
 - Created a `litellm_example.py` file for testing. The batch example probably could be split into their own file since I reused them
 - updated `requirements.txt` with litellm dependencies
+- Created a `CommonLLM` abstract interface which both `ProprietaryLLM` and `OpenSourceLLM` implement. This allows us to use polymorphism, I also created a new file `batch_examples.py` where I moved the `inference_examples` function from `inference_example.py` file since it's also used in `litellm_example.py`
 - Note: Used AI for help in debugging some stuff
 
 ### Feb 3
