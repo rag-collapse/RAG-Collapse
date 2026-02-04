@@ -1,6 +1,6 @@
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from custom_llm import OpenSourceLLM
+from custom_llm import OpenSourceLLM, EmbeddingModel
 
 
 def inference_example(llm: OpenSourceLLM) -> str:
@@ -43,7 +43,7 @@ def chat_template_example(llm: OpenSourceLLM) -> str:
 
 
 def embedding_example(
-    llm: OpenSourceLLM, embedding_model: SentenceTransformer
+    llm: OpenSourceLLM, embedding_model: EmbeddingModel
 ) -> np.ndarray:
     message_batch = [
         [
@@ -67,7 +67,7 @@ def embedding_example(
     ]
 
     outputs = llm.inference_batch(message_batch)
-    embeddings = embedding_model.encode(outputs)
+    embeddings = embedding_model.embed_batch(outputs)
     return embeddings
 
 
@@ -78,9 +78,12 @@ if __name__ == "__main__":
         max_tokens=1024,
         top_p=0.9,
         gpu_memory_utilization=0.7,
+        max_model_len=8192
     )
 
-    embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    embedding_model = EmbeddingModel(
+        "sentence-transformers/all-MiniLM-L6-v2", batch_size=8
+    )
 
     try:
         print(llm)
@@ -103,19 +106,18 @@ if __name__ == "__main__":
         print("Embeddings shape:", embeddings.shape)
         print(
             "Similarity of 0-1:",
-            np.dot(embeddings[0], embeddings[1])
-            / (np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])),
+            embedding_model.similarity(embeddings[0], embeddings[1]),
         )
         print(
             "Similarity of 0-2:",
-            np.dot(embeddings[0], embeddings[2])
-            / (np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[2])),
+            embedding_model.similarity(embeddings[0], embeddings[2]),
         )
+
+        print("Entire similarity matrix:")
+        print(embedding_model.similarity_batch(embeddings, embeddings))
+
     finally:
         # Clean up vLLM engine processes
-        del llm.llm
-        import gc
-        gc.collect()
+        llm.shutdown()
+        embedding_model.shutdown()
         print("\nCleaned up LLM resources.")
-
-
