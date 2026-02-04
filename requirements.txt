@@ -4,3 +4,5 @@ tqdm
 transformers
 sentence-transformers
 vllm
+litellm
+python-dotenv
