@@ -1,6 +1,5 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from open_source_llm import OpenSourceLLM
+from open_source_llm import OpenSourceLLM, EmbeddingModel
 
 
 def inference_example(llm: OpenSourceLLM) -> str:
