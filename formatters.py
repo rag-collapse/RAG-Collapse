@@ -94,3 +94,7 @@ def get_context_str_from_docs(
 #     print("\nRAG Generation Conversation:")
 #     for turn in rag_conversation:
 #         print(f"{turn['role'].upper()}: {turn['content']}\n")
+
+#     # and then to call with inference,
+#     # batch = [rag_conversation] * 10
+#     # outputs = llm.inference_batch(batch), basically
