@@ -50,4 +50,5 @@ python llm_service/inference_example.py
 
 **Note**: The example uses `Qwen/Qwen2.5-1.5B-Instruct` model which will be downloaded automatically on first run. Make sure you have sufficient disk space and GPU memory available.
 
-[](example.png)
+## Example Experiment Pipeline
+![Pipeline](example.png)
