@@ -17,7 +17,7 @@ module load cuda/12.6
 nvidia-smi
 
 # You will change this to your own conda environment name
-conda activate lamp
+conda activate ragenv
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
