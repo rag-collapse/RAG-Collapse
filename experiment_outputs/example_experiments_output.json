@@ -1,0 +1,61 @@
+{
+  "experiment_metadata": {
+    "model": "claude-sonnet-4",
+    "num_iterations": 5,
+    "num_runs_per_iteration": 10
+  },
+  "questions": [
+    {
+      "question_id": 0,
+      "question_text": "How many moons orbit Saturn?",
+      "iterations": [
+        {
+          "iteration_number": 0,
+          "documents": [
+            {
+              "document_id": "0_0",
+              "text": "Saturn has 146 confirmed moons, making it the planet with the most moons in our solar system."
+            },
+            {
+              "document_id": "0_1",
+              "text": "There are over 140 moons orbiting Saturn, including the large moon Titan."
+            }
+          ],
+          "runs": [
+            {
+              "run_id": "0_0",
+              "answer": "Saturn has 146 confirmed moons, the most of any planet in the solar system."
+            },
+            {
+              "run_id": "0_1",
+              "answer": "Based on the documents, Saturn has over 140 moons, with 146 confirmed."
+            }
+          ]
+        },
+        {
+          "iteration_number": 1,
+          "documents": [
+            {
+              "document_id": "1_0",
+              "text": "Saturn has 146 confirmed moons, the most of any planet in the solar system.",
+            },
+            {
+              "document_id": "1_1",
+              "text": "Based on the documents, Saturn has over 140 moons, with 146 confirmed.",
+            }
+          ],
+          "runs": [
+            {
+              "run_id": "1_0",
+              "answer": "Saturn has 146 confirmed moons."
+            },
+            {
+              "run_id": "1_1",
+              "answer": "Saturn has a lot of confirmed moons."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,37 +1,6 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from custom_llm import OpenSourceLLM, EmbeddingModel
-
-
-def inference_example(llm: OpenSourceLLM) -> str:
-    message_batch = [
-        [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Hello! Can you tell me a joke?"},
-        ],
-        [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "What is the mole number in chemistry?"},
-        ],
-        [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "In economics, what is the law of supply and demand?",
-            },
-        ],
-        [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "What is the type of error in programming when a variable is not defined?",
-            },
-        ],
-    ]
-
-    outputs = llm.inference_batch(message_batch)
-    return outputs
-
+from open_source_llm import OpenSourceLLM, EmbeddingModel
+from batch_examples import inference_example 
 
 def chat_template_example(llm: OpenSourceLLM) -> str:
     messages = [
