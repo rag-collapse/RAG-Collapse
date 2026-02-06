@@ -1,23 +1,22 @@
-from typing import Dict, List
+from typing import Dict, List, Any
 
-
-def inject_generated_text(
-    example: Dict,
-    generated_text: str,
-) -> Dict:
+def references_to_documents(example: Dict[str, Any]) -> List[Dict[str, str]]:
     """
-    Create a new example where model-generated text
-    is injected back as context.
-
-    Original references are preserved separately.
+    Convert example['references'] into a list of 'documents'.
+    Assumes each reference has {url, text}.
     """
-    return {
-        "question": example["question"],
-        "references": [
+    docs = []
+    for r in example.get("references", []):
+        docs.append(
             {
-                "url": "model_generated",
-                "text": generated_text,
+                "url": r.get("url", ""),
+                "text": r.get("text", ""),
             }
-        ],
-        "original_references": example["references"],
-    }
+        )
+    return docs
+
+def answers_to_documents(answers: List[str]) -> List[Dict[str, str]]:
+    """
+    Wrap model answers as 'documents' so they can be injected/retrieved later.
+    """
+    return [{"url": "model_generated", "text": a} for a in answers]
