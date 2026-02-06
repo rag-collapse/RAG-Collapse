@@ -1,21 +1,13 @@
 import json
-from typing import List, Dict
+from typing import Any, Dict
 
 
-def write_iteration_output(
+def write_experiments_output(
     path: str,
-    iteration: int,
-    records: List[Dict],
-):
+    experiments: Dict[str, Any],
+) -> None:
     """
-    Append iteration outputs to disk.
-
-    This function does not evaluate or transform outputs.
+    Write the full experiments output to disk as a single JSON file.
     """
-    output = {
-        "iteration": iteration,
-        "records": records,
-    }
-
-    with open(path, "a") as f:
-        f.write(json.dumps(output) + "\n")
+    with open(path, "w") as f:
+        json.dump(experiments, f, indent=2)
