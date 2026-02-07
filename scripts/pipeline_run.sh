@@ -4,9 +4,9 @@ conda activate ragenv
 python -m pip install -r requirements.txt
 
 
-
+export API_KEY= # Set your OpenAI API key here
 export MODEL_MODE=api
-export MODEL_NAME=gpt-4o-mini
+export MODEL_NAME=openai/gpt4o
 export DATASET_PATH=datasets/umass_data.entity.chatgpt.50.jsonl
 export OUTPUT_PATH=example_experiments_output.json
 export MAX_QUESTIONS=1
