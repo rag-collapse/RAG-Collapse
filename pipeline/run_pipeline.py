@@ -35,7 +35,7 @@ def run_pipeline() -> None:
     )
     output_path = os.getenv(
         "OUTPUT_PATH",
-        "example_experiments_output.json",
+        "experiment_result_output.json",
     )
 
     num_iterations = int(os.getenv("NUM_ITERATIONS", "5"))
