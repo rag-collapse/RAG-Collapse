@@ -91,8 +91,8 @@ def evaluate_experiment(
 if __name__=="__main__":
     # Example usage
     evaluation_results = evaluate_experiment(
-        experiment_file="evaluation_outputs\example_evalutation_results_output.json",
-        output_file="experiment_outputs\evaluation_results.json",
+        experiment_file="experiment_outputs/example_experiments_output.json",
+        output_file="evaluation_outputs/evaluation_results_output.json",
         embedding_model_name="all-MiniLM-L6-v2",
         batch_size=32,
         cache_dir=None,
