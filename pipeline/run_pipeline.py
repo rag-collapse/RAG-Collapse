@@ -1,49 +1,101 @@
+import argparse
 import os
 from typing import Any, Dict, List
 
 from pipeline.data_loader import load_dataset
 from pipeline.prompt_builder import build_rag_conversation
-from pipeline.model_runner import build_llm_from_env, sample_runs
+from pipeline.model_runner import build_llm, sample_runs
 from pipeline.feedback_loop import references_to_documents, answers_to_documents
 from pipeline.output_writer import write_experiments_output
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run RAG collapse pipeline")
+
+    # -------------------------
+    # Model configuration
+    # -------------------------
+    parser.add_argument(
+        "--model-mode",
+        choices=["api", "local"],
+        required=True,
+        help="Run mode for the model",
+    )
+    parser.add_argument(
+        "--model-name",
+        required=True,
+        help="Model identifier",
+    )
+
+    # Generation params (applies to both modes)
+    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--max-tokens", type=int, default=512)
+    parser.add_argument("--top-p", type=float, default=0.9)
+
+    # Local-only knobs (ignored for api mode)
+    parser.add_argument("--max-model-len", type=int, default=8192)
+    parser.add_argument("--gpu-mem-util", type=float, default=0.7)
+
+    # -------------------------
+    # Dataset / output
+    # -------------------------
+    parser.add_argument(
+        "--dataset-path",
+        default="datasets/umass_data.entity.chatgpt.50.jsonl",
+        help="Path to input dataset",
+    )
+    parser.add_argument(
+        "--output-path",
+        default="experiment_result_output.json",
+        help="Path to write experiment results",
+    )
+
+    # -------------------------
+    # Experiment parameters
+    # -------------------------
+    parser.add_argument(
+        "--num-iterations",
+        type=int,
+        default=5,
+        help="Number of feedback iterations",
+    )
+    parser.add_argument(
+        "--num-runs",
+        type=int,
+        default=10,
+        help="Number of independent runs per iteration",
+    )
+    parser.add_argument(
+        "--chars-per-doc",
+        type=int,
+        default=400,
+        help="Character limit per document",
+    )
+    parser.add_argument(
+        "--max-questions",
+        type=int,
+        default=None,
+        help="Limit number of questions (omit to use all)",
+    )
+
+    return parser.parse_args()
+
+
 def run_pipeline() -> None:
     """
-    Generate example_experiments_output.json.
+    Generate experiment output JSON.
 
     This pipeline simulates RAG collapse by repeatedly feeding
     model-generated answers back as documents.
-
-    Environment variables:
-      DATASET_PATH: input JSONL or JSON dataset
-      OUTPUT_PATH: output JSON file
-      MODEL_MODE: api | local
-      MODEL_NAME: model identifier
-      NUM_ITERATIONS: number of collapse iterations
-      NUM_RUNS: number of samples per iteration
-      CHARS_PER_DOC: document truncation length
-      MAX_QUESTIONS: optional limit for debugging
     """
+    args = parse_args()
 
-    # -------------------------
-    # Environment configuration
-    # -------------------------
-    dataset_path = os.getenv(
-        "DATASET_PATH",
-        "datasets/umass_data.entity.chatgpt.50.jsonl",
-    )
-    output_path = os.getenv(
-        "OUTPUT_PATH",
-        "experiment_result_output.json",
-    )
-
-    num_iterations = int(os.getenv("NUM_ITERATIONS", "5"))
-    num_runs = int(os.getenv("NUM_RUNS", "10"))
-    chars_per_doc = int(os.getenv("CHARS_PER_DOC", "400"))
-
-    max_questions_env = os.getenv("MAX_QUESTIONS", "").strip()
-    max_questions = int(max_questions_env) if max_questions_env else None
+    dataset_path = args.dataset_path
+    output_path = args.output_path
+    num_iterations = args.num_iterations
+    num_runs = args.num_runs
+    chars_per_doc = args.chars_per_doc
+    max_questions = args.max_questions
 
     # -------------------------
     # Load dataset
@@ -51,9 +103,18 @@ def run_pipeline() -> None:
     dataset = load_dataset(dataset_path)
 
     # -------------------------
-    # Initialize model
+    # Initialize model (CLI-driven)
     # -------------------------
-    llm, resolved_model_name = build_llm_from_env()
+    llm, resolved_model_name = build_llm(
+        model_mode=args.model_mode,
+        model_name=args.model_name,
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+        top_p=args.top_p,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_mem_util,
+        cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+    )
 
     experiments: Dict[str, Any] = {
         "experiment_metadata": {
@@ -84,14 +145,12 @@ def run_pipeline() -> None:
         }
 
         for it in range(num_iterations):
-            # Build RAG-style conversation using existing formatter logic
             conversation = build_rag_conversation(
                 question=question_text,
                 docs=current_docs,
                 chars_per_doc=chars_per_doc,
             )
 
-            # Sample multiple independent runs
             answers = sample_runs(
                 llm=llm,
                 conversation=conversation,
@@ -123,7 +182,7 @@ def run_pipeline() -> None:
     # -------------------------
     write_experiments_output(output_path, experiments)
 
-    # Best-effort shutdown (important for GPU / vLLM)
+    # Best-effort shutdown
     try:
         llm.shutdown()
     except Exception:
