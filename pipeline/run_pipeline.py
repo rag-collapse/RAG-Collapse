@@ -7,6 +7,7 @@ from pipeline.prompt_builder import build_rag_conversation
 from pipeline.model_runner import build_llm, sample_runs
 from pipeline.feedback_loop import references_to_documents, answers_to_documents
 from pipeline.output_writer import write_experiments_output
+from formatters import get_create_document_conversation
 
 
 def parse_args():
@@ -170,8 +171,13 @@ def run_pipeline() -> None:
 
             # Prepare documents for next iteration (collapse mechanism)
             if it < num_iterations - 1:
+                # convert
+                doc_conversations = [get_create_document_conversation(content=ans) for ans in answers]
+
+                document_texts = llm.inference_batch(doc_conversations)
+                
                 current_docs = answers_to_documents(
-                    answers,
+                    document_texts,
                     iteration=it + 1,
                 )
 
