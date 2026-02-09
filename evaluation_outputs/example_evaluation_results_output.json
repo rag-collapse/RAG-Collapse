@@ -13,7 +13,7 @@
             "avg_pairwise_similarity": 0.23,
             "max_pairwise_similarity": 0.45,
             "min_pairwise_similarity": 0.08,
-            "std_pairwise_similarity": 0.11,
+            "std_pairwise_similarity": 0.11
           }
         },
         {
@@ -22,7 +22,7 @@
             "avg_pairwise_similarity": 0.52,
             "max_pairwise_similarity": 0.78,
             "min_pairwise_similarity": 0.31,
-            "std_pairwise_similarity": 0.14,
+            "std_pairwise_similarity": 0.14
           }
         },
         {
@@ -31,18 +31,17 @@
             "avg_pairwise_similarity": 0.79,
             "max_pairwise_similarity": 0.94,
             "min_pairwise_similarity": 0.62,
-            "std_pairwise_similarity": 0.09,
+            "std_pairwise_similarity": 0.09
           }
         }
       ]
     },
     {
       "question_id": "q1",
-      "iterations": [...]
+      "iterations": []
     }
   ],
   "aggregate_statistics": {
-    "avg_collapse_rate": 0.224,
-    // maybe more?
+    "avg_collapse_rate": 0.224
   }
 }
