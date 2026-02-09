@@ -37,11 +37,11 @@
           "documents": [
             {
               "document_id": "1_0",
-              "text": "Saturn has 146 confirmed moons, the most of any planet in the solar system.",
+              "text": "Saturn has 146 confirmed moons, the most of any planet in the solar system."
             },
             {
               "document_id": "1_1",
-              "text": "Based on the documents, Saturn has over 140 moons, with 146 confirmed.",
+              "text": "Based on the documents, Saturn has over 140 moons, with 146 confirmed."
             }
           ],
           "runs": [
