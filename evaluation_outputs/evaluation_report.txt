@@ -1,0 +1,58 @@
+================================================================================
+MODEL COLLAPSE EVALUATION REPORT
+================================================================================
+
+EXPERIMENT METADATA:
+  Model: openai/gpt4o
+  Number of Iterations: 5
+  Runs per Iteration: 10
+
+MEASUREMENT METADATA:
+  Embedding Model: all-MiniLM-L6-v2
+  Similarity Metric: cosine
+
+QUESTION 0: Who are the most popular TikTok dancers?
+--------------------------------------------------------------------------------
+
+  Iteration 0:
+    Average Pairwise Similarity: 0.9352
+    Max Pairwise Similarity:     1.0000
+    Min Pairwise Similarity:     0.8273
+    Std Pairwise Similarity:     0.0463
+
+  Iteration 1:
+    Average Pairwise Similarity: 0.8525
+    Max Pairwise Similarity:     1.0000
+    Min Pairwise Similarity:     0.5851
+    Std Pairwise Similarity:     0.1986
+
+  Iteration 2:
+    Average Pairwise Similarity: 0.8525
+    Max Pairwise Similarity:     1.0000
+    Min Pairwise Similarity:     0.5851
+    Std Pairwise Similarity:     0.1986
+
+  Iteration 3:
+    Average Pairwise Similarity: 0.7787
+    Max Pairwise Similarity:     1.0000
+    Min Pairwise Similarity:     0.5851
+    Std Pairwise Similarity:     0.2070
+
+  Iteration 4:
+    Average Pairwise Similarity: 1.0000
+    Max Pairwise Similarity:     1.0000
+    Min Pairwise Similarity:     1.0000
+    Std Pairwise Similarity:     0.0000
+
+  Similarity Progression:
+    Iteration 0: 0.9352
+    Iteration 1: 0.8525
+      Change from previous: -0.0827
+    Iteration 2: 0.8525
+      Change from previous: +0.0000
+    Iteration 3: 0.7787
+      Change from previous: -0.0738
+    Iteration 4: 1.0000
+      Change from previous: +0.2213
+
+================================================================================

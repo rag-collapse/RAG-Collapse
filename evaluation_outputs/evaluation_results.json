@@ -1,0 +1,59 @@
+{
+  "measurement_metadata": {
+    "embedding_model": "all-MiniLM-L6-v2",
+    "similarity_metric": "cosine"
+  },
+  "questions": [
+    {
+      "question_id": 0,
+      "question_text": "Who are the most popular TikTok dancers?",
+      "iterations": [
+        {
+          "iteration_number": 0,
+          "metrics": {
+            "avg_pairwise_similarity": 0.9351988249354892,
+            "max_pairwise_similarity": 1.0000001192092896,
+            "min_pairwise_similarity": 0.8272991180419922,
+            "std_pairwise_similarity": 0.04628178703878289
+          }
+        },
+        {
+          "iteration_number": 1,
+          "metrics": {
+            "avg_pairwise_similarity": 0.8524852567248874,
+            "max_pairwise_similarity": 1.0000001192092896,
+            "min_pairwise_similarity": 0.5851147770881653,
+            "std_pairwise_similarity": 0.1985978065388075
+          }
+        },
+        {
+          "iteration_number": 2,
+          "metrics": {
+            "avg_pairwise_similarity": 0.8524852567248874,
+            "max_pairwise_similarity": 1.0000001192092896,
+            "min_pairwise_similarity": 0.5851147770881653,
+            "std_pairwise_similarity": 0.1985978065388075
+          }
+        },
+        {
+          "iteration_number": 3,
+          "metrics": {
+            "avg_pairwise_similarity": 0.7787278970082601,
+            "max_pairwise_similarity": 1.0000001192092896,
+            "min_pairwise_similarity": 0.5851147770881653,
+            "std_pairwise_similarity": 0.20698113152153805
+          }
+        },
+        {
+          "iteration_number": 4,
+          "metrics": {
+            "avg_pairwise_similarity": 1.0,
+            "max_pairwise_similarity": 1.0,
+            "min_pairwise_similarity": 1.0,
+            "std_pairwise_similarity": 0.0
+          }
+        }
+      ]
+    }
+  ]
+}
