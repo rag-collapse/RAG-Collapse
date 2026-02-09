@@ -63,12 +63,12 @@ def evaluate_experiment(
                 "metrics": metrics,
             })
 
-        
+
         questions_results.append({
             "question_id": question_id,
             "iterations": iterations_results,
         })
-    
+
     # add results metadata and aggregate statistics
     results = {
         "measurement_metadata": {
@@ -88,13 +88,55 @@ def evaluate_experiment(
 
     return results
 
-if __name__=="__main__":
-    # Example usage
-    evaluation_results = evaluate_experiment(
-        experiment_file="experiment_outputs/example_experiments_output.json",
-        output_file="evaluation_outputs/evaluation_results_output.json",
-        embedding_model_name="all-MiniLM-L6-v2",
-        batch_size=32,
-        cache_dir=None,
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate RAG experiment results by calculating pairwise similarities between generated answers."
     )
+
+    parser.add_argument(
+        "experiment_file",
+        type=str,
+        help="Path to the experiment JSON file containing questions and iterations"
+    )
+
+    parser.add_argument(
+        "output_file",
+        type=str,
+        help="Path to save the evaluation results JSON file"
+    )
+
+    parser.add_argument(
+        "--embedding-model",
+        type=str,
+        default="all-MiniLM-L6-v2",
+        help="Name of the embedding model to use (default: all-MiniLM-L6-v2)"
+    )
+
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Batch size for embedding computation (default: 32)"
+    )
+
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=None,
+        help="Directory to cache the embedding model (optional)"
+    )
+
+    args = parser.parse_args()
+
+    evaluation_results = evaluate_experiment(
+        experiment_file=args.experiment_file,
+        output_file=args.output_file,
+        embedding_model_name=args.embedding_model,
+        batch_size=args.batch_size,
+        cache_dir=args.cache_dir,
+    )
+
     print(json.dumps(evaluation_results, indent=2))
+
