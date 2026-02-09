@@ -1,48 +1,56 @@
-import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from llm_service.common_llm import CommonLLM
 from llm_service.proprietary_llm import ProprietaryLLM
 from llm_service.open_source_llm import OpenSourceLLM
 
 
-def build_llm_from_env() -> Tuple[CommonLLM, str]:
+def build_llm(
+    *,
+    model_mode: str,
+    model_name: str,
+    temperature: float = 0.7,
+    max_tokens: int = 512,
+    top_p: float = 0.9,
+    # local-only knobs
+    require_gpu: bool = True,
+    max_model_len: int = 8192,
+    gpu_memory_utilization: float = 0.7,
+    cuda_visible_devices: Optional[str] = None,
+) -> Tuple[CommonLLM, str]:
     """
-    Build an LLM instance based on MODEL_MODE.
+    Build and return an LLM instance from explicit arguments.
 
-    MODEL_MODE:
-      - api   -> ProprietaryLLM (CPU-safe)
-      - local -> OpenSourceLLM (GPU-only)
+    model_mode:
+      - "api"   -> ProprietaryLLM (CPU-safe)
+      - "local" -> OpenSourceLLM (GPU-only)
 
-    MODEL_NAME controls which model is used.
+    Note:
+      - API_KEY should be provided via environment variable for API mode
+        (handled inside ProprietaryLLM / LiteLLM client).
+      - cuda_visible_devices should be passed from the caller (SLURM sets it).
     """
-    model_mode = os.getenv("MODEL_MODE", "api").strip().lower()
-    model_name = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
+    mode = model_mode.strip().lower()
+    name = model_name.strip()
 
-    temperature = float(os.getenv("TEMPERATURE", "0.7"))
-    max_tokens = int(os.getenv("MAX_TOKENS", "512"))
-    top_p = float(os.getenv("TOP_P", "0.9"))
-
-    if model_mode == "api":
+    if mode == "api":
         llm: CommonLLM = ProprietaryLLM(
-            model_name=model_name,
+            model_name=name,
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
         )
-        return llm, model_name
+        return llm, name
 
-    if model_mode == "local":
-        if not os.getenv("CUDA_VISIBLE_DEVICES"):
-            raise RuntimeError(
-                "MODEL_MODE=local requires a GPU, but CUDA_VISIBLE_DEVICES is empty."
-            )
-
-        max_model_len = int(os.getenv("MAX_MODEL_LEN", "8192"))
-        gpu_memory_utilization = float(os.getenv("GPU_MEM_UTIL", "0.7"))
+    if mode == "local":
+        if require_gpu:
+            if not (cuda_visible_devices and cuda_visible_devices.strip()):
+                raise RuntimeError(
+                    "model_mode=local requires a GPU, but cuda_visible_devices is empty."
+                )
 
         llm = OpenSourceLLM(
-            model_name=model_name,
+            model_name=name,
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
@@ -50,9 +58,9 @@ def build_llm_from_env() -> Tuple[CommonLLM, str]:
             gpu_memory_utilization=gpu_memory_utilization,
             disable_log_stats=True,
         )
-        return llm, model_name
+        return llm, name
 
-    raise ValueError("MODEL_MODE must be 'api' or 'local'")
+    raise ValueError("model_mode must be 'api' or 'local'")
 
 
 def _normalize_generation(gen: Any) -> str:
