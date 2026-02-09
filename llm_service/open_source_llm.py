@@ -2,7 +2,7 @@ from vllm import LLM, SamplingParams
 import numpy as np
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer
-from common_llm import CommonLLM
+from .common_llm import CommonLLM
 import warnings
 import gc
 
