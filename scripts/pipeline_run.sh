@@ -1,8 +1,17 @@
 #!/bin/bash
+#SBATCH --job-name=evaluation
+#SBATCH --output=logs/pipeline_run_%A.out
+#SBATCH --error=logs/pipeline_run_%A.err
+#SBATCH --time=2:00:00
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --mem=32G
+#SBATCH -C "vram40|vram48&sm_70|sm_75|sm_80|sm_86|sm_89|sm_90"
+#SBATCH --cpus-per-task=2
+
 set -e
 
 module load conda/latest
-source $(conda info --base)/etc/profile.d/conda.sh
 conda activate ragenv
 
 python -m pip install -r requirements.txt
@@ -10,7 +19,7 @@ python -m pip install -r requirements.txt
 # -------------------------
 # API mode (CLI args)
 # -------------------------
-export API_KEY= # set this to your OpenAI API key
+export API_KEY= # set this to LiteLLM API key
  
 python -m pipeline.run_pipeline \
   --model-mode api \
