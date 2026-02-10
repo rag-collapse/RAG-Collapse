@@ -175,7 +175,7 @@ def run_pipeline() -> None:
                 doc_conversations = [get_create_document_conversation(content=ans) for ans in answers]
 
                 document_texts = llm.inference_batch(doc_conversations)
-                
+
                 current_docs = answers_to_documents(
                     document_texts,
                     iteration=it + 1,
