@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=inference_example
-#SBATCH --output=logs/inference_example_%A_%a.out
-#SBATCH --error=logs/inference_example_%A_%a.err
+#SBATCH --job-name=inference
+#SBATCH --output=logs/inference_%A.out
+#SBATCH --error=logs/inference_%A.err
 #SBATCH --time=1:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1

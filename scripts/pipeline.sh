@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=evaluation
-#SBATCH --output=logs/pipeline_run_%A.out
-#SBATCH --error=logs/pipeline_run_%A.err
+#SBATCH --output=logs/pipeline_%A.out
+#SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=2:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
