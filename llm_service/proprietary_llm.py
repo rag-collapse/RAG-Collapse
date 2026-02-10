@@ -1,5 +1,5 @@
 from litellm import completion, batch_completion #,_turn_on_debug
-from common_llm import CommonLLM
+from .common_llm import CommonLLM
 import os
 from dotenv import load_dotenv
 load_dotenv()
