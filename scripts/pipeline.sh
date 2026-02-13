@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=evaluation
+#SBATCH --job-name=pipeline
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=2:00:00
@@ -12,25 +12,23 @@
 module load conda/latest
 conda activate ragenv
 
-# python -u pipeline.py \
-#   --model-mode api \
-#   --model-name openai/gpt4o \
-#   --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
-#   --output-path experiments_outputs/output.json \
-#   --max-questions 1 \
-#   --num-iterations 5 \
-#   --num-runs 10 \
-#   --chars-per-doc 400
+EXPERIMENT_NAME=replace_all_full_dataset
 
-# -------------------------
-# Local mode (uncomment to use)
-# -------------------------
+MODEL_MODE=local # or api
+MODEL_NAME=Qwen/Qwen2.5-3B-Instruct
+DATASET_PATH=datasets/umass_data.entity.chatgpt.50.jsonl
+OUTPUT_PATH=experiment_outputs/$EXPERIMENT_NAME.json
+MAX_QUESTIONS=50
+NUM_ITERATIONS=4
+NUM_RUNS=5
+CHARS_PER_DOC=800
+
 python -u pipeline.py \
-  --model-mode local \
-  --model-name Qwen/Qwen2.5-1.5B-Instruct \
-  --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
-  --output-path experiment_outputs/output.json \
-  --max-questions 8 \
-  --num-iterations 2 \
-  --num-runs 10 \
-  --chars-per-doc 400
+  --model-mode $MODEL_MODE \
+  --model-name $MODEL_NAME \
+  --dataset-path $DATASET_PATH \
+  --output-path $OUTPUT_PATH \
+  --max-questions $MAX_QUESTIONS \
+  --num-iterations $NUM_ITERATIONS \
+  --num-runs $NUM_RUNS \
+  --chars-per-doc $CHARS_PER_DOC

@@ -5,7 +5,10 @@ from sentence_transformers import SentenceTransformer
 from .common_llm import CommonLLM
 import warnings
 import gc
+from dotenv import load_dotenv
 
+# expose hf token
+load_dotenv()
 
 class OpenSourceLLM(CommonLLM):
     def __init__(

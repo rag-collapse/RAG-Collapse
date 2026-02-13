@@ -143,6 +143,3 @@ Cancel a job:
 ```bash
 scancel <job_id>
 ```
-
-## Example Experiment Pipeline
-![Pipeline](example.png)

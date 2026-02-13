@@ -12,4 +12,9 @@
 module load conda/latest
 conda activate ragenv
 
-python -u evaluation.py experiment_outputs/test_output.json evaluation_outputs/test_output.json
+EXPERIMENT_NAME=replace_all_full_dataset
+
+OUTPUT_FILE_PATH="experiment_outputs/$EXPERIMENT_NAME.json"
+RESULTS_FILE_PATH="evaluation_outputs/$EXPERIMENT_NAME.json"
+
+python -u evaluation.py $OUTPUT_FILE_PATH $RESULTS_FILE_PATH

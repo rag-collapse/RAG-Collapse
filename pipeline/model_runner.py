@@ -17,6 +17,7 @@ def build_llm(
     max_model_len: int = 8192,
     gpu_memory_utilization: float = 0.7,
     cuda_visible_devices: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ) -> Tuple[CommonLLM, str]:
     """
     Build and return an LLM instance from explicit arguments.
@@ -54,6 +55,7 @@ def build_llm(
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
+            cache_dir=cache_dir,
             max_model_len=max_model_len,
             gpu_memory_utilization=gpu_memory_utilization,
             disable_log_stats=True,
