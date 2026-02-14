@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Dict, List
 
 def references_to_documents(
@@ -41,6 +42,25 @@ def answers_to_documents(
             }
         )
     return docs
+
+
+def next_docs_replace_one(
+    current_docs: List[Dict[str, Any]],
+    new_document_texts: List[str],
+    iteration: int,
+) -> List[Dict[str, Any]]:
+    """
+    Replace-one strategy: one slot is replaced per round with one of the new documents.
+    Slot index = iteration % len(current_docs). Uses the first new document for that slot.
+    Reuses answers_to_documents for doc structure.
+    """
+    if not new_document_texts:
+        return current_docs
+    slot = iteration % len(current_docs)
+    next_docs = copy.deepcopy(current_docs)
+    one_new_doc = answers_to_documents([new_document_texts[0]], iteration=iteration)[0]
+    next_docs[slot] = one_new_doc
+    return next_docs
 
 
 def inject_generated_text(

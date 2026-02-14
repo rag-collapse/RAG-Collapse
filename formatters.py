@@ -63,18 +63,23 @@ def get_rag_generation_conversation(
 
 
 def get_context_str_from_docs(
-    docs: list[dict[str, str]], chars_per_doc: int = None
+    docs: list[dict[str, str]], chars_per_doc: int = None, shuffle: bool = True
 ) -> str:
-    """Quick utility to convert a list of documents into a single context string for RAG generation."""
-
+    """
+    Convert a list of documents into a single context string for RAG generation.
+    Uses neutral labels "Context n" (no URLs) and optionally shuffles to reduce position bias.
+    """
+    import random
+    ordered = list(docs)
+    if shuffle and len(ordered) > 1:
+        random.shuffle(ordered)
     context_parts = []
-    for i, doc in enumerate(docs):
+    for i, doc in enumerate(ordered):
         content = doc.get("text")
         if content:
             if chars_per_doc is not None:
                 content = content[:chars_per_doc]
-            context_parts.append(f"Document {i + 1} Content: {content}")
-
+            context_parts.append(f"Context {i + 1}:\n{content}")
     return "\n\n".join(context_parts)
 
 # Example usage, comment out and run python formatters.py to test
