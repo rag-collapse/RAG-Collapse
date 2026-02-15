@@ -10,21 +10,23 @@ Pipeline variant configuration: round caps, citation limits, and defaults.
 
 from typing import Final
 
-# Variant identifiers
+# Variant identifiers (single source of truth; PIPELINE_VARIANTS is derived from this)
 PIPELINE_HYBRID: Final[str] = "hybrid"
 PIPELINE_SEARCH: Final[str] = "search"
 
 PIPELINE_VARIANTS: Final[tuple] = (PIPELINE_HYBRID, PIPELINE_SEARCH)
+
+# Rounds per variant (single lookup table; no if-chain)
+ROUNDS_BY_VARIANT: Final[dict] = {
+    PIPELINE_HYBRID: 10,
+    PIPELINE_SEARCH: 30,
+}
 
 # Minimum number of references (citations) per question; questions with fewer are skipped
 MIN_CITATIONS: Final[int] = 5
 
 # Optional cap on references per question (used only if should_truncate_citations; currently False)
 MAX_CITATIONS_REPLACE: Final[int] = 10
-
-# Rounds per variant
-ROUNDS_SEARCH: Final[int] = 30
-ROUNDS_HYBRID: Final[int] = 10
 
 # Runs per round (responses per question per round)
 RUNS_PER_ROUND: Final[int] = 10
@@ -36,13 +38,21 @@ SEARCH_CHUNK_OVERLAP: Final[int] = 50
 
 
 def get_rounds_for_variant(variant: str) -> int:
-    if variant == PIPELINE_HYBRID:
-        return ROUNDS_HYBRID
-    if variant == PIPELINE_SEARCH:
-        return ROUNDS_SEARCH
-    raise ValueError(f"Unknown pipeline variant: {variant}. Use one of {PIPELINE_VARIANTS}")
+    if variant not in ROUNDS_BY_VARIANT:
+        raise ValueError(f"Unknown pipeline variant: {variant}. Use one of {PIPELINE_VARIANTS}")
+    return ROUNDS_BY_VARIANT[variant]
 
 
 def should_truncate_citations(variant: str) -> bool:
     """Hybrid and Search do not truncate references (we need full pool for configurable mix)."""
     return False
+
+
+def is_search(variant: str) -> bool:
+    """True if variant is search (needs embed_fn, retrieval store)."""
+    return variant == PIPELINE_SEARCH
+
+
+def is_hybrid(variant: str) -> bool:
+    """True if variant is hybrid (needs hybrid_config, initial_docs from refs)."""
+    return variant == PIPELINE_HYBRID

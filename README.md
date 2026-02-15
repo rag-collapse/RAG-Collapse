@@ -30,6 +30,16 @@ python llm_service/inference_example.py
 
 **Note**: The example uses `Qwen/Qwen2.5-1.5B-Instruct` model which will be downloaded automatically on first run. Make sure you have sufficient disk space and GPU memory available.
 
+## Pipeline details
+
+The pipeline studies **RAG collapse**: the model answers from retrieved context, then its answers are turned into “documents” and fed back as context for the next round.
+
+- **Variants:** **hybrid** and **search** (no separate replace_all/replace_one; hybrid is configurable via `--num-synth-docs` / `--num-db-docs`).
+- **Hybrid:** Each round the model sees a fixed mix of *synthetic* docs (from its own prior outputs, expanded into web-style articles via a dedicated prompt) and *database* docs (from the question’s original references). Replace-all-style = all synthetic; replace-one-style = 1 synthetic + 3 refs.
+- **Search:** Each round the model sees the top-k chunks from a vector store (chunked docs, embedded with SentenceTransformer by default). New generated docs are added to the store each round.
+- **Feedback step:** Each answer is passed through a “create document” prompt (see `formatters.py`) so the model produces a full web-style article; that text becomes the synthetic document(s) for the next iteration.
+- **Outputs:** One JSON file per run (e.g. `local_hybrid_replace_all.json`, `local_hybrid_replace_one.json`, `local_search.json`) with `experiment_metadata`, `questions`, and per-iteration `documents` and `runs`.
+
 ## Running the Pipeline
 
 ### Running Locally
@@ -48,14 +58,42 @@ python -u pipeline.py \
 ```
 
 **Pipeline Parameters:**
-- `--model-mode`: Choose between `local` (local model) or `api` (API-based model like GPT-4)
-- `--model-name`: Model identifier (e.g., `Qwen/Qwen2.5-1.5B-Instruct` for local or `openai/gpt4o` for API)
-- `--dataset-path`: Path to your input dataset (JSONL format)
+- `--model-mode`: `local` (GPU) or `api` (e.g. GPT-4 via proxy)
+- `--model-name`: Model identifier (e.g. `Qwen/Qwen2.5-1.5B-Instruct` or `openai/gpt4o`)
+- `--dataset-path`: Input dataset (JSONL)
 - `--output-path`: Where to save experiment results
-- `--max-questions`: Maximum number of questions to process
-- `--num-iterations`: Number of RAG iterations per run
-- `--num-runs`: Number of experimental runs
+- `--pipeline-variant`: **`hybrid`** (default) or **`search`**
+- **Hybrid** (10 rounds): context each round = `--num-synth-docs` (from model generations) + `--num-db-docs` (from question references). Replace-all-style: `--num-synth-docs 10 --num-db-docs 0`. Replace-one-style: `--num-synth-docs 1 --num-db-docs 3`. Optional: `--db-doc-selection`, `--synth-doc-selection` (`first` or `random`).
+- **Search** (30 rounds): vector retrieval each round; embeddings default to **local** (SentenceTransformer, no API key). Use `--search-embedding-mode api` and `API_KEY` only if your API exposes embedding models.
+- `--max-questions`: Limit number of questions (omit for all)
+- `--max-iterations`: Cap on rounds for quick tests (e.g. `--max-iterations 2`)
+- `--num-runs`: Responses per round (default 10)
 - `--chars-per-doc`: Character limit per document
+
+### Testing variants
+
+Quick smoke test (1 question, 2 rounds):
+
+```bash
+mkdir -p experiment_outputs
+
+# Hybrid replace-all-style
+python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+  --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 \
+  --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
+  --output-path experiment_outputs/test_hybrid_replace_all.json --max-questions 1 --max-iterations 2
+
+# Hybrid replace-one-style (1 synth + 3 refs)
+python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+  --pipeline-variant hybrid --num-synth-docs 1 --num-db-docs 3 \
+  --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
+  --output-path experiment_outputs/test_hybrid_replace_one.json --max-questions 1 --max-iterations 2
+
+# Search (local embeddings; no API key needed)
+python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+  --pipeline-variant search --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
+  --output-path experiment_outputs/test_search.json --max-questions 1 --max-iterations 2
+```
 
 ### Running on SLURM/HPC Clusters
 
@@ -67,18 +105,27 @@ Before submitting jobs, ensure the logs directory exists:
 mkdir -p logs
 ```
 
-#### 1. Running the Full Pipeline ([pipeline_run.sh](scripts/pipeline_run.sh))
+#### 1. Running the Pipeline ([pipeline.sh](scripts/pipeline.sh))
 
 Submit the pipeline job to SLURM:
 ```bash
 sbatch scripts/pipeline.sh
 ```
 
-This script:
-- Requests 1 GPU with 32GB memory
-- Runs for up to 2 hours
-- Activates the `ragenv` conda environment
-- Executes the pipeline with your configured parameters
+The script runs **two hybrid configs** plus **search** in **local mode** by default and writes:
+- `experiment_outputs/local_hybrid_replace_all.json` (all synthetic, no refs: `--num-synth-docs 10 --num-db-docs 0`)
+- `experiment_outputs/local_hybrid_replace_one.json` (1 synthetic + 3 refs: `--num-synth-docs 1 --num-db-docs 3`)
+- `experiment_outputs/local_search.json` (vector retrieval; **local embeddings** by default, no API key)
+
+To use **API mode**: in `scripts/pipeline.sh`, comment out the "Local mode" block and uncomment the "API mode" block; set `API_KEY` in your environment.
+
+**Script variables (edit at top of pipeline.sh):**
+- `DATASET` – input JSONL path (default: `datasets/umass_data.entity.chatgpt.50.jsonl`)
+- `OUTDIR` – output directory (default: `experiment_outputs`)
+- `COMMON` – shared args (e.g. `--num-runs 10`, `--chars-per-doc 400`)
+- `EXTRA` – e.g. `--max-questions 8`; add `--max-iterations 2` for shorter test runs
+
+**Environment:** The script sets `HF_HOME` and `VLLM_CACHE_ROOT` for caches (no `HF_TOKEN` needed for public models). Search uses local SentenceTransformer embeddings by default; use `--search-embedding-mode api` only if your API provides embedding models.
 
 **SLURM Resources:**
 - Job name: `evaluation`
@@ -87,8 +134,6 @@ This script:
 - GPU: 1 GPU (with VRAM constraints)
 - Memory: 32GB
 - CPUs: 2
-
-You can modify the parameters in the script to use API mode or adjust experiment settings.
 
 #### 2. Running Inference Examples ([inference_example.sh](scripts/inference_example.sh))
 
@@ -129,8 +174,8 @@ squeue --me
 View job output logs:
 ```bash
 # Pipeline logs
-tail -f logs/pipeline_run_<job_id>.out
-tail -f logs/pipeline_run_<job_id>.err
+tail -f logs/pipeline_<job_id>.out
+tail -f logs/pipeline_<job_id>.err
 
 # Evaluation logs
 tail -f logs/evaluation_<job_id>.out

@@ -3,10 +3,10 @@ import os
 from typing import Any, Dict, List
 
 from pipeline.config import (
-    PIPELINE_HYBRID,
-    PIPELINE_SEARCH,
     PIPELINE_VARIANTS,
     get_rounds_for_variant,
+    is_hybrid,
+    is_search,
     SEARCH_TOP_K,
 )
 from pipeline.context_builder import (
@@ -19,7 +19,7 @@ from pipeline.prompt_builder import build_rag_conversation
 from pipeline.model_runner import build_llm, sample_runs
 from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
-from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm
+from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
 from formatters import get_create_document_conversation
 
 
@@ -103,9 +103,15 @@ def parse_args():
         help="Variant: hybrid (configurable synth/db ratio) or search (retrieval)",
     )
     parser.add_argument(
+        "--search-embedding-mode",
+        choices=["local", "api"],
+        default="local",
+        help="Search variant embeddings: local (SentenceTransformer) or api (LiteLLM). Use local when your API has no embedding models.",
+    )
+    parser.add_argument(
         "--search-embedding-model",
-        default="text-embedding-3-small",
-        help="LiteLLM embedding model for Search variant (e.g. text-embedding-3-small)",
+        default="all-MiniLM-L6-v2",
+        help="Embedding model: for local mode = SentenceTransformer name (e.g. all-MiniLM-L6-v2); for api = LiteLLM model name.",
     )
     parser.add_argument(
         "--max-iterations",
@@ -200,7 +206,7 @@ def run_pipeline() -> None:
         "num_iterations": num_iterations,
         "num_runs_per_iteration": num_runs,
     }
-    if variant == PIPELINE_HYBRID:
+    if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
         experiments_metadata["num_db_docs"] = args.num_db_docs
         experiments_metadata["db_doc_selection"] = args.db_doc_selection
@@ -210,10 +216,13 @@ def run_pipeline() -> None:
         "questions": [],
     }
 
-    # Search variant: build embed function via LiteLLM
+    # Search variant: build embed function (local defaults to HF_HOME cache; no API key needed)
     embed_fn = None
-    if variant == PIPELINE_SEARCH:
-        embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
+    if is_search(variant):
+        if args.search_embedding_mode == "local":
+            embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
+        else:
+            embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
 
     # -------------------------
     # Main experiment loop (single path: context_builder for next docs)
@@ -225,13 +234,12 @@ def run_pipeline() -> None:
         question_text: str = row["question"]
         references: List[Dict[str, Any]] = row.get("references", [])
 
-        if variant == PIPELINE_SEARCH:
+        if is_search(variant):
             store = ChunkedRetrievalStore(embed_fn=embed_fn)
             ref_docs = references_to_documents(references, iteration=0)
             store.add_documents(ref_docs)
             current_docs = store.search(question_text, k=SEARCH_TOP_K)
         else:
-            # hybrid
             current_docs = get_initial_documents_hybrid(references, hybrid_config)
             store = None
 

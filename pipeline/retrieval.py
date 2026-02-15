@@ -71,11 +71,10 @@ class ChunkedRetrievalStore:
         if not new_chunks:
             return
         texts = [c["text"] for c in new_chunks]
-        new_vecs = self.embed_fn(texts)
+        arr = _to_float32(self.embed_fn(texts))
         if self._vectors is None:
-            self._vectors = new_vecs if isinstance(new_vecs, np.ndarray) else np.array(new_vecs, dtype=np.float32)
+            self._vectors = arr
         else:
-            arr = new_vecs if isinstance(new_vecs, np.ndarray) else np.array(new_vecs, dtype=np.float32)
             self._vectors = np.vstack([self._vectors, arr])
         self._chunks.extend(new_chunks)
 
@@ -84,10 +83,7 @@ class ChunkedRetrievalStore:
         import numpy as np
         if not self._chunks:
             return []
-        qvec = self.embed_fn([query])
-        if not isinstance(qvec, np.ndarray):
-            qvec = np.array(qvec, dtype=np.float32)
-        qvec = qvec.reshape(1, -1)
+        qvec = _to_float32(self.embed_fn([query])).reshape(1, -1)
         # Normalize for cosine similarity
         norms = np.linalg.norm(self._vectors, axis=1, keepdims=True)
         norms = np.where(norms == 0, 1, norms)
@@ -105,13 +101,43 @@ class ChunkedRetrievalStore:
 _LITELLM_API_BASE = "https://thekeymaker.umass.edu/"
 
 
-def make_embed_fn_litellm(model: str = "text-embedding-3-small"):
+def _to_float32(vectors: Any) -> Any:
+    """Ensure embeddings are a float32 numpy array (shared by local and API embed fns)."""
+    import numpy as np
+    return np.asarray(vectors, dtype=np.float32)
+
+
+def _default_embed_cache_dir() -> str:
+    """Single place for embed model cache (HF_HOME or ~/.cache/hf)."""
+    import os
+    return os.environ.get("HF_HOME") or os.path.expanduser("~/.cache/hf")
+
+
+def make_embed_fn_local(
+    model_name: str = "all-MiniLM-L6-v2",
+    cache_dir: str = None,
+):
+    """
+    Return an embed function using local SentenceTransformer (EmbeddingModel).
+    Use when the API does not expose an embedding model. cache_dir defaults to HF_HOME or ~/.cache/hf.
+    """
+    from llm_service.open_source_llm import EmbeddingModel
+    if cache_dir is None:
+        cache_dir = _default_embed_cache_dir()
+    _embedding_model = EmbeddingModel(model_name=model_name, cache_dir=cache_dir)
+
+    def embed(texts: List[str]):
+        return _to_float32(_embedding_model.embed_batch(texts, normalize=True))
+
+    return embed
+
+
+def make_embed_fn_litellm(model: str = "text-embedding-ada-002"):
     """
     Return an embed function using LiteLLM's embedding().
     Uses the same config as completion: API_KEY from env, same api_base.
     """
     import os
-    import numpy as np
     from litellm import embedding
 
     api_key = os.environ.get("API_KEY", "")
@@ -125,10 +151,9 @@ def make_embed_fn_litellm(model: str = "text-embedding-3-small"):
         if api_key:
             kwargs["api_key"] = api_key
         response = embedding(**kwargs)
-        # response["data"] is list of {"embedding": [...], "index": ...}; sort by index for order
         data = response.get("data", [])
         ordered = sorted(data, key=lambda x: x.get("index", 0))
         vectors = [d["embedding"] for d in ordered]
-        return np.array(vectors, dtype=np.float32)
+        return _to_float32(vectors)
 
     return embed
