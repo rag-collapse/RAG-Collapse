@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=evaluation
+#SBATCH --job-name=entity-extraction
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=2:00:00

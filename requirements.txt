@@ -6,3 +6,4 @@ sentence-transformers
 vllm
 litellm
 python-dotenv
+matplotlib
