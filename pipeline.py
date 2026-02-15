@@ -6,12 +6,14 @@ from pipeline.config import (
     PIPELINE_VARIANTS,
     get_rounds_for_variant,
     is_hybrid,
+    is_replace_one,
     is_search,
     SEARCH_TOP_K,
 )
 from pipeline.context_builder import (
     HybridContextConfig,
     get_initial_documents_hybrid,
+    get_initial_documents_replace_one,
     get_next_documents,
 )
 from pipeline.data_loader import load_dataset, prepare_dataset
@@ -100,7 +102,7 @@ def parse_args():
         "--pipeline-variant",
         choices=list(PIPELINE_VARIANTS),
         default="hybrid",
-        help="Variant: hybrid (configurable synth/db ratio) or search (retrieval)",
+        help="Variant: hybrid, replace_one (paper: one slot replaced per round), or search",
     )
     parser.add_argument(
         "--search-embedding-mode",
@@ -143,6 +145,11 @@ def parse_args():
         choices=["first", "random"],
         default="first",
         help="How to select synthetic doc(s) from multiple runs: first or random.",
+    )
+    parser.add_argument(
+        "--stop-if-converged",
+        action="store_true",
+        help="Stop early when answer signature is identical for four consecutive rounds (no new eval metrics).",
     )
 
     return parser.parse_args()
@@ -239,6 +246,9 @@ def run_pipeline() -> None:
             ref_docs = references_to_documents(references, iteration=0)
             store.add_documents(ref_docs)
             current_docs = store.search(question_text, k=SEARCH_TOP_K)
+        elif is_replace_one(variant):
+            current_docs = get_initial_documents_replace_one(references)
+            store = None
         else:
             current_docs = get_initial_documents_hybrid(references, hybrid_config)
             store = None
@@ -248,6 +258,8 @@ def run_pipeline() -> None:
             "question_text": question_text,
             "iterations": [],
         }
+        stop_if_converged = getattr(args, "stop_if_converged", False)
+        convergence_signatures: List[tuple] = []
 
         for it in range(num_iterations):
             conversation = build_rag_conversation(
@@ -272,6 +284,13 @@ def run_pipeline() -> None:
             }
 
             question_obj["iterations"].append(iteration_obj)
+
+            # Optional convergence early stop: same signature for 4 consecutive rounds
+            if stop_if_converged:
+                sig = tuple(sorted(len(a) for a in answers))
+                convergence_signatures.append(sig)
+                if len(convergence_signatures) >= 4 and len(set(convergence_signatures[-4:])) == 1:
+                    break
 
             # Next iteration docs: single call to context_builder
             if it < num_iterations - 1:
