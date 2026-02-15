@@ -9,7 +9,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pipeline.config import PIPELINE_HYBRID, PIPELINE_SEARCH, SEARCH_TOP_K
+from pipeline.config import PIPELINE_VARIANTS, is_hybrid, is_search, SEARCH_TOP_K
 from pipeline.feedback_loop import answers_to_documents, references_to_documents
 
 
@@ -23,11 +23,10 @@ class HybridContextConfig:
     synth_doc_selection: str  # "first" | "random"
 
 
-def _select_first(items: List[Any], k: int) -> List[Any]:
-    return list(items[:k])
-
-
-def _select_random(items: List[Any], k: int) -> List[Any]:
+def _select_items(items: List[Any], k: int, mode: str) -> List[Any]:
+    """Select up to k items: mode 'first' = items[:k], 'random' = random.sample."""
+    if mode == "first":
+        return list(items[:k])
     if k >= len(items):
         return list(items)
     return list(random.sample(items, k))
@@ -43,18 +42,12 @@ def _hybrid_next_docs(
     Build next iteration context: num_synth_docs from model outputs + num_db_docs
     from this question's references. No cross-question leakage; refs are per-question.
     """
-    # Synthetic docs: from this round's generated document_texts
-    if config.synth_doc_selection == "first":
-        selected_texts = _select_first(document_texts, config.num_synth_docs)
-    else:
-        selected_texts = _select_random(document_texts, config.num_synth_docs)
+    selected_texts = _select_items(
+        document_texts, config.num_synth_docs, config.synth_doc_selection
+    )
     synth_docs = answers_to_documents(selected_texts, iteration=iteration) if selected_texts else []
 
-    # Database docs: from this question's references only
-    if config.db_doc_selection == "first":
-        selected_refs = _select_first(references, config.num_db_docs)
-    else:
-        selected_refs = _select_random(references, config.num_db_docs)
+    selected_refs = _select_items(references, config.num_db_docs, config.db_doc_selection)
     db_docs = references_to_documents(selected_refs, iteration=0) if selected_refs else []
 
     return synth_docs + db_docs
@@ -78,7 +71,7 @@ def get_next_documents(
       With num_db_docs=0 you get replace_all-style (all synth); with num_synth_docs=1, num_db_docs=3 you get a fixed mix.
     - search: new docs added to store; return top-k retrieval for question.
     """
-    if variant == PIPELINE_HYBRID:
+    if is_hybrid(variant):
         if hybrid_config is None or references is None:
             raise ValueError("hybrid variant requires hybrid_config and references")
         return _hybrid_next_docs(
@@ -88,14 +81,14 @@ def get_next_documents(
             config=hybrid_config,
         )
 
-    if variant == PIPELINE_SEARCH:
+    if is_search(variant):
         if store is None or question_text is None:
             raise ValueError("search variant requires store and question_text")
         new_docs = answers_to_documents(document_texts, iteration=iteration)
         store.add_documents(new_docs)
         return store.search(question_text, k=SEARCH_TOP_K)
 
-    raise ValueError(f"Unknown variant: {variant}")
+    raise ValueError(f"Unknown variant: {variant}. Use one of {PIPELINE_VARIANTS}")
 
 
 def get_initial_documents_hybrid(
@@ -109,8 +102,5 @@ def get_initial_documents_hybrid(
     """
     if config.num_db_docs == 0:
         return references_to_documents(references, iteration=0)
-    if config.db_doc_selection == "first":
-        selected_refs = _select_first(references, config.num_db_docs)
-    else:
-        selected_refs = _select_random(references, config.num_db_docs)
+    selected_refs = _select_items(references, config.num_db_docs, config.db_doc_selection)
     return references_to_documents(selected_refs, iteration=0) if selected_refs else []
