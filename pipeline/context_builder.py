@@ -1,16 +1,19 @@
 """
 Context builder: single place that computes the document list for the next iteration.
 
-Two variants: hybrid (configurable ratio of synthetic vs original refs) and search.
-Hybrid subsumes replace_all- and replace_one-style behavior via --num-synth-docs / --num-db-docs.
+Variants: hybrid (configurable synth/db mix), replace_one (paper: one slot replaced per round), search.
 """
 
 import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pipeline.config import PIPELINE_VARIANTS, is_hybrid, is_search, SEARCH_TOP_K
-from pipeline.feedback_loop import answers_to_documents, references_to_documents
+from pipeline.config import PIPELINE_VARIANTS, is_hybrid, is_replace_one, is_search, SEARCH_TOP_K
+from pipeline.feedback_loop import (
+    answers_to_documents,
+    next_docs_replace_one,
+    references_to_documents,
+)
 
 
 @dataclass(frozen=True)
@@ -68,9 +71,12 @@ def get_next_documents(
     Return the document list for the next iteration.
 
     - hybrid: num_synth_docs from document_texts + num_db_docs from references (this question).
-      With num_db_docs=0 you get replace_all-style (all synth); with num_synth_docs=1, num_db_docs=3 you get a fixed mix.
+    - replace_one (paper): one slot in current_docs replaced by one new AI doc; evolving list over rounds.
     - search: new docs added to store; return top-k retrieval for question.
     """
+    if is_replace_one(variant):
+        return next_docs_replace_one(current_docs, document_texts, iteration=iteration)
+
     if is_hybrid(variant):
         if hybrid_config is None or references is None:
             raise ValueError("hybrid variant requires hybrid_config and references")
@@ -104,3 +110,10 @@ def get_initial_documents_hybrid(
         return references_to_documents(references, iteration=0)
     selected_refs = _select_items(references, config.num_db_docs, config.db_doc_selection)
     return references_to_documents(selected_refs, iteration=0) if selected_refs else []
+
+
+def get_initial_documents_replace_one(references: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Initial context for replace_one variant (paper): all references as docs (caller truncates to 10).
+    """
+    return references_to_documents(references, iteration=0)
