@@ -20,14 +20,13 @@ def _tokenize_words(text: str) -> list[str]:
 def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
     n = len(embeddings)
     if n < 2:
-        empty_stats = {
+        return {
             "avg_pairwise_similarity": 0.0,
             "max_pairwise_similarity": 0.0,
             "min_pairwise_similarity": 0.0,
             "std_pairwise_similarity": 0.0,
         }
-        return empty_stats
-
+git
     similarities = []
     # Calculate pairwise cosine similarities (dot product for normalized embeddings)
     for i in range(n):
