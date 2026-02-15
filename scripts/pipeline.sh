@@ -25,7 +25,7 @@ DATASET="datasets/umass_data.entity.chatgpt.50.jsonl"
 OUTDIR="experiment_outputs"
 MODEL="Qwen/Qwen2.5-1.5B-Instruct"
 COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400"
-EXTRA="--max-questions 50"
+EXTRA="--max-questions 8"
 
 mkdir -p logs "$OUTDIR"
 
@@ -45,6 +45,6 @@ run_local --pipeline-variant search --output-path "$OUTDIR/local_search.json"
 # --- API mode (uncomment and set API_KEY; comment out Local block above) ---
 # MODEL_API="openai/gpt4o"
 # run_api() { python -u pipeline.py --model-mode api --model-name "$MODEL_API" $COMMON $EXTRA "$@"; }
-# run_api --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --output-path "$OUTDIR/api_replace_all.json"
-# run_api --pipeline-variant replace_one --output-path "$OUTDIR/api_replace_one.json"
+# run_api --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --output-path "$OUTDIR/api_hybrid_replace_all.json"
+# run_api --pipeline-variant hybrid --num-synth-docs 1 --num-db-docs 3 --output-path "$OUTDIR/api_hybrid_replace_one.json"
 # run_api --pipeline-variant search --output-path "$OUTDIR/api_search.json"
