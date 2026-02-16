@@ -7,7 +7,6 @@ from llm_service.open_source_llm import EmbeddingModel, OpenSourceLLM
 
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
@@ -49,82 +48,6 @@ def calculate_unique_words(answers: list[str]) -> int:
     for answer in answers:
         unique_words.update(_tokenize_words(answer))
     return len(unique_words)
-
-
-def _is_ai_generated_doc(doc: dict) -> bool:
-    doc_id = str(doc.get("doc_id", doc.get("document_id", ""))).lower()
-    url = str(doc.get("url", "")).lower()
-    source = str(doc.get("source", "")).lower()
-    return (
-        doc_id.startswith("gen_")
-        or url == "model_generated"
-        or "ai" in source
-        or "generated" in source
-    )
-
-
-def _build_doc_lookups(iteration: dict) -> tuple[dict[int, dict], dict[str, dict]]:
-    docs = iteration.get("documents", [])
-    index_to_doc = {}
-    id_to_doc = {}
-
-    if not isinstance(docs, list):
-        return index_to_doc, id_to_doc
-
-    for idx, doc in enumerate(docs):
-        if not isinstance(doc, dict):
-            continue
-        index_to_doc[idx] = doc
-        doc_id = doc.get("doc_id", doc.get("document_id"))
-        if doc_id is not None:
-            id_to_doc[str(doc_id)] = doc
-
-    return index_to_doc, id_to_doc
-
-
-def calculate_ai_citation_percentage(iteration: dict) -> tuple[float, str]:
-    index_to_doc, id_to_doc = _build_doc_lookups(iteration)
-
-    total_citations = 0
-    ai_citations = 0
-    source = "none"
-
-    for run in iteration.get("runs", []):
-        if not isinstance(run, dict):
-            continue
-
-        structured_citations = run.get("citations")
-        if isinstance(structured_citations, list) and structured_citations:
-            source = "run.citations"
-            for citation in structured_citations:
-                if not isinstance(citation, dict):
-                    continue
-                total_citations += 1
-                ref_doc = None
-                citation_doc_id = citation.get("doc_id", citation.get("document_id"))
-                if citation_doc_id is not None:
-                    ref_doc = id_to_doc.get(str(citation_doc_id))
-                if ref_doc is None:
-                    ref_doc = citation
-                if _is_ai_generated_doc(ref_doc):
-                    ai_citations += 1
-            continue
-
-        answer = run.get("answer", "")
-        indices = [int(m.group(1)) for m in CITATION_PATTERN.finditer(answer)]
-        if indices:
-            source = "answer_brackets"
-        for citation_index in indices:
-            total_citations += 1
-            # Prompt format uses "context 0", so [0] maps to documents[0].
-            ref_doc = index_to_doc.get(citation_index)
-            if ref_doc is not None and _is_ai_generated_doc(ref_doc):
-                ai_citations += 1
-
-    if total_citations == 0:
-        return 0.0, source
-    return (100.0 * ai_citations / total_citations), source
-
 
 def _build_same_answer_conversation(answer_a: str, answer_b: str) -> list[dict[str, str]]:
     return [
@@ -237,12 +160,10 @@ def evaluate_experiment(
             # compute pairwise similarity metrics for this iteration
             pairwise_metrics = calculate_pairwise_similarities(embeddings)
             unique_words = calculate_unique_words(answers)
-            ai_citation_percentage, ai_citation_source = calculate_ai_citation_percentage(iteration)
 
             metrics = {
                 **pairwise_metrics,
                 "unique_words": unique_words,
-                "ai_citation_percentage": float(ai_citation_percentage),
             }
             metrics["same_answer_percentage"] = float(
                 calculate_same_answer_percentage(
@@ -256,9 +177,6 @@ def evaluate_experiment(
             iterations_results.append({
                 "iteration_number": iteration["iteration_number"],
                 "metrics": metrics,
-                "metric_metadata": {
-                    "ai_citation_source": ai_citation_source,
-                },
             })
 
 
@@ -278,6 +196,7 @@ def evaluate_experiment(
             "same_answer_seed": SAME_ANSWER_SEED,
         },
         "questions": questions_results,
+        //hardcoded, need to update
         "aggregate_statistics": {
             "avg_collapse_rate": 1,
         },
