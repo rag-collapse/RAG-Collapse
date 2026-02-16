@@ -38,16 +38,17 @@ def build_rag_conversation(
     question: str,
     docs: List[Dict[str, str]],
     chars_per_doc: int,
+    shuffle_docs: bool = True,
 ) -> list[dict[str, str]]:
     """
     Build a RAG-style conversation using existing formatter utilities.
-
-    This function intentionally contains no prompt logic of its own.
+    Docs are shown as "Context n" and shuffled each round to reduce position bias.
     """
 
     context = get_context_str_from_docs(
         docs=docs,
         chars_per_doc=chars_per_doc,
+        shuffle=shuffle_docs,
     )
 
     return get_rag_generation_conversation(

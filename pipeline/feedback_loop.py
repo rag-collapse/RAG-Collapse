@@ -1,4 +1,6 @@
+import copy
 from typing import Any, Dict, List
+
 
 def references_to_documents(
     references: List[Dict[str, Any]],
@@ -41,6 +43,24 @@ def answers_to_documents(
             }
         )
     return docs
+
+
+def next_docs_replace_one(
+    current_docs: List[Dict[str, Any]],
+    new_document_texts: List[str],
+    iteration: int,
+) -> List[Dict[str, Any]]:
+    """
+    Replace One: replace one slot per round with one new AI-generated doc.
+    Slot index = iteration % len(current_docs). Evolving doc list over rounds.
+    """
+    if not new_document_texts or not current_docs:
+        return current_docs
+    slot = iteration % len(current_docs)
+    next_docs = copy.deepcopy(current_docs)
+    one_new_doc = answers_to_documents([new_document_texts[0]], iteration=iteration)[0]
+    next_docs[slot] = one_new_doc
+    return next_docs
 
 
 def inject_generated_text(
