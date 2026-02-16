@@ -2,11 +2,26 @@ import argparse
 import os
 from typing import Any, Dict, List
 
-from pipeline.data_loader import load_dataset
+from pipeline.config import (
+    PIPELINE_VARIANTS,
+    get_rounds_for_variant,
+    is_hybrid,
+    is_replace_one,
+    is_search,
+    SEARCH_TOP_K,
+)
+from pipeline.context_builder import (
+    HybridContextConfig,
+    get_initial_documents_hybrid,
+    get_initial_documents_replace_one,
+    get_next_documents,
+)
+from pipeline.data_loader import load_dataset, prepare_dataset
 from pipeline.prompt_builder import build_rag_conversation
 from pipeline.model_runner import build_llm, sample_runs
-from pipeline.feedback_loop import references_to_documents, answers_to_documents
+from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
+from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
 from formatters import get_create_document_conversation
 
 
@@ -36,6 +51,11 @@ def parse_args():
     # Local-only knobs (ignored for api mode)
     parser.add_argument("--max-model-len", type=int, default=8192)
     parser.add_argument("--gpu-mem-util", type=float, default=0.7)
+    parser.add_argument(
+        "--allow-no-gpu",
+        action="store_true",
+        help="Allow local mode when CUDA_VISIBLE_DEVICES is empty (e.g. login node). Prefer --model-mode api when no GPU.",
+    )
 
     # -------------------------
     # Dataset / output
@@ -78,6 +98,59 @@ def parse_args():
         default=None,
         help="Limit number of questions (omit to use all)",
     )
+    parser.add_argument(
+        "--pipeline-variant",
+        choices=list(PIPELINE_VARIANTS),
+        default="hybrid",
+        help="Variant: hybrid, replace_one (paper: one slot replaced per round), or search",
+    )
+    parser.add_argument(
+        "--search-embedding-mode",
+        choices=["local", "api"],
+        default="local",
+        help="Search variant embeddings: local (SentenceTransformer) or api (LiteLLM). Use local when your API has no embedding models.",
+    )
+    parser.add_argument(
+        "--search-embedding-model",
+        default="all-MiniLM-L6-v2",
+        help="Embedding model: for local mode = SentenceTransformer name (e.g. all-MiniLM-L6-v2); for api = LiteLLM model name.",
+    )
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=None,
+        help="Cap on rounds (for testing). If set, uses min(variant default, this value).",
+    )
+    # Hybrid variant: ratio of synthetic vs original (database) docs
+    parser.add_argument(
+        "--num-synth-docs",
+        type=int,
+        default=1,
+        help="Number of synthetic docs (from model generations) per round. Use e.g. 10 with --num-db-docs 0 for replace_all-style.",
+    )
+    parser.add_argument(
+        "--num-db-docs",
+        type=int,
+        default=3,
+        help="Number of database docs (from this question's references) per round. Use 0 for all-synthetic (replace_all-style).",
+    )
+    parser.add_argument(
+        "--db-doc-selection",
+        choices=["first", "random"],
+        default="first",
+        help="How to select database docs from references: first or random.",
+    )
+    parser.add_argument(
+        "--synth-doc-selection",
+        choices=["first", "random"],
+        default="first",
+        help="How to select synthetic doc(s) from multiple runs: first or random.",
+    )
+    parser.add_argument(
+        "--stop-if-converged",
+        action="store_true",
+        help="Stop early when answer signature is identical for four consecutive rounds (no new eval metrics).",
+    )
 
     return parser.parse_args()
 
@@ -86,22 +159,38 @@ def run_pipeline() -> None:
     """
     Generate experiment output JSON.
 
-    This pipeline simulates RAG collapse by repeatedly feeding
-    model-generated answers back as documents.
+    Variants:
+    - hybrid: context = num_synth_docs (from generations) + num_db_docs (from refs). One pipeline;
+      e.g. --num-synth-docs 10 --num-db-docs 0 = replace_all-style; --num-synth-docs 1 --num-db-docs 3 = fixed mix.
+    - search: vector retrieval each round (30 rounds).
     """
     args = parse_args()
 
     dataset_path = args.dataset_path
     output_path = args.output_path
-    num_iterations = args.num_iterations
     num_runs = args.num_runs
     chars_per_doc = args.chars_per_doc
     max_questions = args.max_questions
+    variant = args.pipeline_variant
+
+    # Round count per variant; optional cap for quick tests
+    num_iterations = get_rounds_for_variant(variant)
+    if args.max_iterations is not None:
+        num_iterations = min(num_iterations, args.max_iterations)
+
+    # Hybrid config (used when variant is hybrid)
+    hybrid_config = HybridContextConfig(
+        num_synth_docs=args.num_synth_docs,
+        num_db_docs=args.num_db_docs,
+        db_doc_selection=args.db_doc_selection,
+        synth_doc_selection=args.synth_doc_selection,
+    )
 
     # -------------------------
-    # Load dataset
+    # Load and prepare dataset (filter min citations)
     # -------------------------
-    dataset = load_dataset(dataset_path)
+    raw = load_dataset(dataset_path)
+    dataset = prepare_dataset(raw, variant)
 
     # -------------------------
     # Initialize model (CLI-driven)
@@ -115,19 +204,35 @@ def run_pipeline() -> None:
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_mem_util,
         cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+        require_gpu=not args.allow_no_gpu,
     )
 
+    experiments_metadata: Dict[str, Any] = {
+        "model": resolved_model_name,
+        "pipeline_variant": variant,
+        "num_iterations": num_iterations,
+        "num_runs_per_iteration": num_runs,
+    }
+    if is_hybrid(variant):
+        experiments_metadata["num_synth_docs"] = args.num_synth_docs
+        experiments_metadata["num_db_docs"] = args.num_db_docs
+        experiments_metadata["db_doc_selection"] = args.db_doc_selection
+        experiments_metadata["synth_doc_selection"] = args.synth_doc_selection
     experiments: Dict[str, Any] = {
-        "experiment_metadata": {
-            "model": resolved_model_name,
-            "num_iterations": num_iterations,
-            "num_runs_per_iteration": num_runs,
-        },
+        "experiment_metadata": experiments_metadata,
         "questions": [],
     }
 
+    # Search variant: build embed function (local defaults to HF_HOME cache; no API key needed)
+    embed_fn = None
+    if is_search(variant):
+        if args.search_embedding_mode == "local":
+            embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
+        else:
+            embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
+
     # -------------------------
-    # Main experiment loop
+    # Main experiment loop (single path: context_builder for next docs)
     # -------------------------
     for q_idx, row in enumerate(dataset):
         if max_questions is not None and q_idx >= max_questions:
@@ -136,14 +241,25 @@ def run_pipeline() -> None:
         question_text: str = row["question"]
         references: List[Dict[str, Any]] = row.get("references", [])
 
-        # Iteration 0 documents come from reference texts
-        current_docs = references_to_documents(references, iteration=0)
+        if is_search(variant):
+            store = ChunkedRetrievalStore(embed_fn=embed_fn)
+            ref_docs = references_to_documents(references, iteration=0)
+            store.add_documents(ref_docs)
+            current_docs = store.search(question_text, k=SEARCH_TOP_K)
+        elif is_replace_one(variant):
+            current_docs = get_initial_documents_replace_one(references)
+            store = None
+        else:
+            current_docs = get_initial_documents_hybrid(references, hybrid_config)
+            store = None
 
         question_obj: Dict[str, Any] = {
             "question_id": q_idx,
             "question_text": question_text,
             "iterations": [],
         }
+        stop_if_converged = getattr(args, "stop_if_converged", False)
+        convergence_signatures: List[tuple] = []
 
         for it in range(num_iterations):
             conversation = build_rag_conversation(
@@ -169,16 +285,26 @@ def run_pipeline() -> None:
 
             question_obj["iterations"].append(iteration_obj)
 
-            # Prepare documents for next iteration (collapse mechanism)
+            # Optional convergence early stop: same signature for 4 consecutive rounds
+            if stop_if_converged:
+                sig = tuple(sorted(len(a) for a in answers))
+                convergence_signatures.append(sig)
+                if len(convergence_signatures) >= 4 and len(set(convergence_signatures[-4:])) == 1:
+                    break
+
+            # Next iteration docs: single call to context_builder
             if it < num_iterations - 1:
-                # convert
                 doc_conversations = [get_create_document_conversation(content=ans) for ans in answers]
-
                 document_texts = llm.inference_batch(doc_conversations)
-
-                current_docs = answers_to_documents(
+                current_docs = get_next_documents(
+                    variant,
+                    current_docs,
                     document_texts,
                     iteration=it + 1,
+                    references=references,
+                    question_text=question_text,
+                    store=store,
+                    hybrid_config=hybrid_config,
                 )
 
         experiments["questions"].append(question_obj)
