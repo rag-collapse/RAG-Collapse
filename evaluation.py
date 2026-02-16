@@ -26,7 +26,7 @@ def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
             "min_pairwise_similarity": 0.0,
             "std_pairwise_similarity": 0.0,
         }
-git
+
     similarities = []
     # Calculate pairwise cosine similarities (dot product for normalized embeddings)
     for i in range(n):
@@ -162,7 +162,6 @@ def _parse_yes_no(text: str) -> bool:
 
 
 def _normalize_generation(gen) -> str:
-    # Match pipeline/model_runner.py normalization behavior.
     if isinstance(gen, str):
         return gen
     if isinstance(gen, dict):
