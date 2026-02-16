@@ -1,6 +1,20 @@
 import json
+import re
+import random
+from itertools import combinations
 import numpy as np
-from llm_service.open_source_llm import EmbeddingModel
+from llm_service.open_source_llm import EmbeddingModel, OpenSourceLLM
+
+
+WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
+SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+SAME_ANSWER_SAMPLE_PAIRS = 10
+SAME_ANSWER_SEED = 42
+
+
+def _tokenize_words(text: str) -> list[str]:
+    return [token.lower() for token in WORD_PATTERN.findall(text or "")]
+
 
 def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
     n = len(embeddings)
@@ -29,6 +43,83 @@ def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
     }
 
 
+def calculate_unique_words(answers: list[str]) -> int:
+    unique_words = set()
+    for answer in answers:
+        unique_words.update(_tokenize_words(answer))
+    return len(unique_words)
+
+def _build_same_answer_conversation(answer_a: str, answer_b: str) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a strict paraphrase judge. "
+                "Two answers are the same answer if they express the same core claim(s), "
+                "even with different wording or order. "
+                "Respond with exactly one token: YES or NO."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Answer A:\n{answer_a}\n\n"
+                f"Answer B:\n{answer_b}\n\n"
+                "Are these the same answer?"
+            ),
+        },
+    ]
+
+
+def _parse_yes_no(text: str) -> bool:
+    normalized = (text or "").strip().lower()
+    if normalized.startswith("yes"):
+        return True
+    if normalized.startswith("no"):
+        return False
+
+    match = re.search(r"\b(yes|no)\b", normalized)
+    if match:
+        return match.group(1) == "yes"
+    return False
+
+
+def _normalize_generation(gen) -> str:
+    if isinstance(gen, str):
+        return gen
+    if isinstance(gen, dict):
+        return gen.get("response") or gen.get("text") or gen.get("content") or str(gen)
+    return str(gen)
+
+
+def _judge_pairs_batch(judge_llm, judge_conversations: list[list[dict[str, str]]]) -> list[str]:
+    outputs = judge_llm.inference_batch(judge_conversations)
+    return [_normalize_generation(o) for o in outputs]
+
+
+def calculate_same_answer_percentage(
+    answers: list[str],
+    judge_llm,
+    sample_pairs: int,
+    rng: random.Random,
+) -> float:
+    pairs = list(combinations(range(len(answers)), 2))
+    if not pairs:
+        return 0.0
+
+    sampled_pairs = pairs
+    if sample_pairs > 0 and sample_pairs < len(pairs):
+        sampled_pairs = rng.sample(pairs, sample_pairs)
+
+    judge_conversations = [
+        _build_same_answer_conversation(answers[i], answers[j])
+        for i, j in sampled_pairs
+    ]
+    judge_outputs = _judge_pairs_batch(judge_llm, judge_conversations)
+    same_count = sum(1 for output in judge_outputs if _parse_yes_no(output))
+    return 100.0 * same_count / len(sampled_pairs)
+
+
 def evaluate_experiment(
     experiment_file: str,
     output_file: str,
@@ -44,6 +135,16 @@ def evaluate_experiment(
         batch_size=batch_size,
         cache_dir=cache_dir,
     )
+    rng = random.Random(SAME_ANSWER_SEED)
+
+    judge_llm = OpenSourceLLM(
+        model_name=SAME_ANSWER_MODEL_NAME,
+        temperature=0.0,
+        max_tokens=8,
+        top_p=1.0,
+        cache_dir=cache_dir,
+        disable_log_stats=True,
+    )
 
     questions_results = []
 
@@ -57,7 +158,22 @@ def evaluate_experiment(
             # compute embeddings for all answers in this iteration
             embeddings = embed_model.embed_batch(answers, normalize=True)
             # compute pairwise similarity metrics for this iteration
-            metrics = calculate_pairwise_similarities(embeddings)
+            pairwise_metrics = calculate_pairwise_similarities(embeddings)
+            unique_words = calculate_unique_words(answers)
+
+            metrics = {
+                **pairwise_metrics,
+                "unique_words": unique_words,
+            }
+            metrics["same_answer_percentage"] = float(
+                calculate_same_answer_percentage(
+                    answers=answers,
+                    judge_llm=judge_llm,
+                    sample_pairs=SAME_ANSWER_SAMPLE_PAIRS,
+                    rng=rng,
+                )
+            )
+
             iterations_results.append({
                 "iteration_number": iteration["iteration_number"],
                 "metrics": metrics,
@@ -74,14 +190,23 @@ def evaluate_experiment(
         "measurement_metadata": {
             "embedding_model": embedding_model_name,
             "similarity_metric": "cosine",
+            "same_answer_judge_enabled": True,
+            "same_answer_judge_model_name": SAME_ANSWER_MODEL_NAME,
+            "same_answer_sample_pairs": SAME_ANSWER_SAMPLE_PAIRS,
+            "same_answer_seed": SAME_ANSWER_SEED,
         },
         "questions": questions_results,
+        //hardcoded, need to update
         "aggregate_statistics": {
             "avg_collapse_rate": 1,
         },
     }
 
     embed_model.shutdown()
+    try:
+        judge_llm.shutdown()
+    except Exception:
+        pass
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
