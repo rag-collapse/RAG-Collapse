@@ -196,7 +196,7 @@ def evaluate_experiment(
             "same_answer_seed": SAME_ANSWER_SEED,
         },
         "questions": questions_results,
-        //hardcoded, need to update
+        #hardcoded, need to update
         "aggregate_statistics": {
             "avg_collapse_rate": 1,
         },
