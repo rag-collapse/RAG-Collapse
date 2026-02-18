@@ -45,12 +45,12 @@ def parse_args():
 
     # Generation params (applies to both modes)
     parser.add_argument("--temperature", type=float, default=0.7)
-    parser.add_argument("--max-tokens", type=int, default=512)
+    parser.add_argument("--max-tokens", type=int, default=2048)
     parser.add_argument("--top-p", type=float, default=0.9)
 
     # Local-only knobs (ignored for api mode)
     parser.add_argument("--max-model-len", type=int, default=8192)
-    parser.add_argument("--gpu-mem-util", type=float, default=0.7)
+    parser.add_argument("--gpu-mem-util", type=float, default=0.9)
     parser.add_argument(
         "--allow-no-gpu",
         action="store_true",
