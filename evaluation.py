@@ -3,11 +3,12 @@ import re
 import random
 from itertools import combinations
 import numpy as np
+from rouge_score import rouge_scorer
 from llm_service.open_source_llm import EmbeddingModel, OpenSourceLLM
 
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 
@@ -40,6 +41,37 @@ def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
         "max_pairwise_similarity": float(np.max(similarities)),
         "min_pairwise_similarity": float(np.min(similarities)),
         "std_pairwise_similarity": float(np.std(similarities)),
+    }
+
+
+def calculate_pairwise_rouge(answers: list[str]) -> dict:
+    n = len(answers)
+    if n < 2:
+        return {
+            "avg_pairwise_rouge1": 0.0,
+            "avg_pairwise_rouge2": 0.0,
+            "avg_pairwise_rougeL": 0.0,
+            "std_pairwise_rouge1": 0.0,
+            "std_pairwise_rouge2": 0.0,
+            "std_pairwise_rougeL": 0.0,
+        }
+
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=False)
+    rouge1_scores, rouge2_scores, rougeL_scores = [], [], []
+
+    for i, j in combinations(range(n), 2):
+        scores = scorer.score(answers[i], answers[j])
+        rouge1_scores.append(scores["rouge1"].fmeasure)
+        rouge2_scores.append(scores["rouge2"].fmeasure)
+        rougeL_scores.append(scores["rougeL"].fmeasure)
+
+    return {
+        "avg_pairwise_rouge1": float(np.mean(rouge1_scores)),
+        "avg_pairwise_rouge2": float(np.mean(rouge2_scores)),
+        "avg_pairwise_rougeL": float(np.mean(rougeL_scores)),
+        "std_pairwise_rouge1": float(np.std(rouge1_scores)),
+        "std_pairwise_rouge2": float(np.std(rouge2_scores)),
+        "std_pairwise_rougeL": float(np.std(rougeL_scores)),
     }
 
 
@@ -140,7 +172,7 @@ def evaluate_experiment(
     judge_llm = OpenSourceLLM(
         model_name=SAME_ANSWER_MODEL_NAME,
         temperature=0.0,
-        max_tokens=8,
+        max_tokens=256,
         top_p=1.0,
         cache_dir=cache_dir,
         disable_log_stats=True,
@@ -159,10 +191,12 @@ def evaluate_experiment(
             embeddings = embed_model.embed_batch(answers, normalize=True)
             # compute pairwise similarity metrics for this iteration
             pairwise_metrics = calculate_pairwise_similarities(embeddings)
+            rouge_metrics = calculate_pairwise_rouge(answers)
             unique_words = calculate_unique_words(answers)
 
             metrics = {
                 **pairwise_metrics,
+                **rouge_metrics,
                 "unique_words": unique_words,
             }
             metrics["same_answer_percentage"] = float(
