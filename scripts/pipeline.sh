@@ -3,7 +3,7 @@
 #SBATCH --job-name=pipeline
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --mem=48G
@@ -30,7 +30,7 @@ export HF_HUB_CACHE="$CACHE_DIR"
 DATASET="datasets/umass_data.entity.chatgpt.50.jsonl"
 OUTDIR="experiment_outputs"
 MODEL="Qwen/Qwen2.5-14B-Instruct"
-COMMON="--dataset-path $DATASET --num-runs 20 --chars-per-doc 400"
+COMMON="--dataset-path $DATASET --num-runs 30 --chars-per-doc 400"
 
 mkdir -p logs "$OUTDIR"
 
@@ -44,7 +44,7 @@ run_local() {
 
 # run_local --pipeline-variant replace_one --output-path "$OUTDIR/14b_replace_one.json"
 
-run_local --pipeline-variant search --output-path "$OUTDIR/14b_search.json"
+run_local --pipeline-variant search --output-path "$OUTDIR/14b_search_30.json"
 
 # --- API mode (uncomment and set API_KEY; comment out Local block above) ---
 # MODEL_API="openai/gpt4o"
