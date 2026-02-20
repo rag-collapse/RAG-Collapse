@@ -3,7 +3,7 @@
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
 #SBATCH --time=8:00:00
-#SBATCH --partition=gpu
+#SBATCH --partition=gpu,gpu-preempt
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
 #SBATCH -C "vram40|vram48|vram80"
