@@ -5,6 +5,7 @@
 ### Use Conda
 1. Create a conda virtual environment:
    ```bash
+   module load conda/latest
    conda create -n ragenv python=3.11
    conda activate ragenv
    ```
