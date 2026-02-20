@@ -3,11 +3,14 @@ import re
 import random
 from itertools import combinations
 import numpy as np
+from rouge_score import rouge_scorer
 from llm_service.open_source_llm import EmbeddingModel, OpenSourceLLM
+import nltk
 
+nltk.download("punkt_tab")
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 
@@ -43,13 +46,81 @@ def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
     }
 
 
+def calculate_pairwise_TES(answers: list[str], embeding_model: EmbeddingModel) -> dict:
+    """Computes sentence level embedding similarity between answers"""
+
+    n = len(answers)
+    if n < 2:
+        return {
+            "avg_pairwise_tes": 0.0,
+            "std_pairwise_tes": 0.0,
+        }
+
+    # Keep the first min chunks in the batch
+    chunked_answers = [nltk.sent_tokenize(answer) for answer in answers]
+    min_chunks = min(len(chunks) for chunks in chunked_answers)
+    chunked_answers = [chunks[:min_chunks] for chunks in chunked_answers]
+
+    scores = []
+    answer_embeddings = [
+        embeding_model.embed_batch(chunks) for chunks in chunked_answers
+    ]
+    for i, j in combinations(range(n), 2):
+        chunks_i = answer_embeddings[i]  # (M, D)
+        chunks_j = answer_embeddings[j]  # (M, D)
+
+        # (M,)
+        chunk_level_scores = np.sum(chunks_i * chunks_j, axis=1)  # dot prod per row
+        score = float(np.mean(chunk_level_scores))
+        scores.append(score)
+
+    return {
+        "avg_pairwise_tes": float(np.mean(scores)),
+        "std_pairwise_tes": float(np.std(scores)),
+    }
+
+
+def calculate_pairwise_rouge(answers: list[str]) -> dict:
+    n = len(answers)
+    if n < 2:
+        return {
+            "avg_pairwise_rouge1": 0.0,
+            "avg_pairwise_rouge2": 0.0,
+            "avg_pairwise_rougeL": 0.0,
+            "std_pairwise_rouge1": 0.0,
+            "std_pairwise_rouge2": 0.0,
+            "std_pairwise_rougeL": 0.0,
+        }
+
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=False)
+    rouge1_scores, rouge2_scores, rougeL_scores = [], [], []
+
+    for i, j in combinations(range(n), 2):
+        scores = scorer.score(answers[i], answers[j])
+        rouge1_scores.append(scores["rouge1"].fmeasure)
+        rouge2_scores.append(scores["rouge2"].fmeasure)
+        rougeL_scores.append(scores["rougeL"].fmeasure)
+
+    return {
+        "avg_pairwise_rouge1": float(np.mean(rouge1_scores)),
+        "avg_pairwise_rouge2": float(np.mean(rouge2_scores)),
+        "avg_pairwise_rougeL": float(np.mean(rougeL_scores)),
+        "std_pairwise_rouge1": float(np.std(rouge1_scores)),
+        "std_pairwise_rouge2": float(np.std(rouge2_scores)),
+        "std_pairwise_rougeL": float(np.std(rougeL_scores)),
+    }
+
+
 def calculate_unique_words(answers: list[str]) -> int:
     unique_words = set()
     for answer in answers:
         unique_words.update(_tokenize_words(answer))
     return len(unique_words)
 
-def _build_same_answer_conversation(answer_a: str, answer_b: str) -> list[dict[str, str]]:
+
+def _build_same_answer_conversation(
+    answer_a: str, answer_b: str
+) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
@@ -92,7 +163,9 @@ def _normalize_generation(gen) -> str:
     return str(gen)
 
 
-def _judge_pairs_batch(judge_llm, judge_conversations: list[list[dict[str, str]]]) -> list[str]:
+def _judge_pairs_batch(
+    judge_llm, judge_conversations: list[list[dict[str, str]]]
+) -> list[str]:
     outputs = judge_llm.inference_batch(judge_conversations)
     return [_normalize_generation(o) for o in outputs]
 
@@ -140,7 +213,7 @@ def evaluate_experiment(
     judge_llm = OpenSourceLLM(
         model_name=SAME_ANSWER_MODEL_NAME,
         temperature=0.0,
-        max_tokens=8,
+        max_tokens=256,
         top_p=1.0,
         cache_dir=cache_dir,
         disable_log_stats=True,
@@ -159,10 +232,14 @@ def evaluate_experiment(
             embeddings = embed_model.embed_batch(answers, normalize=True)
             # compute pairwise similarity metrics for this iteration
             pairwise_metrics = calculate_pairwise_similarities(embeddings)
+            rouge_metrics = calculate_pairwise_rouge(answers)
+            pairwise_tes_metrics = calculate_pairwise_TES(answers, embed_model)
             unique_words = calculate_unique_words(answers)
 
             metrics = {
                 **pairwise_metrics,
+                **pairwise_tes_metrics,
+                **rouge_metrics,
                 "unique_words": unique_words,
             }
             metrics["same_answer_percentage"] = float(
@@ -174,16 +251,19 @@ def evaluate_experiment(
                 )
             )
 
-            iterations_results.append({
-                "iteration_number": iteration["iteration_number"],
-                "metrics": metrics,
-            })
+            iterations_results.append(
+                {
+                    "iteration_number": iteration["iteration_number"],
+                    "metrics": metrics,
+                }
+            )
 
-
-        questions_results.append({
-            "question_id": question_id,
-            "iterations": iterations_results,
-        })
+        questions_results.append(
+            {
+                "question_id": question_id,
+                "iterations": iterations_results,
+            }
+        )
 
     # add results metadata and aggregate statistics
     results = {
@@ -196,7 +276,7 @@ def evaluate_experiment(
             "same_answer_seed": SAME_ANSWER_SEED,
         },
         "questions": questions_results,
-        #hardcoded, need to update
+        # hardcoded, need to update
         "aggregate_statistics": {
             "avg_collapse_rate": 1,
         },
@@ -213,6 +293,7 @@ def evaluate_experiment(
 
     return results
 
+
 if __name__ == "__main__":
     import argparse
 
@@ -223,34 +304,32 @@ if __name__ == "__main__":
     parser.add_argument(
         "experiment_file",
         type=str,
-        help="Path to the experiment JSON file containing questions and iterations"
+        help="Path to the experiment JSON file containing questions and iterations",
     )
 
     parser.add_argument(
-        "output_file",
-        type=str,
-        help="Path to save the evaluation results JSON file"
+        "output_file", type=str, help="Path to save the evaluation results JSON file"
     )
 
     parser.add_argument(
         "--embedding-model",
         type=str,
         default="all-MiniLM-L6-v2",
-        help="Name of the embedding model to use (default: all-MiniLM-L6-v2)"
+        help="Name of the embedding model to use (default: all-MiniLM-L6-v2)",
     )
 
     parser.add_argument(
         "--batch-size",
         type=int,
         default=32,
-        help="Batch size for embedding computation (default: 32)"
+        help="Batch size for embedding computation (default: 32)",
     )
 
     parser.add_argument(
         "--cache-dir",
         type=str,
         default=None,
-        help="Directory to cache the embedding model (optional)"
+        help="Directory to cache the embedding model (optional)",
     )
 
     args = parser.parse_args()
@@ -264,4 +343,3 @@ if __name__ == "__main__":
     )
 
     print(json.dumps(evaluation_results, indent=2))
-

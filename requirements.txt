@@ -7,3 +7,5 @@ vllm
 litellm
 python-dotenv
 matplotlib
+rouge-score
+nltk
