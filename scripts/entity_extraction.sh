@@ -27,7 +27,7 @@ conda activate ragenv
 
 python -u entity_extraction.py \
   --model-mode local \
-  --model-name Qwen/Qwen2.5-1.5B-Instruct \
+  --model-name Qwen/Qwen2.5-7B-Instruct \
   --experiment-files experiment_outputs/local_search.json \
                      experiment_outputs/local_replace_one.json \
                      experiment_outputs/local_replace_all.json \
