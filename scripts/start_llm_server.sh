@@ -36,7 +36,9 @@ HOST="0.0.0.0"
 TP_SIZE=2
 GPU_UTIL=0.90
 MAX_NUM_SEQS=32
-DOWNLOAD_DIR="${model_cache_dir}"
+DOWNLOAD_DIR="${model_cache_dir}/${MODEL_NAME}"
+
+mkdir -p "${DOWNLOAD_DIR}"
 
 FQDN=$(hostname -f)
 log_file=./logs/slurm-$SLURM_JOB_ID-vllm-${SERVED_MODEL_NAME}.log
