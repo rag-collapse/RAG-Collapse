@@ -9,12 +9,15 @@
 #SBATCH --mem=32G
 #SBATCH -C "vram40|vram48"
 #SBATCH --cpus-per-task=2
+#SBATCH --mail-type=END,FAIL
 
 # --- Conda ---
 module load conda/latest
 conda activate ragenv
 
 module load cuda/12.6
+
+nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="/work/pi_dagarwal_umass_edu/hf_cache/"
