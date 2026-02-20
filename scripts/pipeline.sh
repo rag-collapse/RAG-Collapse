@@ -17,10 +17,7 @@ fi
 
 # --- Conda ---
 module load conda/latest
-# Suppress "newer version of conda exists" warning in job logs
-conda config --set notify_outdated_conda false 2>/dev/null || true
 conda activate ragenv
-# Note: Install dependencies once with: conda install -y pytorch -c pytorch && pip install -r requirements.txt
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="$(pwd)/model_cache"
@@ -44,7 +41,6 @@ if [ "$TPARALLEL" -gt 1 ] && [ -z "$CUDA_VISIBLE_DEVICES" ]; then
   echo "WARNING: TPARALLEL=$TPARALLEL but CUDA_VISIBLE_DEVICES not set. SLURM should set this with --gres=gpu:$TPARALLEL"
 fi
 
-# --- Local mode (GPU): vLLM handles tensor parallelism internally, so don't use torch.distributed.run ---
 # vLLM with tensor_parallel_size > 1 spawns its own processes; using torch.distributed.run causes conflicts
 run_local() {
   python -u pipeline.py --model-mode local --model-name "$MODEL" $COMMON $EXTRA "$@"
