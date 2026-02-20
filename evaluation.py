@@ -7,7 +7,7 @@ from llm_service.open_source_llm import EmbeddingModel, OpenSourceLLM
 
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 
