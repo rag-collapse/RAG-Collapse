@@ -101,7 +101,8 @@ class OpenSourceLLM(CommonLLM):
 class EmbeddingModel:
     """
     Connects to a vLLM OpenAI-compatible embeddings server instead of
-    loading a SentenceTransformer model in-process.
+    loading a SentenceTransformer model in-process. Start the server first (e.g. via the
+    SLURM script ``scripts/start_embedding_server.sh``)
 
     The ``api_base`` can be passed directly or read from the
     ``VLLM_EMBED_API_BASE`` environment variable (falling back to
