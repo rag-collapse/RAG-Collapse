@@ -42,7 +42,7 @@ def embedding_example(
 
 if __name__ == "__main__":
     llm = OpenSourceLLM(
-        model_name="Qwen/Qwen2.5-1.5B-Instruct",
+        model_name="Qwen/Qwen2.5-7B-Instruct",
         temperature=0.7,
         max_tokens=1024,
         top_p=0.9,

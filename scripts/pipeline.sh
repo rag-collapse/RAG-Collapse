@@ -1,14 +1,19 @@
 #!/bin/bash
-# --- SLURM ---
+# --- SLURM (tuned for 7B model on 2 GPUs) ---
 #SBATCH --job-name=pipeline
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
-#SBATCH --time=2:00:00
+#SBATCH --time=24:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
-#SBATCH --mem=32G
+#SBATCH --gres=gpu:2
+#SBATCH --mem=80G
 #SBATCH -C "vram40|vram48&sm_70|sm_75|sm_80|sm_86|sm_89|sm_90"
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
+
+# Run from submit dir so pipeline.py and paths resolve
+if [[ -n "$SLURM_SUBMIT_DIR" ]]; then
+  cd "$SLURM_SUBMIT_DIR" || exit 1
+fi
 
 # --- Conda ---
 module load conda/latest
@@ -20,16 +25,23 @@ mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
-# --- Config (edit as needed) ---
+# --- Config (7B model, 2 GPUs: tensor-parallel-size 2) ---
 DATASET="datasets/umass_data.entity.chatgpt.50.jsonl"
-OUTDIR="experiment_outputs"
-MODEL="Qwen/Qwen2.5-1.5B-Instruct"
-COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400"
-EXTRA="--max-questions 8"
+OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-7b}"
+OUTDIR="experiment_outputs/$OUTPUT_SUBDIR"
+MODEL="Qwen/Qwen2.5-7B-Instruct"
+TPARALLEL=2
+COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400 --tensor-parallel-size $TPARALLEL"
+EXTRA="--max-questions 50"
 
 mkdir -p logs "$OUTDIR"
 
-# --- Local mode (GPU): paper variants only ---
+# Ensure CUDA_VISIBLE_DEVICES is set (SLURM sets it automatically with --gres, but verify for multi-GPU)
+if [ "$TPARALLEL" -gt 1 ] && [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+  echo "WARNING: TPARALLEL=$TPARALLEL but CUDA_VISIBLE_DEVICES not set. SLURM should set this with --gres=gpu:$TPARALLEL"
+fi
+
+# vLLM with tensor_parallel_size > 1 spawns its own processes; using torch.distributed.run causes conflicts
 run_local() {
   python -u pipeline.py --model-mode local --model-name "$MODEL" $COMMON $EXTRA "$@"
 }
