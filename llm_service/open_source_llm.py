@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 import numpy as np
 from .common_llm import CommonLLM
-import gc
 
 
 class OpenSourceLLM(CommonLLM):
