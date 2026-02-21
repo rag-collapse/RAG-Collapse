@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH -J vllm-qwen2.5-14b
+#SBATCH -J vllm-all-MiniLM-L6-v2
 #SBATCH -c 6
-#SBATCH --mem=32g
+#SBATCH --mem=16g
 #SBATCH --nodes=1
 #SBATCH -p gpu,gpu-preempt
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --constraint=vram40|vram48|vram80
 #SBATCH -t 2:00:00
-#SBATCH -o outputs/slurm-%j-vllm-qwen2.5-14b.out
-#SBATCH -e outputs/slurm-%j-vllm-qwen2.5-14b-error.out
+#SBATCH -o outputs/slurm-%j-vllm-all-MiniLM-L6-v2.out
+#SBATCH -e outputs/slurm-%j-vllm-all-MiniLM-L6-v2-error.out
 #SBATCH --mail-type=ALL
 
 model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/hf_cache"
@@ -29,8 +29,8 @@ export NCCL_DEBUG=ERROR
 export TORCH_CPP_LOG_LEVEL=ERROR
 export GLOG_minloglevel=3
 
-MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
-SERVED_MODEL_NAME="qwen2.5-14b"
+MODEL_NAME="all-MiniLM-L6-v2"
+SERVED_MODEL_NAME="all-MiniLM-L6-v2"
 PORT=5150
 HOST="0.0.0.0"
 TP_SIZE=2
