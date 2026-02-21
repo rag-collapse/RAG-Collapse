@@ -456,7 +456,7 @@ def main():
         "--model-name",
         type=str,
         required=True,
-        help="Model name (e.g. gpt-4o for API, Qwen/Qwen2.5-1.5B-Instruct for local)",
+        help="Model name (e.g. gpt-4o for API, Qwen/Qwen2.5-7B-Instruct for local)",
     )
     parser.add_argument(
         "--temperature",
