@@ -2113,7 +2113,7 @@
             "std_pairwise_rouge2": 0.17366592947090584,
             "std_pairwise_rougeL": 0.16979297995209497,
             "unique_words": 145,
-            "same_answer_percentage": 80.0
+            "same_answer_percentage": 90.0
           }
         },
         {
@@ -2132,7 +2132,7 @@
             "std_pairwise_rouge2": 0.3674247087436199,
             "std_pairwise_rougeL": 0.346581150184414,
             "unique_words": 77,
-            "same_answer_percentage": 70.0
+            "same_answer_percentage": 90.0
           }
         },
         {
