@@ -20,9 +20,10 @@ module load cuda/12.6
 nvidia-smi
 
 # --- Config (edit as needed) ---
-INDIR="experiment_outputs"
-OUTDIR="evaluation_outputs"
-MODEL="Qwen/Qwen2.5-14B-Instruct"
+INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-7b}"
+INDIR="experiment_outputs/$INPUT_SUBDIR"
+OUTDIR="evaluation_outputs/$INPUT_SUBDIR"
+MODEL="Qwen/Qwen2.5-7B-Instruct"
 
 mkdir -p logs "$OUTDIR"
 
