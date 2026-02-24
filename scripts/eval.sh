@@ -1,4 +1,5 @@
 #!/bin/bash
+# --- SLURM ---
 #SBATCH --job-name=evaluation
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
@@ -8,7 +9,9 @@
 #SBATCH --mem=32G
 #SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=2
+#SBATCH --mail-type=END,FAIL
 
+# --- Conda ---
 module load conda/latest
 conda activate ragenv
 
@@ -16,4 +19,19 @@ module load cuda/12.6
 
 nvidia-smi
 
-python -u evaluation.py experiment_outputs/local_search.json evaluation_outputs/local_search_eval.json
+# --- Config (edit as needed) ---
+INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-7b}"
+INDIR="experiment_outputs/$INPUT_SUBDIR"
+OUTDIR="evaluation_outputs/$INPUT_SUBDIR"
+MODEL="Qwen/Qwen2.5-7B-Instruct"
+
+mkdir -p logs "$OUTDIR"
+
+run_eval() {
+  python -u evaluation.py "$@"
+}
+
+# --- Evaluate each variant ---
+run_eval "$INDIR/${MODEL}_local_replace_all.json" "$OUTDIR/${MODEL}_local_replace_all_eval.json"
+run_eval "$INDIR/${MODEL}_local_replace_one.json" "$OUTDIR/${MODEL}_local_replace_one_eval.json"
+run_eval "$INDIR/${MODEL}_local_search_test.json" "$OUTDIR/${MODEL}_local_search_test_eval.json"
