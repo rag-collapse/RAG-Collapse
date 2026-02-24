@@ -2,6 +2,12 @@ import argparse
 import os
 from typing import Any, Dict, List
 
+try:
+    from torch.distributed.elastic.multiprocessing.errors import record
+except ImportError:
+    def record(fn):
+        return fn  # no-op when not running under torch.distributed.run
+
 from pipeline.config import (
     PIPELINE_VARIANTS,
     get_rounds_for_variant,
@@ -18,7 +24,7 @@ from pipeline.context_builder import (
 )
 from pipeline.data_loader import load_dataset, prepare_dataset
 from pipeline.prompt_builder import build_rag_conversation
-from pipeline.model_runner import build_llm, sample_runs
+from pipeline.model_runner import build_llm
 from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
 from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
@@ -55,6 +61,12 @@ def parse_args():
         "--allow-no-gpu",
         action="store_true",
         help="Allow local mode when CUDA_VISIBLE_DEVICES is empty (e.g. login node). Prefer --model-mode api when no GPU.",
+    )
+    parser.add_argument(
+        "--tensor-parallel-size",
+        type=int,
+        default=1,
+        help="Number of GPUs for tensor parallelism (vLLM). Use 2 for 7B on 2 GPUs. vLLM handles GPU distribution internally.",
     )
 
     # -------------------------
@@ -155,6 +167,7 @@ def parse_args():
     return parser.parse_args()
 
 
+@record
 def run_pipeline() -> None:
     """
     Generate experiment output JSON.
@@ -195,6 +208,20 @@ def run_pipeline() -> None:
     # -------------------------
     # Initialize model (CLI-driven)
     # -------------------------
+    tp_size = getattr(args, "tensor_parallel_size", 1) or 1
+    # vLLM handles tensor parallelism internally (spawns its own processes), so we don't need torch.distributed.run
+    # Just pass tensor_parallel_size to vLLM and it will use all GPUs visible via CUDA_VISIBLE_DEVICES
+    cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
+    print(f"[GPU Config] CUDA_VISIBLE_DEVICES={cuda_devices}, tensor_parallel_size={tp_size}")
+    if tp_size > 1:
+        import subprocess
+        try:
+            result = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                gpu_count = len([line for line in result.stdout.strip().split('\n') if 'GPU' in line])
+                print(f"[GPU Config] Detected {gpu_count} GPU(s) via nvidia-smi")
+        except Exception:
+            pass
     llm, resolved_model_name = build_llm(
         model_mode=args.model_mode,
         model_name=args.model_name,
@@ -205,6 +232,7 @@ def run_pipeline() -> None:
         gpu_memory_utilization=args.gpu_mem_util,
         cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
         require_gpu=not args.allow_no_gpu,
+        tensor_parallel_size=tp_size,
     )
 
     experiments_metadata: Dict[str, Any] = {
@@ -232,82 +260,137 @@ def run_pipeline() -> None:
             embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
 
     # -------------------------
-    # Main experiment loop (single path: context_builder for next docs)
+    # Initialize per-question state
     # -------------------------
+    stop_if_converged = getattr(args, "stop_if_converged", False)
+
+    class _QState:
+        """Mutable per-question state for the iteration-major loop."""
+        __slots__ = (
+            "q_idx", "question_text", "references", "current_docs",
+            "store", "question_obj", "convergence_signatures", "active",
+        )
+
+    states: List[_QState] = []
     for q_idx, row in enumerate(dataset):
         if max_questions is not None and q_idx >= max_questions:
             break
 
-        question_text: str = row["question"]
-        references: List[Dict[str, Any]] = row.get("references", [])
-
-        if is_search(variant):
-            store = ChunkedRetrievalStore(embed_fn=embed_fn)
-            ref_docs = references_to_documents(references, iteration=0)
-            store.add_documents(ref_docs)
-            current_docs = store.search(question_text, k=SEARCH_TOP_K)
-        elif is_replace_one(variant):
-            current_docs = get_initial_documents_replace_one(references)
-            store = None
-        else:
-            current_docs = get_initial_documents_hybrid(references, hybrid_config)
-            store = None
-
-        question_obj: Dict[str, Any] = {
+        s = _QState()
+        s.q_idx = q_idx
+        s.question_text = row["question"]
+        s.references = row.get("references", [])
+        s.active = True
+        s.convergence_signatures = []
+        s.question_obj = {
             "question_id": q_idx,
-            "question_text": question_text,
+            "question_text": s.question_text,
             "iterations": [],
         }
-        stop_if_converged = getattr(args, "stop_if_converged", False)
-        convergence_signatures: List[tuple] = []
 
-        for it in range(num_iterations):
+        if is_search(variant):
+            s.store = ChunkedRetrievalStore(embed_fn=embed_fn)
+            ref_docs = references_to_documents(s.references, iteration=0)
+            s.store.add_documents(ref_docs)
+            s.current_docs = s.store.search(s.question_text, k=SEARCH_TOP_K)
+        elif is_replace_one(variant):
+            s.current_docs = get_initial_documents_replace_one(s.references)
+            s.store = None
+        else:
+            s.current_docs = get_initial_documents_hybrid(s.references, hybrid_config)
+            s.store = None
+
+        states.append(s)
+
+    # -------------------------
+    # Main experiment loop: iteration-major (batch across all questions)
+    # -------------------------
+    for it in range(num_iterations):
+        active = [s for s in states if s.active]
+        if not active:
+            break
+
+        # --- Step 1: batch sample_runs across all active questions ---
+        # Build one conversation per (question, run) and flatten into a single batch
+        batch_conversations: List[List[Dict[str, str]]] = []
+        for s in active:
             conversation = build_rag_conversation(
-                question=question_text,
-                docs=current_docs,
+                question=s.question_text,
+                docs=s.current_docs,
                 chars_per_doc=chars_per_doc,
             )
+            batch_conversations.extend([conversation] * num_runs)
 
-            answers = sample_runs(
-                llm=llm,
-                conversation=conversation,
-                num_runs=num_runs,
-            )
+        all_answers = llm.inference_batch(batch_conversations)
 
+        # Slice answers back to per-question groups
+        offset = 0
+        per_question_answers: List[List[str]] = []
+        for _ in active:
+            per_question_answers.append(all_answers[offset : offset + num_runs])
+            offset += num_runs
+
+        # --- Step 2: record iteration results and check convergence ---
+        still_active_for_docs: List[int] = []  # indices into active[]
+        for i, s in enumerate(active):
+            answers = per_question_answers[i]
             iteration_obj: Dict[str, Any] = {
                 "iteration_number": it,
-                "documents": current_docs,
+                "documents": s.current_docs,
                 "runs": [
-                    {"run_id": f"{it}_{i}", "answer": ans}
-                    for i, ans in enumerate(answers)
+                    {"run_id": f"{it}_{r}", "answer": ans}
+                    for r, ans in enumerate(answers)
                 ],
             }
+            s.question_obj["iterations"].append(iteration_obj)
 
-            question_obj["iterations"].append(iteration_obj)
-
-            # Optional convergence early stop: same signature for 4 consecutive rounds
+            # Convergence early stop
             if stop_if_converged:
                 sig = tuple(sorted(len(a) for a in answers))
-                convergence_signatures.append(sig)
-                if len(convergence_signatures) >= 4 and len(set(convergence_signatures[-4:])) == 1:
-                    break
+                s.convergence_signatures.append(sig)
+                if (
+                    len(s.convergence_signatures) >= 4
+                    and len(set(s.convergence_signatures[-4:])) == 1
+                ):
+                    s.active = False
+                    continue
 
-            # Next iteration docs: single call to context_builder
             if it < num_iterations - 1:
-                doc_conversations = [get_create_document_conversation(content=ans) for ans in answers]
-                document_texts = llm.inference_batch(doc_conversations)
-                current_docs = get_next_documents(
+                still_active_for_docs.append(i)
+
+        # --- Step 3: batch document creation across remaining active questions ---
+        if still_active_for_docs:
+            doc_batch: List[List[Dict[str, str]]] = []
+            runs_per_q: List[int] = []
+            for i in still_active_for_docs:
+                answers = per_question_answers[i]
+                convos = [get_create_document_conversation(content=ans) for ans in answers]
+                doc_batch.extend(convos)
+                runs_per_q.append(len(convos))
+
+            all_doc_texts = llm.inference_batch(doc_batch)
+
+            # Slice back and update each question's docs for next iteration
+            offset = 0
+            for idx, i in enumerate(still_active_for_docs):
+                s = active[i]
+                n = runs_per_q[idx]
+                document_texts = all_doc_texts[offset : offset + n]
+                offset += n
+                s.current_docs = get_next_documents(
                     variant,
-                    current_docs,
+                    s.current_docs,
                     document_texts,
                     iteration=it + 1,
-                    references=references,
-                    question_text=question_text,
-                    store=store,
+                    references=s.references,
+                    question_text=s.question_text,
+                    store=s.store,
                     hybrid_config=hybrid_config,
                 )
 
-        experiments["questions"].append(question_obj)
+    # Collect results (preserve original question order)
+    for s in states:
+        experiments["questions"].append(s.question_obj)
 
     # -------------------------
     # Write output
