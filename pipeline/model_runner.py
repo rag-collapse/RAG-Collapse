@@ -17,6 +17,7 @@ def build_llm(
     max_model_len: int = 8192,
     gpu_memory_utilization: float = 0.7,
     cuda_visible_devices: Optional[str] = None,
+    tensor_parallel_size: int = 1,
 ) -> Tuple[CommonLLM, str]:
     """
     Build and return an LLM instance from explicit arguments.
@@ -56,6 +57,7 @@ def build_llm(
             top_p=top_p,
             max_model_len=max_model_len,
             gpu_memory_utilization=gpu_memory_utilization,
+            tensor_parallel_size=tensor_parallel_size,
             disable_log_stats=True,
         )
         return llm, name
