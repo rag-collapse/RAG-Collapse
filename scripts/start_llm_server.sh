@@ -29,16 +29,21 @@ export NCCL_DEBUG=ERROR
 export TORCH_CPP_LOG_LEVEL=ERROR
 export GLOG_minloglevel=3
 
-MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
+# Resolve the snapshot path at runtime
+SNAPSHOT_PATH=$(ls -d ${model_cache_dir}/models--Qwen--Qwen2.5-14B-Instruct/snapshots/*)
+
+#use snapshot name as I don't have access to write in the hf_cache directory
+MODEL_NAME="${SNAPSHOT_PATH}"
+
 SERVED_MODEL_NAME="qwen2.5-14b"
 PORT=5150
 HOST="0.0.0.0"
 TP_SIZE=2
 GPU_UTIL=0.90
 MAX_NUM_SEQS=32
-DOWNLOAD_DIR="${model_cache_dir}"
-
-mkdir -p "${DOWNLOAD_DIR}"
+# if running into hf_cache issues, ignore the below two lines
+# DOWNLOAD_DIR="${model_cache_dir}"
+# mkdir -p "${DOWNLOAD_DIR}"
 
 FQDN=$(hostname -f)
 log_file=./logs/slurm-$SLURM_JOB_ID-vllm-${SERVED_MODEL_NAME}.log
@@ -62,5 +67,5 @@ vllm serve "${MODEL_NAME}" \
   --uvicorn-log-level error \
   --disable-uvicorn-access-log \
   --disable-log-stats \
-  --download-dir "${DOWNLOAD_DIR}" \
   --trust-remote-code 2>&1 | tee -a "${log_file}"Then to actually read requests:
+ # --download-dir "${DOWNLOAD_DIR}" \
