@@ -29,7 +29,7 @@ export NCCL_DEBUG=ERROR
 export TORCH_CPP_LOG_LEVEL=ERROR
 export GLOG_minloglevel=3
 
-MODEL_NAME="Qwen2.5-14B-Instruct"
+MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
 SERVED_MODEL_NAME="qwen2.5-14b"
 PORT=5150
 HOST="0.0.0.0"
