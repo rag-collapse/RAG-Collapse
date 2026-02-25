@@ -6,10 +6,19 @@
 #SBATCH --time=8:00:00
 #SBATCH --partition=gpu,gpu-preempt
 #SBATCH --gres=gpu:1
-#SBATCH --mem=32G
-#SBATCH -C "vram40|vram48|vram80"
+#SBATCH --mem=64G
+#SBATCH -C "vram48|vram80"
 #SBATCH --cpus-per-task=2
 #SBATCH --mail-type=END,FAIL
+
+set -eo pipefail
+
+# Run from submit dir so paths resolve
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  cd "$SLURM_SUBMIT_DIR" || exit 1
+fi
+
+export MKL_INTERFACE_LAYER="${MKL_INTERFACE_LAYER:-LP64}"
 
 # --- Conda ---
 module load conda/latest
@@ -19,19 +28,38 @@ module load cuda/12.6
 
 nvidia-smi
 
-# --- Config (edit as needed) ---
-INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-7b}"
-INDIR="experiment_outputs/$INPUT_SUBDIR"
-OUTDIR="evaluation_outputs/$INPUT_SUBDIR"
-MODEL="Qwen/Qwen2.5-7B-Instruct"
+# Work around FlashInfer issues on this cluster by forcing
+# vLLM to use the Triton attention backend instead of FLASHINFER.
+export VLLM_ATTENTION_BACKEND=TRITON_ATTN
 
-mkdir -p logs "$OUTDIR"
+# Use a local HF cache so compute nodes don't need internet.
+CACHE_DIR="$(pwd)/model_cache"
+mkdir -p "$CACHE_DIR"
+export HF_HOME="$CACHE_DIR"
+export HF_HUB_CACHE="$CACHE_DIR"
 
-run_eval() {
-  python -u evaluation.py "$@"
-}
+# Evaluate multiple Qwen models in one job.
+# Uncomment the model you want to evaluate.
+MODEL_SUBDIRS=(
+  #"Qwen/Qwen2.5-7B-Instruct"
+  "Qwen/Qwen2.5-14B-Instruct"
+  # "Qwen/Qwen2.5-1.5B-Instruct"  
+)
 
-# --- Evaluate each variant ---
-run_eval "$INDIR/${MODEL}_local_replace_all.json" "$OUTDIR/${MODEL}_local_replace_all_eval.json"
-run_eval "$INDIR/${MODEL}_local_replace_one.json" "$OUTDIR/${MODEL}_local_replace_one_eval.json"
-run_eval "$INDIR/${MODEL}_local_search_test.json" "$OUTDIR/${MODEL}_local_search_test_eval.json"
+mkdir -p logs
+
+for MODEL_SUBDIR in "${MODEL_SUBDIRS[@]}"; do
+  EXPERIMENT_DIR="experiment_outputs/$MODEL_SUBDIR"
+  OUT_DIR="evaluation_outputs/$MODEL_SUBDIR"
+  mkdir -p "$OUT_DIR"
+
+  for base in local_search local_replace_one local_replace_all; do
+    in_file="$EXPERIMENT_DIR/${base}.json"
+    out_file="$OUT_DIR/${base}_eval.json"
+    if [[ -f "$in_file" ]]; then
+      python -u evaluation.py "$in_file" "$out_file" --cache-dir "$CACHE_DIR"
+    else
+      echo "Skipping missing experiment file: $in_file"
+    fi
+  done
+done

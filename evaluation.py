@@ -10,7 +10,7 @@ import nltk
 nltk.download("punkt_tab")
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 
@@ -199,6 +199,7 @@ def evaluate_experiment(
     embedding_model_name: str = "all-MiniLM-L6-v2",
     batch_size: int = 32,
     cache_dir: str = None,
+    enable_same_answer_judge: bool = True,
 ) -> dict:
     with open(experiment_file, "r") as f:
         experiment_data = json.load(f)
@@ -210,14 +211,16 @@ def evaluate_experiment(
     )
     rng = random.Random(SAME_ANSWER_SEED)
 
-    judge_llm = OpenSourceLLM(
-        model_name=SAME_ANSWER_MODEL_NAME,
-        temperature=0.0,
-        max_tokens=256,
-        top_p=1.0,
-        cache_dir=cache_dir,
-        disable_log_stats=True,
-    )
+    judge_llm = None
+    if enable_same_answer_judge:
+        judge_llm = OpenSourceLLM(
+            model_name=SAME_ANSWER_MODEL_NAME,
+            temperature=0.0,
+            max_tokens=256,
+            top_p=1.0,
+            cache_dir=cache_dir,
+            disable_log_stats=True,
+        )
 
     questions_results = []
 
@@ -242,14 +245,17 @@ def evaluate_experiment(
                 **rouge_metrics,
                 "unique_words": unique_words,
             }
-            metrics["same_answer_percentage"] = float(
-                calculate_same_answer_percentage(
-                    answers=answers,
-                    judge_llm=judge_llm,
-                    sample_pairs=SAME_ANSWER_SAMPLE_PAIRS,
-                    rng=rng,
+            if enable_same_answer_judge and judge_llm is not None:
+                metrics["same_answer_percentage"] = float(
+                    calculate_same_answer_percentage(
+                        answers=answers,
+                        judge_llm=judge_llm,
+                        sample_pairs=SAME_ANSWER_SAMPLE_PAIRS,
+                        rng=rng,
+                    )
                 )
-            )
+            else:
+                metrics["same_answer_percentage"] = 0.0
 
             iterations_results.append(
                 {
@@ -270,8 +276,10 @@ def evaluate_experiment(
         "measurement_metadata": {
             "embedding_model": embedding_model_name,
             "similarity_metric": "cosine",
-            "same_answer_judge_enabled": True,
-            "same_answer_judge_model_name": SAME_ANSWER_MODEL_NAME,
+            "same_answer_judge_enabled": enable_same_answer_judge,
+            "same_answer_judge_model_name": (
+                SAME_ANSWER_MODEL_NAME if enable_same_answer_judge else None
+            ),
             "same_answer_sample_pairs": SAME_ANSWER_SAMPLE_PAIRS,
             "same_answer_seed": SAME_ANSWER_SEED,
         },
@@ -332,6 +340,12 @@ if __name__ == "__main__":
         help="Directory to cache the embedding model (optional)",
     )
 
+    parser.add_argument(
+        "--disable-same-answer-judge",
+        action="store_true",
+        help="Skip same-answer percentage metric (avoids loading an extra judge LLM).",
+    )
+
     args = parser.parse_args()
 
     evaluation_results = evaluate_experiment(
@@ -340,6 +354,7 @@ if __name__ == "__main__":
         embedding_model_name=args.embedding_model,
         batch_size=args.batch_size,
         cache_dir=args.cache_dir,
+        enable_same_answer_judge=not args.disable_same_answer_judge,
     )
 
     print(json.dumps(evaluation_results, indent=2))
