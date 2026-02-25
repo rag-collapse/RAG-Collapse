@@ -34,6 +34,7 @@ SNAPSHOT_PATH=$(ls -d ${model_cache_dir}/models--Qwen--Qwen2.5-14B-Instruct/snap
 
 #use snapshot name as I don't have access to write in the hf_cache directory
 MODEL_NAME="${SNAPSHOT_PATH}"
+# MODEL_NAME = "Qwen/Qwen2.5-14B-Instruct"
 
 SERVED_MODEL_NAME="qwen2.5-14b"
 PORT=5150

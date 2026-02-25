@@ -20,16 +20,15 @@ The `llm_service` directory contains example files demonstrating how to use the 
 
 #### Running inference_example.py
 This example demonstrates:
-- Batch inference with a local LLM
-- Chat template formatting
+- Batch chat inference via the vLLM server
 - Text embeddings and similarity calculations
 
-To run:
+Requires a running vLLM server. Start it first (see [Step 1](#step-1--start-the-vllm-server)), then:
+
 ```bash
+export VLLM_API_BASE="http://<fqdn>:5150/v1"
 python llm_service/inference_example.py
 ```
-
-**Note**: The example uses `Qwen/Qwen2.5-1.5B-Instruct` model which will be downloaded automatically on first run. Make sure you have sufficient disk space and GPU memory available.
 
 ## Pipeline details
 
@@ -47,28 +46,78 @@ We support three **document-setting variants** (set via `--pipeline-variant`):
 
 ## Running the Pipeline
 
-### Running Locally
-You can run the pipeline directly with Python:
+`--model-mode local` connects to a running **vLLM OpenAI-compatible server** instead of loading a model in-process. You must start that server and export its URL as `VLLM_API_BASE` before running any script that uses an LLM (`pipeline.py`, `evaluation.py`, `entity_extraction.py`, `llm_service/inference_example.py`).
+
+### Step 1 — Start the vLLM Server
+
+#### On SLURM/HPC (recommended)
+
+Submit [scripts/start_llm_server.sh](scripts/start_llm_server.sh) as a separate job:
 
 ```bash
+mkdir -p logs
+sbatch scripts/start_llm_server.sh
+```
+
+The script starts a `vllm serve` process on port **5150** with tensor-parallel-size 2, serving `Qwen2.5-14B-Instruct` as `qwen2.5-14b`. It writes the reachable URL to the log file.
+
+Wait for the server to be ready (look for `"Uvicorn running"` in the log):
+
+```bash
+# Replace <JOB_ID> with the ID returned by sbatch
+tail -f logs/slurm-<JOB_ID>-vllm-qwen2.5-14b.log
+```
+
+Once ready, copy the **"Reachable at"** line from the log and export it:
+
+```bash
+export VLLM_API_BASE="http://<fqdn>:5150/v1"
+# e.g. export VLLM_API_BASE="http://gypsum-gpu188.unity.rc.umass.edu:5150/v1"
+```
+
+#### Locally (single machine)
+
+If you have a GPU locally, start the server in one terminal:
+
+```bash
+vllm serve <model-path-or-name> \
+  --served-model-name qwen2.5-14b \
+  --tensor-parallel-size 1 \
+  --port 5150 \
+  --host 0.0.0.0
+```
+
+Then in a second terminal:
+
+```bash
+export VLLM_API_BASE="http://localhost:5150/v1"
+```
+
+### Step 2 — Run the Pipeline
+
+With `VLLM_API_BASE` set, run the pipeline directly:
+
+```bash
+mkdir -p experiment_outputs
+
 python -u pipeline.py \
   --model-mode local \
-  --model-name Qwen/Qwen2.5-1.5B-Instruct \
+  --model-name qwen2.5-14b \
   --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
   --output-path experiment_outputs/output.json \
+  --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 \
   --max-questions 8 \
-  --num-iterations 2 \
   --num-runs 10 \
   --chars-per-doc 400
 ```
 
 **Pipeline Parameters:**
-- `--model-mode`: `local` (GPU) or `api` (e.g. GPT-4 via proxy)
-- `--model-name`: Model identifier (e.g. `Qwen/Qwen2.5-1.5B-Instruct` or `openai/gpt4o`)
+- `--model-mode`: `local` (connects to vLLM server via `VLLM_API_BASE`) or `api` (e.g. GPT-4 via proxy)
+- `--model-name`: Label used in output filenames; the server's served model name is auto-discovered
 - `--dataset-path`: Input dataset (JSONL)
 - `--output-path`: Where to save experiment results
-- `--pipeline-variant`: **`hybrid`** (Replace All when used with 10 synth / 0 db), **`replace_one`** (document setting: one slot replaced per round), or **`search`**
-- **Replace All** (hybrid, 10 rounds): use `--pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0`. Context each round = synthetic docs only (from model generations).
+- `--pipeline-variant`: **`hybrid`** (Replace All when used with 10 synth / 0 db), **`replace_one`** (one slot replaced per round), or **`search`**
+- **Replace All** (hybrid, 10 rounds): use `--pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0`. Context each round = synthetic docs only.
 - **Replace One** (20 rounds): use `--pipeline-variant replace_one`. Start with refs (up to 10); each round one slot is replaced with one new AI doc. Optional: `--stop-if-converged` to stop early when answers are stable for 4 consecutive rounds.
 - **Search** (30 rounds): use `--pipeline-variant search`. Vector retrieval each round; embeddings default to **local** (SentenceTransformer, no API key). Use `--search-embedding-mode api` only if your API exposes embedding models.
 - `--max-questions`: Limit number of questions (omit for all)
@@ -76,123 +125,194 @@ python -u pipeline.py \
 - `--num-runs`: Responses per round (default 10)
 - `--chars-per-doc`: Character limit per document
 
-### Testing variants
-
-Quick smoke test (1 question, 2 rounds):
+### Quick smoke test (1 question, 2 rounds)
 
 ```bash
 mkdir -p experiment_outputs
 
-# Replace All (hybrid 10 synth, 0 refs)
-python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+# Replace All
+python -u pipeline.py --model-mode local --model-name qwen2.5-14b \
   --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 \
   --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
   --output-path experiment_outputs/test_replace_all.json --max-questions 1 --max-iterations 2
 
-# Replace One (document setting: one slot replaced per round)
-python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+# Replace One
+python -u pipeline.py --model-mode local --model-name qwen2.5-14b \
   --pipeline-variant replace_one \
   --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
   --output-path experiment_outputs/test_replace_one.json --max-questions 1 --max-iterations 2
 
-# Search (local embeddings; no API key needed)
-python -u pipeline.py --model-mode local --model-name Qwen/Qwen2.5-1.5B-Instruct \
+# Search (local SentenceTransformer embeddings; no API key needed)
+python -u pipeline.py --model-mode local --model-name qwen2.5-14b \
   --pipeline-variant search --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
   --output-path experiment_outputs/test_search.json --max-questions 1 --max-iterations 2
 ```
 
 ### Running on SLURM/HPC Clusters
 
-The repository includes SLURM batch scripts in the [scripts/](scripts/) directory for running on HPC clusters.
+The repository includes SLURM batch scripts in the [scripts/](scripts/) directory.
 
 #### Prerequisites
-Before submitting jobs, ensure the logs directory exists:
 ```bash
-mkdir -p logs
+mkdir -p logs experiment_outputs evaluation_outputs entity_extraction_output
 ```
 
-#### 1. Running the Pipeline ([pipeline.sh](scripts/pipeline.sh))
+#### 1. Start the vLLM Server ([start_llm_server.sh](scripts/start_llm_server.sh))
 
-Submit the pipeline job to SLURM:
+This must be done **before** submitting any LLM-dependent job.
+
 ```bash
-sbatch scripts/pipeline.sh
+sbatch scripts/start_llm_server.sh
+# Note the job ID, e.g. 12345
 ```
 
-The script runs the **three document-setting variants** in **local mode** by default and writes:
-- `experiment_outputs/local_replace_all.json` (Replace All: hybrid with `--num-synth-docs 10 --num-db-docs 0`)
-- `experiment_outputs/local_replace_one.json` (Replace One: one slot replaced per round, 20 rounds)
-- `experiment_outputs/local_search.json` (Search: vector retrieval; **local embeddings** by default, no API key)
+**Server configuration (edit variables at the top of the script):**
+- Model: `Qwen2.5-14B-Instruct` snapshot from `model_cache_dir`
+- Served model name: `qwen2.5-14b`
+- Port: `5150`
+- Tensor parallel size: `2` (requires 2 GPUs with ≥40 GB VRAM each)
+- Max concurrent sequences: `32`
 
-To use **API mode**: in `scripts/pipeline.sh`, comment out the "Local mode" block and uncomment the "API mode" block; set `API_KEY` in your environment.
+Wait for the server to be ready, then get the URL:
+
+```bash
+tail -f logs/slurm-<JOB_ID>-vllm-qwen2.5-14b.log
+# Look for: Reachable at: http://<fqdn>:5150/v1
+```
+
+Export the URL **before** submitting any downstream jobs:
+
+```bash
+export VLLM_API_BASE="http://<fqdn>:5150/v1"
+```
+
+#### 2. Running the Pipeline ([pipeline.sh](scripts/pipeline.sh))
+
+```bash
+sbatch --export=ALL scripts/pipeline.sh
+```
+
+`--export=ALL` forwards your current environment (including `VLLM_API_BASE`) into the job. The script runs the **three document-setting variants** in **local mode** with per-variant run counts (10 / 20 / 30) and writes:
+
+```
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all.json
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one.json
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test.json
+```
+
+(Pattern: `experiment_outputs/$OUTPUT_SUBDIR/$MODEL_local_<variant>.json`)
+
+To use **API mode**: comment out the local block and uncomment the API block in the script; set `API_KEY` in your environment.
 
 **Script variables (edit at top of pipeline.sh):**
-- `DATASET` – input JSONL path (default: `datasets/umass_data.entity.chatgpt.50.jsonl`)
-- `OUTDIR` – output directory (default: `experiment_outputs`)
-- `COMMON` – shared args (e.g. `--num-runs 10`, `--chars-per-doc 400`)
-- `EXTRA` – e.g. `--max-questions 50`; add `--max-iterations 2` for shorter test runs
-
-**Environment:** The script sets `HF_HOME` and `HF_HUB_CACHE` to a local `model_cache` directory (avoids vLLM/HF cache errors). Search uses local SentenceTransformer embeddings by default; use `--search-embedding-mode api` only if your API provides embedding models.
+- `MODEL` – model name used in output filenames (default: `Qwen/Qwen2.5-7B-Instruct`)
+- `OUTPUT_SUBDIR` – subdirectory under `experiment_outputs` (default: `qwen-7b`); override with `OUTPUT_SUBDIR=my-run sbatch ...`
+- `TPARALLEL` – tensor-parallel-size passed to the pipeline (default: `2`); should match the server's `--tensor-parallel-size`
+- `EXTRA` – extra pipeline args (default: `--max-questions 50`); add `--max-iterations 2` for shorter test runs
 
 **SLURM Resources:**
 - Job name: `pipeline`
-- Time limit: 2 hours
+- Time limit: 24 hours
 - Partition: `gpu`
-- GPU: 1 GPU (with VRAM constraints)
-- Memory: 32GB
-- CPUs: 2
-
-#### 2. Running Inference Examples ([inference_example.sh](scripts/inference_example.sh))
-
-Test the LLM service with:
-```bash
-sbatch scripts/inference.sh
-```
-
-This script:
-- Runs the inference example from `llm_service/inference_example.py`
-- Loads CUDA 12.6 module
-- Uses 24GB memory with 1 GPU
-- Demonstrates batch inference, embeddings, and similarity calculations
-
-**Note:** The script includes `nvidia-smi` for GPU diagnostics and sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` for better memory management.
+- GPUs: 2 — constraint `vram40|vram48` with SM capability `sm_70` or later
+- Memory: 80 GB
+- CPUs: 4
 
 #### 3. Running Evaluation ([eval.sh](scripts/eval.sh))
 
-After pipeline completion, evaluate results with:
+`evaluation.py` uses the vLLM server for LLM-based metrics. Ensure `VLLM_API_BASE` is set before submitting.
+
+After pipeline completion:
+
 ```bash
-sbatch scripts/eval.sh
+sbatch --export=ALL scripts/eval.sh
 ```
 
-This script:
-- Takes experiment outputs and generates evaluation metrics
-- Default: reads from `experiment_outputs/test_output.json`
-- Writes results to `evaluation_outputs/test_output.json`
+Reads pipeline outputs and writes evaluation results:
 
-You can modify the input/output paths in the script as needed.
+```
+# Reads from:
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all.json
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one.json
+experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test.json
+
+# Writes to:
+evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all_eval.json
+evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one_eval.json
+evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test_eval.json
+```
+
+(Pattern: `evaluation_outputs/$INPUT_SUBDIR/$MODEL_local_<variant>_eval.json`)
+
+**Script variables (edit at top of eval.sh):**
+- `INPUT_SUBDIR` – must match `OUTPUT_SUBDIR` from `pipeline.sh` (default: `qwen-7b`)
+- `MODEL` – must match `MODEL` from `pipeline.sh` (default: `Qwen/Qwen2.5-7B-Instruct`)
+
+**SLURM Resources:**
+- Job name: `evaluation`
+- Time limit: 8 hours
+- Partition: `gpu,gpu-preempt`
+- GPUs: 1 — constraint `vram40|vram48|vram80`
+- Memory: 32 GB
+- CPUs: 2
+
+#### 4. Running Entity Extraction ([entity_extraction.sh](scripts/entity_extraction.sh))
+
+`entity_extraction.py` uses the vLLM server. Ensure `VLLM_API_BASE` is set before submitting.
+
+```bash
+sbatch --export=ALL scripts/entity_extraction.sh
+```
+
+Uses `--model-mode local` with `Qwen/Qwen2.5-7B-Instruct` by default. Reads from hardcoded paths and writes to `entity_extraction_output/`:
+
+```
+# Reads from (hardcoded — update to match pipeline.sh output paths if needed):
+experiment_outputs/local_search.json
+experiment_outputs/local_replace_one.json
+experiment_outputs/local_replace_all.json
+
+# Writes to:
+entity_extraction_output/
+```
+
+> **Note:** The input paths in `entity_extraction.sh` are hardcoded to `experiment_outputs/local_*.json` and do not automatically follow `pipeline.sh`'s `$OUTPUT_SUBDIR/$MODEL_local_*.json` output paths. Edit the `--experiment-files` list in the script to point at the actual pipeline outputs.
+
+To use **API mode** instead: uncomment the API block and comment out the local block in the script.
+
+**SLURM Resources:**
+- Job name: `entity-extraction`
+- Time limit: 7 hours
+- Partition: `gpu`
+- GPUs: 1 — constraint `vram40|vram48` with SM capability `sm_70` or later
+- Memory: 24 GB
+- CPUs: 2
+
+#### 5. Running Inference Examples ([inference.sh](scripts/inference.sh))
+
+Test the LLM service with:
+
+```bash
+sbatch --export=ALL scripts/inference.sh
+```
+
+Runs `llm_service/inference_example.py`, which demonstrates batch chat inference and embedding similarity using the running vLLM server. No GPU is allocated by the job itself — all GPU work is done by the server.
 
 #### Monitoring SLURM Jobs
 
-Check your job status:
 ```bash
+# Check job status
 squeue --me
-```
 
-View job output logs:
-```bash
-# Pipeline logs
-tail -f logs/pipeline_<job_id>.out
-tail -f logs/pipeline_<job_id>.err
+# Stream logs
+tail -f logs/slurm-<JOB_ID>-vllm-qwen2.5-14b.log   # vLLM server
+tail -f logs/pipeline_<JOB_ID>.out                   # pipeline
+tail -f logs/evaluation_<JOB_ID>.out                 # evaluation
+tail -f logs/entity-extraction_<JOB_ID>.out          # entity extraction
+tail -f logs/inference_<JOB_ID>.out                  # inference example
 
-# Evaluation logs
-tail -f logs/evaluation_<job_id>.out
-
-# Inference example logs
-tail -f logs/inference_example_<job_id>_<array_id>.out
-```
-
-Cancel a job:
-```bash
-scancel <job_id>
+# Cancel a job
+scancel <JOB_ID>
 ```
 
 ## Example Experiment Pipeline
