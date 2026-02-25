@@ -18,9 +18,7 @@ fi
 # --- Conda ---
 module load conda/latest
 conda activate ragenv
-
 module load cuda/12.6
-
 nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
@@ -31,7 +29,9 @@ export HF_HUB_CACHE="$CACHE_DIR"
 
 # --- Config (7B model, 2 GPUs: tensor-parallel-size 2) ---
 DATASET="datasets/umass_data.entity.chatgpt.50.jsonl"
-OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-7b}"
+# Subdirectory under experiment_outputs/ (matches evaluation / viz layout)
+# e.g. Qwen/Qwen2.5-7B-Instruct, Qwen/Qwen2.5-14B-Instruct, Qwen/Qwen2.5-1.5B-Instruct
+OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-Qwen/Qwen2.5-7B-Instruct}"
 OUTDIR="experiment_outputs/$OUTPUT_SUBDIR"
 MODEL="Qwen/Qwen2.5-7B-Instruct"
 TPARALLEL=2
@@ -51,11 +51,11 @@ run_local() {
 }
 
 # Replace All, Replace One, Search
-run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-runs 10 --output-path "$OUTDIR/${MODEL}_local_replace_all.json"
+run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-runs 10 --output-path "$OUTDIR/local_replace_all.json"
 
-run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
+run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/local_replace_one.json"
 
-run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
+run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/local_search.json"
 
 # --- API mode (uncomment and set API_KEY; comment out Local block above) ---
 # MODEL_API="openai/gpt4o"
