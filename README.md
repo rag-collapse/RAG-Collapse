@@ -118,30 +118,32 @@ Submit the pipeline job to SLURM:
 sbatch scripts/pipeline.sh
 ```
 
-The script runs the **three document-setting variants** in **local mode** by default and writes:
-- `experiment_outputs/local_replace_all.json` (Replace All: hybrid with `--num-synth-docs 10 --num-db-docs 0`)
-- `experiment_outputs/local_replace_one.json` (Replace One: one slot replaced per round, 20 rounds)
-- `experiment_outputs/local_search.json` (Search: vector retrieval; **local embeddings** by default, no API key)
+The script runs the **three document-setting variants** in **local mode** by default for a Qwen model and writes, for example:
+- `experiment_outputs/Qwen/Qwen2.5-7B-Instruct/local_replace_all.json`
+- `experiment_outputs/Qwen/Qwen2.5-7B-Instruct/local_replace_one.json`
+- `experiment_outputs/Qwen/Qwen2.5-7B-Instruct/local_search.json`
 
 To use **API mode**: in `scripts/pipeline.sh`, comment out the "Local mode" block and uncomment the "API mode" block; set `API_KEY` in your environment.
 
 **Script variables (edit at top of pipeline.sh):**
 - `DATASET` – input JSONL path (default: `datasets/umass_data.entity.chatgpt.50.jsonl`)
-- `OUTDIR` – output directory (default: `experiment_outputs`)
+- `OUTPUT_SUBDIR` – subdirectory under `experiment_outputs/` (default: `Qwen/Qwen2.5-7B-Instruct`)
+- `OUTDIR` – resolved output directory (`experiment_outputs/$OUTPUT_SUBDIR`)
+- `MODEL` – model identifier (default: `Qwen/Qwen2.5-7B-Instruct`)
 - `COMMON` – shared args (e.g. `--num-runs 10`, `--chars-per-doc 400`)
 - `EXTRA` – e.g. `--max-questions 50`; add `--max-iterations 2` for shorter test runs
 
 **Environment:** The script sets `HF_HOME` and `HF_HUB_CACHE` to a local `model_cache` directory (avoids vLLM/HF cache errors). Search uses local SentenceTransformer embeddings by default; use `--search-embedding-mode api` only if your API provides embedding models.
 
-**SLURM Resources:**
+**SLURM Resources (default in script):**
 - Job name: `pipeline`
-- Time limit: 2 hours
+- Time limit: 24 hours
 - Partition: `gpu`
-- GPU: 1 GPU (with VRAM constraints)
-- Memory: 32GB
-- CPUs: 2
+- GPU: 2 GPUs (with VRAM constraints)
+- Memory: 80GB
+- CPUs: 4
 
-#### 2. Running Inference Examples ([inference_example.sh](scripts/inference_example.sh))
+#### 2. Running Inference Examples ([inference.sh](scripts/inference.sh))
 
 Test the LLM service with:
 ```bash
@@ -165,10 +167,45 @@ sbatch scripts/eval.sh
 
 This script:
 - Takes experiment outputs and generates evaluation metrics
-- Default: reads from `experiment_outputs/test_output.json`
-- Writes results to `evaluation_outputs/test_output.json`
+- Can iterate over one or more Qwen models (e.g. `Qwen/Qwen2.5-7B-Instruct`, `Qwen/Qwen2.5-14B-Instruct`) depending on what is listed in `MODEL_SUBDIRS` in `scripts/eval.sh`.
+- For each model subdirectory under `experiment_outputs/`, it reads:
+  - `local_search.json`
+  - `local_replace_one.json`
+  - `local_replace_all.json`
+  and writes the corresponding:
+  - `local_search_eval.json`
+  - `local_replace_one_eval.json`
+  - `local_replace_all_eval.json`
+    under `evaluation_outputs/Qwen/<model-subdir>/`.
 
-You can modify the input/output paths in the script as needed.
+You can edit `scripts/eval.sh` to change which model subdirectories are evaluated.
+
+#### 4. Switching Models
+
+To run the full pipeline (experiments → evaluation) with a **different model**, update these places:
+
+- **Pipeline experiments (`scripts/pipeline.sh`)**
+  - `MODEL`: set to the new HF model id, e.g. `Qwen/Qwen2.5-14B-Instruct`.
+  - `OUTPUT_SUBDIR`: set to a matching subdirectory name under `experiment_outputs/`, e.g. `Qwen/Qwen2.5-14B-Instruct`.
+  - This will write experiment JSONs to `experiment_outputs/$OUTPUT_SUBDIR/` with filenames:
+    - `local_search.json`
+    - `local_replace_one.json`
+    - `local_replace_all.json`.
+
+- **Evaluation (`scripts/eval.sh`)**
+  - `MODEL_SUBDIRS`: array of model-specific subdirectories under `experiment_outputs/` and `evaluation_outputs/`, e.g.:
+    - `Qwen/Qwen2.5-7B-Instruct`
+    - `Qwen/Qwen2.5-14B-Instruct`
+    - `# "Qwen/Qwen2.5-1.5B-Instruct"` (commented out).
+  - For each entry, `eval.sh` expects the three experiment files above and writes:
+    - `local_search_eval.json`
+    - `local_replace_one_eval.json`
+    - `local_replace_all_eval.json`
+    into `evaluation_outputs/<MODEL_SUBDIR>/`.
+
+- **Same-answer judge model (optional, `evaluation.py`)**
+  - `SAME_ANSWER_MODEL_NAME`: controls which model is used to judge whether two answers are the “same”.
+  - If you change this, new evaluation runs will record the new value in `measurement_metadata.same_answer_judge_model_name`.
 
 #### Monitoring SLURM Jobs
 
