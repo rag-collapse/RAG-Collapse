@@ -36,7 +36,7 @@ HOST="0.0.0.0"
 TP_SIZE=2
 GPU_UTIL=0.90
 MAX_NUM_SEQS=32
-DOWNLOAD_DIR="${model_cache_dir}/${MODEL_NAME}"
+DOWNLOAD_DIR="${model_cache_dir}"
 
 mkdir -p "${DOWNLOAD_DIR}"
 
