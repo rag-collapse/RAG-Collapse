@@ -3,7 +3,7 @@
 #SBATCH --job-name=evaluation
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
-#SBATCH --time=8:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=gpu,gpu-preempt
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
@@ -20,7 +20,7 @@ module load cuda/12.6
 nvidia-smi
 
 # --- Config (edit as needed) ---
-INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-7b}"
+INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-14b}"
 INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$INPUT_SUBDIR"
 OUTDIR="evaluation_outputs/$INPUT_SUBDIR"
 MODEL="Qwen/Qwen2.5-7B-Instruct"
