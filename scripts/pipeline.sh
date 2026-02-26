@@ -1,9 +1,9 @@
 #!/bin/bash
-# --- SLURM (tuned for 7B model on 2 GPUs) ---
+# --- SLURM (tuned for 14B model on 2 GPUs) ---
 #SBATCH --job-name=pipeline
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
-#SBATCH --time=24:00:00
+#SBATCH --time=8:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:2
 #SBATCH --mem=80G
@@ -28,12 +28,13 @@ CACHE_DIR="/work/pi_dagarwal_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+export VLLM_API_BASE="http://gypsum-gpu188.unity.rc.umass.edu:5150/v1"
 
-# --- Config (7B model, 2 GPUs: tensor-parallel-size 2) ---
+# --- Config (14B model, 2 GPUs: tensor-parallel-size 2) ---
 DATASET="datasets/umass_data.entity.chatgpt.50.jsonl"
-OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-7b}"
+OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-14B}"
 OUTDIR="experiment_outputs/$OUTPUT_SUBDIR"
-MODEL="Qwen/Qwen2.5-7B-Instruct"
+MODEL="Qwen/Qwen2.5-14B-Instruct"
 TPARALLEL=2
 COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400 --tensor-parallel-size $TPARALLEL"
 EXTRA="--max-questions 50"
@@ -53,9 +54,9 @@ run_local() {
 # Replace All, Replace One, Search
 run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-runs 10 --output-path "$OUTDIR/${MODEL}_local_replace_all.json"
 
-run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
+#run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
 
-run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
+#run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
 
 # --- API mode (uncomment and set API_KEY; comment out Local block above) ---
 # MODEL_API="openai/gpt4o"
