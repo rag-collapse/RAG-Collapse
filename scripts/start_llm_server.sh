@@ -6,12 +6,12 @@
 #SBATCH -p gpu,gpu-preempt
 #SBATCH --gres=gpu:2
 #SBATCH --constraint=vram40|vram48|vram80
-#SBATCH -t 2:00:00
+#SBATCH -t 8:00:00
 #SBATCH -o outputs/slurm-%j-vllm-qwen2.5-14b.out
 #SBATCH -e outputs/slurm-%j-vllm-qwen2.5-14b-error.out
 #SBATCH --mail-type=ALL
 
-model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/hf_cache"
+model_cache_dir="/work/pi_dagarwal_umass_edu/hf_cache"
 
 module load conda/latest
 module load cuda/12.6
@@ -67,6 +67,6 @@ vllm serve "${MODEL_NAME}" \
   --gpu-memory-utilization "${GPU_UTIL}" \
   --uvicorn-log-level error \
   --disable-uvicorn-access-log \
-  --disable-log-stats \
-  --trust-remote-code 2>&1 | tee -a "${log_file}"Then to actually read requests:
- # --download-dir "${DOWNLOAD_DIR}" \
+  --trust-remote-code 2>&1 | tee -a "${log_file}"
+# --disable-log-stats
+# --download-dir "${DOWNLOAD_DIR}" \

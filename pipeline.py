@@ -234,6 +234,7 @@ def run_pipeline() -> None:
         require_gpu=not args.allow_no_gpu,
         tensor_parallel_size=tp_size,
     )
+    print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
     experiments_metadata: Dict[str, Any] = {
         "model": resolved_model_name,
@@ -321,7 +322,9 @@ def run_pipeline() -> None:
             )
             batch_conversations.extend([conversation] * num_runs)
 
+        print(f"[Iter {it + 1}/{num_iterations}] Sending {len(batch_conversations)} answer requests ({len(active)} question(s) × {num_runs} runs)...", flush=True)
         all_answers = llm.inference_batch(batch_conversations)
+        print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
 
         # Slice answers back to per-question groups
         offset = 0
@@ -368,7 +371,9 @@ def run_pipeline() -> None:
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))
 
+            print(f"[Iter {it + 1}/{num_iterations}] Creating {len(doc_batch)} documents...", flush=True)
             all_doc_texts = llm.inference_batch(doc_batch)
+            print(f"[Iter {it + 1}/{num_iterations}] Document creation complete.", flush=True)
 
             # Slice back and update each question's docs for next iteration
             offset = 0
