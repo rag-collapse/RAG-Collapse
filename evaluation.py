@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import random
 from itertools import combinations
@@ -10,7 +11,9 @@ import nltk
 nltk.download("punkt_tab")
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+SAME_ANSWER_MODEL_NAME = os.getenv(
+    "SAME_ANSWER_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct"
+)
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 

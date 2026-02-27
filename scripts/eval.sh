@@ -28,16 +28,11 @@ module load cuda/12.6
 
 nvidia-smi
 
-# Work around FlashInfer issues on this cluster by forcing
-# vLLM to use the Triton attention backend instead of FLASHINFER.
-export VLLM_ATTENTION_BACKEND=TRITON_ATTN
-
 # Use a local HF cache so compute nodes don't need internet.
-CACHE_DIR="$(pwd)/model_cache"
+CACHE_DIR="/work/pi_dagarwal_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
-
 # Evaluate multiple Qwen models in one job.
 # Uncomment the model you want to evaluate.
 MODEL_SUBDIRS=(
@@ -52,6 +47,9 @@ for MODEL_SUBDIR in "${MODEL_SUBDIRS[@]}"; do
   EXPERIMENT_DIR="experiment_outputs/$MODEL_SUBDIR"
   OUT_DIR="evaluation_outputs/$MODEL_SUBDIR"
   mkdir -p "$OUT_DIR"
+
+  # Use the current generator model as the same-answer judge model by default.
+  export SAME_ANSWER_MODEL_NAME="$MODEL_SUBDIR"
 
   for base in local_search local_replace_one local_replace_all; do
     in_file="$EXPERIMENT_DIR/${base}.json"
