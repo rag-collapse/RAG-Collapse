@@ -3,7 +3,7 @@
 #SBATCH --job-name=evaluation
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
-#SBATCH --time=8:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=gpu,gpu-preempt
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
@@ -33,31 +33,30 @@ CACHE_DIR="/work/pi_dagarwal_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
-# Evaluate multiple Qwen models in one job.
-# Uncomment the model you want to evaluate.
-MODEL_SUBDIRS=(
-  #"Qwen/Qwen2.5-7B-Instruct"
-  "Qwen/Qwen2.5-14B-Instruct"
-  # "Qwen/Qwen2.5-1.5B-Instruct"  
-)
 
-mkdir -p logs
+# --- Config (edit as needed) ---
+# Input subdirectory under shared experiment outputs, e.g. qwen-14b.
+INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-14b}"
 
-for MODEL_SUBDIR in "${MODEL_SUBDIRS[@]}"; do
-  EXPERIMENT_DIR="experiment_outputs/$MODEL_SUBDIR"
-  OUT_DIR="evaluation_outputs/$MODEL_SUBDIR"
-  mkdir -p "$OUT_DIR"
 
-  # Use the current generator model as the same-answer judge model by default.
-  export SAME_ANSWER_MODEL_NAME="$MODEL_SUBDIR"
+# Model subdir used for evaluation outputs and judge model name, e.g. Qwen/Qwen2.5-14B-Instruct.
+MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"
+# Input/output on shared file storage (experiment_outputs read from here, evaluation_outputs written here).
+INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL_SUBDIR"
+OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_outputs/$MODEL_SUBDIR"
+mkdir -p logs "$OUT_DIR"
 
-  for base in local_search local_replace_one local_replace_all; do
-    in_file="$EXPERIMENT_DIR/${base}.json"
-    out_file="$OUT_DIR/${base}_eval.json"
-    if [[ -f "$in_file" ]]; then
-      python -u evaluation.py "$in_file" "$out_file" --cache-dir "$CACHE_DIR"
-    else
-      echo "Skipping missing experiment file: $in_file"
-    fi
-  done
+EXPERIMENT_DIR="$INDIR"
+
+# Use the current generator model as the same-answer judge model by default.
+export SAME_ANSWER_MODEL_NAME="$MODEL_SUBDIR"
+
+for base in local_search local_replace_one local_replace_all; do
+  in_file="$EXPERIMENT_DIR/${base}.json"
+  out_file="$OUT_DIR/${base}_eval.json"
+  if [[ -f "$in_file" ]]; then
+    python -u evaluation.py "$in_file" "$out_file" --cache-dir "$CACHE_DIR"
+  else
+    echo "Skipping missing experiment file: $in_file"
+  fi
 done
