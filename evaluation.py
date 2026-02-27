@@ -113,6 +113,9 @@ def calculate_pairwise_rouge(answers: list[str]) -> dict:
         "std_pairwise_rougeL": float(np.std(rougeL_scores)),
     }
 
+def calculate_ai_reference_percentage(references: list[dict]) -> float:
+    ai_ref_count = sum(1 for doc in references if doc["doc_id"].startswith("gen"))
+    return ai_ref_count / len(references)
 
 def calculate_unique_words(answers: list[str]) -> int:
     unique_words = set()
@@ -234,6 +237,10 @@ def evaluate_experiment(
         for iteration in question["iterations"]:
             # get all the answers for this iteration
             answers = [run["answer"] for run in iteration["runs"]]
+
+            # get references for the iteration
+            references = iteration["documents"]
+
             # compute embeddings for all answers in this iteration
             embeddings = embed_model.embed_batch(answers, normalize=True)
             # compute pairwise similarity metrics for this iteration
@@ -242,10 +249,13 @@ def evaluate_experiment(
             pairwise_tes_metrics = calculate_pairwise_TES(answers, embed_model)
             unique_words = calculate_unique_words(answers)
 
+            ai_reference_percentage = calculate_ai_reference_percentage(references)
+
             metrics = {
                 **pairwise_metrics,
                 **pairwise_tes_metrics,
                 **rouge_metrics,
+                "ai_reference_percentage": ai_reference_percentage,
                 "unique_words": unique_words,
             }
             if enable_same_answer_judge and judge_llm is not None:
