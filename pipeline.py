@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 from typing import Any, Dict, List
 
 try:
@@ -367,6 +368,8 @@ def run_pipeline() -> None:
             runs_per_q: List[int] = []
             for i in still_active_for_docs:
                 answers = per_question_answers[i]
+                if is_replace_one(variant) or is_search(variant):
+                    answers = [random.choice(answers)]
                 convos = [get_create_document_conversation(content=ans) for ans in answers]
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))

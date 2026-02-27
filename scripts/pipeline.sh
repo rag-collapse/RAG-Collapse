@@ -3,12 +3,13 @@
 #SBATCH --job-name=pipeline
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
-#SBATCH --time=8:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:2
-#SBATCH --mem=80G
-#SBATCH -C "vram40|vram48&sm_70|sm_75|sm_80|sm_86|sm_89|sm_90"
+#SBATCH --gres=gpu:1
+#SBATCH --mem=48G
+#SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=4
+#SBATCH --mail-type=END,FAIL
 
 # Run from submit dir so pipeline.py and paths resolve
 if [[ -n "$SLURM_SUBMIT_DIR" ]]; then
@@ -51,8 +52,9 @@ run_local() {
   python -u pipeline.py --model-mode local --model-name "$MODEL" $COMMON $EXTRA "$@"
 }
 
+# I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
-run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-runs 10 --output-path "$OUTDIR/${MODEL}_local_replace_all.json"
+run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
 
 #run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
 
