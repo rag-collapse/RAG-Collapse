@@ -4,10 +4,8 @@
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=48:00:00
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --partition=cpu
 #SBATCH --mem=8g
-#SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=ALL
 
@@ -54,9 +52,9 @@ run_local() {
 
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
-run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
+#run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
 
-#run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
+run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
 
 #run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
 
