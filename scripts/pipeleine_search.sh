@@ -36,7 +36,7 @@ DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
 #OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-14B}"
 OUTDIR="experiment_outputs"
 MODEL="Qwen/Qwen2.5-14B-Instruct"
-TPARALLEL=2
+TPARALLEL=1
 COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400 --tensor-parallel-size $TPARALLEL"
 #EXTRA="--max-questions 50"
 
