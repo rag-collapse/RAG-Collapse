@@ -41,7 +41,8 @@ PORT=5150
 HOST="0.0.0.0"
 TP_SIZE=2
 GPU_UTIL=0.90
-MAX_NUM_SEQS=32
+MAX_NUM_SEQS=128
+NUM_BATCHED_TOKENS=8192
 # if running into hf_cache issues, ignore the below two lines
 # DOWNLOAD_DIR="${model_cache_dir}"
 # mkdir -p "${DOWNLOAD_DIR}"
@@ -64,6 +65,7 @@ vllm serve "${MODEL_NAME}" \
   --served-model-name "${SERVED_MODEL_NAME}" \
   --tensor-parallel-size "${TP_SIZE}" \
   --max-num-seqs "${MAX_NUM_SEQS}" \
+  --max-num-batched-tokens "${NUM_BATCHED_TOKENS}"   \
   --gpu-memory-utilization "${GPU_UTIL}" \
   --uvicorn-log-level error \
   --disable-uvicorn-access-log \
