@@ -54,11 +54,11 @@ run_local() {
 
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
-run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
+#run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
 
 #run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
 
-#run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
+run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
 
 # --- API mode (uncomment and set API_KEY; comment out Local block above) ---
 # MODEL_API="openai/gpt4o"

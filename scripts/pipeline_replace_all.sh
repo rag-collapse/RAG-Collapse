@@ -4,10 +4,8 @@
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=48:00:00
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --partition=cpu
 #SBATCH --mem=8g
-#SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=ALL
 

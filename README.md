@@ -171,7 +171,8 @@ sbatch scripts/start_llm_server.sh
 - Served model name: `qwen2.5-14b`
 - Port: `5150`
 - Tensor parallel size: `2` (requires 2 GPUs with ≥40 GB VRAM each)
-- Max concurrent sequences: `32`
+- Max concurrent sequences: `128`
+- Max batched tokens: `8192`
 
 Wait for the server to be ready, then get the URL:
 
@@ -192,30 +193,29 @@ export VLLM_API_BASE="http://<fqdn>:5150/v1"
 sbatch --export=ALL scripts/pipeline.sh
 ```
 
-`--export=ALL` forwards your current environment (including `VLLM_API_BASE`) into the job. The script runs the **three document-setting variants** in **local mode** with per-variant run counts (10 / 20 / 30) and writes:
+`--export=ALL` forwards your current environment (including `VLLM_API_BASE`) into the job. The script runs the active variants in **local mode** (run each separately by commenting/uncommenting the blocks) and writes:
 
 ```
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all.json
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one.json
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test.json
+experiment_outputs/local_replace_all.json
+experiment_outputs/local_replace_one.json
+experiment_outputs/local_search.json
 ```
-
-(Pattern: `experiment_outputs/$OUTPUT_SUBDIR/$MODEL_local_<variant>.json`)
 
 To use **API mode**: comment out the local block and uncomment the API block in the script; set `API_KEY` in your environment.
 
 **Script variables (edit at top of pipeline.sh):**
-- `MODEL` – model name used in output filenames (default: `Qwen/Qwen2.5-7B-Instruct`)
-- `OUTPUT_SUBDIR` – subdirectory under `experiment_outputs` (default: `qwen-7b`); override with `OUTPUT_SUBDIR=my-run sbatch ...`
+- `MODEL` – model identifier passed to vLLM (default: `Qwen/Qwen2.5-14B-Instruct`)
+- `DATASET` – input dataset path (default: `datasets/umass_data.entity.chatgpt.400.jsonl`)
+- `OUTDIR` – output directory (default: `experiment_outputs`)
 - `TPARALLEL` – tensor-parallel-size passed to the pipeline (default: `2`); should match the server's `--tensor-parallel-size`
-- `EXTRA` – extra pipeline args (default: `--max-questions 50`); add `--max-iterations 2` for shorter test runs
+- `EXTRA` – extra pipeline args (commented out by default, runs all questions); add `--max-questions 50` or `--max-iterations 2` for shorter test runs
 
 **SLURM Resources:**
 - Job name: `pipeline`
-- Time limit: 24 hours
+- Time limit: 48 hours
 - Partition: `gpu`
-- GPUs: 2 — constraint `vram40|vram48` with SM capability `sm_70` or later
-- Memory: 80 GB
+- GPUs: 1 — constraint `vram40|vram48|vram80`
+- Memory: 8 GB
 - CPUs: 4
 
 #### 3. Running Evaluation ([eval.sh](scripts/eval.sh))
@@ -231,26 +231,24 @@ sbatch --export=ALL scripts/eval.sh
 Reads pipeline outputs and writes evaluation results:
 
 ```
-# Reads from:
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all.json
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one.json
-experiment_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test.json
+# Reads from (absolute path, resolved from INPUT_SUBDIR):
+/work/pi_dagarwal_umass_edu/project_4/file_storage/$USER/experiment_outputs/qwen-14b/local_replace_all.json
+/work/pi_dagarwal_umass_edu/project_4/file_storage/$USER/experiment_outputs/qwen-14b/local_replace_one.json
+/work/pi_dagarwal_umass_edu/project_4/file_storage/$USER/experiment_outputs/qwen-14b/local_search.json
 
 # Writes to:
-evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_all_eval.json
-evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_replace_one_eval.json
-evaluation_outputs/qwen-7b/Qwen/Qwen2.5-7B-Instruct_local_search_test_eval.json
+evaluation_outputs/qwen-14b/local_replace_all_eval.json
+evaluation_outputs/qwen-14b/local_replace_one_eval.json
+evaluation_outputs/qwen-14b/local_search_eval.json
 ```
 
-(Pattern: `evaluation_outputs/$INPUT_SUBDIR/$MODEL_local_<variant>_eval.json`)
-
 **Script variables (edit at top of eval.sh):**
-- `INPUT_SUBDIR` – must match `OUTPUT_SUBDIR` from `pipeline.sh` (default: `qwen-7b`)
-- `MODEL` – must match `MODEL` from `pipeline.sh` (default: `Qwen/Qwen2.5-7B-Instruct`)
+- `INPUT_SUBDIR` – subdirectory under the shared file storage (default: `qwen-14b`); override with `INPUT_SUBDIR=my-run sbatch ...`
+- `MODEL` – model used for LLM-based metrics (default: `Qwen/Qwen2.5-7B-Instruct`)
 
 **SLURM Resources:**
 - Job name: `evaluation`
-- Time limit: 8 hours
+- Time limit: 48 hours
 - Partition: `gpu,gpu-preempt`
 - GPUs: 1 — constraint `vram40|vram48|vram80`
 - Memory: 32 GB
@@ -276,7 +274,7 @@ experiment_outputs/local_replace_all.json
 entity_extraction_output/
 ```
 
-> **Note:** The input paths in `entity_extraction.sh` are hardcoded to `experiment_outputs/local_*.json` and do not automatically follow `pipeline.sh`'s `$OUTPUT_SUBDIR/$MODEL_local_*.json` output paths. Edit the `--experiment-files` list in the script to point at the actual pipeline outputs.
+> **Note:** The input paths in `entity_extraction.sh` are hardcoded to `experiment_outputs/local_*.json`, which matches `pipeline.sh`'s default `OUTDIR`. If you change `OUTDIR` in `pipeline.sh`, update `--experiment-files` in `entity_extraction.sh` to match.
 
 To use **API mode** instead: uncomment the API block and comment out the local block in the script.
 
