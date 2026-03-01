@@ -19,9 +19,7 @@ fi
 # --- Conda ---
 module load conda/latest
 conda activate ragenv
-
 module load cuda/12.6
-
 nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
@@ -32,9 +30,9 @@ export HF_HUB_CACHE="$CACHE_DIR"
 
 # --- Config (7B model, 2 GPUs: tensor-parallel-size 2) ---
 DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
-OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-14b}"
-OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$OUTPUT_SUBDIR"
 MODEL="Qwen/Qwen2.5-14B-Instruct"
+OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL"
+
 TPARALLEL=1
 COMMON="--dataset-path $DATASET --chars-per-doc 400 --num-runs 10 --tensor-parallel-size $TPARALLEL"
 EXTRA="--max-questions 400"
