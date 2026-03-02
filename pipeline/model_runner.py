@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from llm_service.common_llm import CommonLLM
 from llm_service.proprietary_llm import ProprietaryLLM
 from llm_service.open_source_llm import OpenSourceLLM
-from llm_service.server_llm import OpenSourceLLM as ServerLLM
+from llm_service.server_llm import ServerLLM
 
 
 def build_llm(
