@@ -40,9 +40,14 @@ def parse_args():
     # -------------------------
     parser.add_argument(
         "--model-mode",
-        choices=["api", "local"],
+        choices=["api", "local", "server"],
         required=True,
-        help="Run mode for the model",
+        help="Run mode: 'api' (LiteLLM/proprietary), 'local' (in-process vLLM), 'server' (HTTP client to vLLM server)",
+    )
+    parser.add_argument(
+        "--vllm-api-base",
+        default=None,
+        help="vLLM server base URL (required for --model-mode server), e.g. http://host:5150/v1",
     )
     parser.add_argument(
         "--model-name",
@@ -180,6 +185,9 @@ def run_pipeline() -> None:
     """
     args = parse_args()
 
+    if args.model_mode == "server" and not args.vllm_api_base:
+        raise SystemExit("ERROR: --vllm-api-base is required when --model-mode=server")
+
     dataset_path = args.dataset_path
     output_path = args.output_path
     num_runs = args.num_runs
@@ -210,19 +218,20 @@ def run_pipeline() -> None:
     # Initialize model (CLI-driven)
     # -------------------------
     tp_size = getattr(args, "tensor_parallel_size", 1) or 1
-    # vLLM handles tensor parallelism internally (spawns its own processes), so we don't need torch.distributed.run
-    # Just pass tensor_parallel_size to vLLM and it will use all GPUs visible via CUDA_VISIBLE_DEVICES
-    cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
-    print(f"[GPU Config] CUDA_VISIBLE_DEVICES={cuda_devices}, tensor_parallel_size={tp_size}")
-    if tp_size > 1:
-        import subprocess
-        try:
-            result = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                gpu_count = len([line for line in result.stdout.strip().split('\n') if 'GPU' in line])
-                print(f"[GPU Config] Detected {gpu_count} GPU(s) via nvidia-smi")
-        except Exception:
-            pass
+    if args.model_mode != "server":
+        # vLLM handles tensor parallelism internally (spawns its own processes), so we don't need torch.distributed.run
+        # Just pass tensor_parallel_size to vLLM and it will use all GPUs visible via CUDA_VISIBLE_DEVICES
+        cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
+        print(f"[GPU Config] CUDA_VISIBLE_DEVICES={cuda_devices}, tensor_parallel_size={tp_size}")
+        if tp_size > 1:
+            import subprocess
+            try:
+                result = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=2)
+                if result.returncode == 0:
+                    gpu_count = len([line for line in result.stdout.strip().split('\n') if 'GPU' in line])
+                    print(f"[GPU Config] Detected {gpu_count} GPU(s) via nvidia-smi")
+            except Exception:
+                pass
     llm, resolved_model_name = build_llm(
         model_mode=args.model_mode,
         model_name=args.model_name,
@@ -234,6 +243,7 @@ def run_pipeline() -> None:
         cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
         require_gpu=not args.allow_no_gpu,
         tensor_parallel_size=tp_size,
+        api_base=args.vllm_api_base,
     )
     print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
