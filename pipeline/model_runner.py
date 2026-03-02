@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from llm_service.common_llm import CommonLLM
 from llm_service.proprietary_llm import ProprietaryLLM
 from llm_service.open_source_llm import OpenSourceLLM
+from llm_service.server_llm import OpenSourceLLM as ServerLLM
 
 
 def build_llm(
@@ -18,13 +19,16 @@ def build_llm(
     gpu_memory_utilization: float = 0.7,
     cuda_visible_devices: Optional[str] = None,
     tensor_parallel_size: int = 1,
+    # server-only knobs
+    api_base: Optional[str] = None,
 ) -> Tuple[CommonLLM, str]:
     """
     Build and return an LLM instance from explicit arguments.
 
     model_mode:
-      - "api"   -> ProprietaryLLM (CPU-safe)
-      - "local" -> OpenSourceLLM (GPU-only)
+      - "api"    -> ProprietaryLLM (CPU-safe, LiteLLM)
+      - "local"  -> OpenSourceLLM (in-process vLLM, GPU-only)
+      - "server" -> ServerLLM (HTTP client to a running vLLM server)
 
     Note:
       - API_KEY should be provided via environment variable for API mode
@@ -62,7 +66,17 @@ def build_llm(
         )
         return llm, name
 
-    raise ValueError("model_mode must be 'api' or 'local'")
+    if mode == "server":
+        llm = ServerLLM(
+            model_name=name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            api_base=api_base,
+        )
+        return llm, llm.served_model_name
+
+    raise ValueError("model_mode must be 'api', 'local', or 'server'")
 
 
 def _normalize_generation(gen: Any) -> str:
