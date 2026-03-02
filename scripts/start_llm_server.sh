@@ -6,7 +6,7 @@
 #SBATCH -p gpu,gpu-preempt
 #SBATCH --gres=gpu:2
 #SBATCH --constraint=vram40|vram48|vram80
-#SBATCH -t 8:00:00
+#SBATCH -t 48:00:00
 #SBATCH -o outputs/slurm-%j-vllm-qwen2.5-14b.out
 #SBATCH -e outputs/slurm-%j-vllm-qwen2.5-14b-error.out
 #SBATCH --mail-type=ALL
