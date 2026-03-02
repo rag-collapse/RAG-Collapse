@@ -37,14 +37,14 @@ def _is_ai_generated_citation(citation: dict) -> bool:
     return False
 
 
-def calculate_ai_citation_percentage(iteration: dict) -> tuple[float, str]:
+def calculate_ai_citation_percentage(iteration: dict) -> float:
     """
     Percentage of cited references in this iteration that are AI-generated.
     Uses citations attached to each run.
     """
     runs = iteration.get("runs", []) or []
     if not runs:
-        return 0.0, "none"
+        return 0.0
 
     total_citations = 0
     ai_citations = 0
@@ -56,9 +56,9 @@ def calculate_ai_citation_percentage(iteration: dict) -> tuple[float, str]:
                 ai_citations += 1
 
     if total_citations == 0:
-        return 0.0, "explicit_empty"
+        return 0.0
 
-    return 100.0 * ai_citations / total_citations, "explicit"
+    return 100.0 * ai_citations / total_citations
 
 
 def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
@@ -292,18 +292,13 @@ def evaluate_experiment(
                     rng=rng,
                 )
             )
-            ai_citation_percentage, ai_citation_source = calculate_ai_citation_percentage(
-                iteration
-            )
+            ai_citation_percentage = calculate_ai_citation_percentage(iteration)
             metrics["ai_citation_percentage"] = float(ai_citation_percentage)
 
             iterations_results.append(
                 {
                     "iteration_number": iteration["iteration_number"],
                     "metrics": metrics,
-                    "metric_metadata": {
-                        "ai_citation_source": ai_citation_source,
-                    },
                 }
             )
 
