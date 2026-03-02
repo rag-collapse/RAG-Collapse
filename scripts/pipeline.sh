@@ -6,10 +6,10 @@
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=8g
+#SBATCH --mem=48G
 #SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=4
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=END,FAIL
 
 # Run from submit dir so pipeline.py and paths resolve
 if [[ -n "$SLURM_SUBMIT_DIR" ]]; then
@@ -29,38 +29,51 @@ CACHE_DIR="/work/pi_dagarwal_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
-export VLLM_API_BASE="http://gypsum-gpu188.unity.rc.umass.edu:5150/v1"
 
-# --- Config (14B model, 2 GPUs: tensor-parallel-size 2) ---
+if [[ -z "$VLLM_API_BASE" ]]; then
+  echo "ERROR: VLLM_API_BASE is not set. Start the vLLM server first, then:"
+  echo "  export VLLM_API_BASE=\"http://<fqdn>:5150/v1\""
+  echo "  sbatch --export=ALL scripts/pipeline.sh"
+  exit 1
+fi
+echo "Using VLLM_API_BASE=$VLLM_API_BASE"
+
+# --- Config ---
 DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
-#OUTPUT_SUBDIR="${OUTPUT_SUBDIR:-qwen-14B}"
-OUTDIR="experiment_outputs"
 MODEL="Qwen/Qwen2.5-14B-Instruct"
-TPARALLEL=2
-COMMON="--dataset-path $DATASET --num-runs 10 --chars-per-doc 400 --tensor-parallel-size $TPARALLEL"
-#EXTRA="--max-questions 50"
+OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL"
+
+COMMON="--dataset-path $DATASET --chars-per-doc 400 --num-runs 10"
+EXTRA="--max-questions 400"
 
 mkdir -p logs "$OUTDIR"
 
-# Ensure CUDA_VISIBLE_DEVICES is set (SLURM sets it automatically with --gres, but verify for multi-GPU)
-if [ "$TPARALLEL" -gt 1 ] && [ -z "$CUDA_VISIBLE_DEVICES" ]; then
-  echo "WARNING: TPARALLEL=$TPARALLEL but CUDA_VISIBLE_DEVICES not set. SLURM should set this with --gres=gpu:$TPARALLEL"
-fi
-
-# vLLM with tensor_parallel_size > 1 spawns its own processes; using torch.distributed.run causes conflicts
-run_local() {
-  python -u pipeline.py --model-mode local --model-name "$MODEL" $COMMON $EXTRA "$@"
+# --- Server mode: HTTP client to a running vLLM server (recommended) ---
+# Start vLLM server first, then export VLLM_API_BASE and sbatch --export=ALL
+run_server() {
+  python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL" $COMMON $EXTRA "$@"
 }
 
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
-run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0  --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
+run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
 
-#run_local --pipeline-variant replace_one  --num-runs 20 --output-path "$OUTDIR/${MODEL}_local_replace_one.json"
+#run_server --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
 
-#run_local --pipeline-variant search  --num-runs 30 --output-path "$OUTDIR/${MODEL}_local_search_test.json"
+#run_server --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
 
-# --- API mode (uncomment and set API_KEY; comment out Local block above) ---
+
+# --- Local mode: in-process vLLM (needs GPU allocation in this job) ---
+# Requires --gres=gpu:2 and -C "vram40|vram48" in SLURM headers above.
+# run_local() {
+#   python -u pipeline.py --model-mode local --model-name "$MODEL" $COMMON $EXTRA --tensor-parallel-size 2 "$@"
+# }
+# run_local --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
+# run_local --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
+# run_local --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
+
+
+# --- API mode (uncomment and set API_KEY; comment out server block above) ---
 # MODEL_API="openai/gpt4o"
 # run_api() { python -u pipeline.py --model-mode api --model-name "$MODEL_API" $COMMON $EXTRA "$@"; }
 # run_api --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --output-path "$OUTDIR/api_hybrid_replace_all.json"
