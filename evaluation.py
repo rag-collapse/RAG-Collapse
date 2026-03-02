@@ -19,6 +19,48 @@ def _tokenize_words(text: str) -> list[str]:
     return [token.lower() for token in WORD_PATTERN.findall(text or "")]
 
 
+def _is_ai_generated_citation(citation: dict) -> bool:
+    """
+    Identify whether a citation entry points to AI-generated content.
+    """
+    if not isinstance(citation, dict):
+        return False
+    doc_id = str(citation.get("doc_id", "")).lower()
+    url = str(citation.get("url", "")).lower()
+    iteration = citation.get("iteration")
+    if doc_id.startswith("gen_"):
+        return True
+    if url == "model_generated":
+        return True
+    if isinstance(iteration, int) and iteration > 0 and not doc_id.startswith("ref_"):
+        return True
+    return False
+
+
+def calculate_ai_citation_percentage(iteration: dict) -> tuple[float, str]:
+    """
+    Percentage of cited references in this iteration that are AI-generated.
+    Uses citations attached to each run.
+    """
+    runs = iteration.get("runs", []) or []
+    if not runs:
+        return 0.0, "none"
+
+    total_citations = 0
+    ai_citations = 0
+    for run in runs:
+        citations = run.get("citations", []) or []
+        for citation in citations:
+            total_citations += 1
+            if _is_ai_generated_citation(citation):
+                ai_citations += 1
+
+    if total_citations == 0:
+        return 0.0, "explicit_empty"
+
+    return 100.0 * ai_citations / total_citations, "explicit"
+
+
 def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
     n = len(embeddings)
     if n < 2:
@@ -250,11 +292,18 @@ def evaluate_experiment(
                     rng=rng,
                 )
             )
+            ai_citation_percentage, ai_citation_source = calculate_ai_citation_percentage(
+                iteration
+            )
+            metrics["ai_citation_percentage"] = float(ai_citation_percentage)
 
             iterations_results.append(
                 {
                     "iteration_number": iteration["iteration_number"],
                     "metrics": metrics,
+                    "metric_metadata": {
+                        "ai_citation_source": ai_citation_source,
+                    },
                 }
             )
 

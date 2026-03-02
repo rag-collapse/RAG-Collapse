@@ -1,5 +1,7 @@
 import argparse
 import os
+import random
+import re
 from typing import Any, Dict, List
 
 try:
@@ -29,6 +31,106 @@ from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
 from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
 from formatters import get_create_document_conversation
+
+_WORD_RE = re.compile(r"[A-Za-z0-9']+")
+
+
+def _resolve_citations(
+    citation_ids: List[int],
+    citation_index: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    by_id = {entry["citation_id"]: entry for entry in citation_index}
+    return [by_id[cid] for cid in citation_ids if cid in by_id]
+
+
+def _to_token_set(text: str) -> set[str]:
+    return {w.lower() for w in _WORD_RE.findall(text or "") if len(w) >= 4}
+
+
+def _overlap_score(answer_tokens: set[str], support_tokens: set[str]) -> float:
+    if not answer_tokens:
+        return 0.0
+    return len(answer_tokens & support_tokens) / max(1, len(answer_tokens))
+
+
+def _answer_change_score(baseline_answer: str, loo_answer: str) -> float:
+    """
+    Lightweight change score in [0, 1]:
+    0 means near-identical lexical content, 1 means no lexical overlap.
+    """
+    baseline_tokens = _to_token_set(baseline_answer)
+    loo_tokens = _to_token_set(loo_answer)
+    return 1.0 - _overlap_score(baseline_tokens, loo_tokens)
+
+
+def _select_top_m_candidate_citation_ids(
+    answer: str,
+    citation_index: List[Dict[str, Any]],
+    docs_by_doc_id: Dict[str, Dict[str, Any]],
+    *,
+    top_m: int,
+) -> List[int]:
+    """
+    Choose top-M candidate docs by quick lexical overlap with the answer.
+    """
+    answer_tokens = _to_token_set(answer)
+    scored: List[tuple[float, int]] = []
+    for entry in citation_index:
+        cid = entry.get("citation_id")
+        doc = docs_by_doc_id.get(entry.get("doc_id"))
+        if cid is None or doc is None:
+            continue
+        doc_tokens = _to_token_set(doc.get("text", ""))
+        score = _overlap_score(answer_tokens, doc_tokens)
+        scored.append((score, cid))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [cid for _, cid in scored[: max(1, top_m)]]
+
+
+def _infer_citation_ids_via_retrieval_loo(
+    answer: str,
+    citation_index: List[Dict[str, Any]],
+    docs_by_doc_id: Dict[str, Dict[str, Any]],
+    *,
+    rerun_answers_by_citation_id: Dict[int, str],
+    top_m: int = 4,
+    change_threshold: float = 0.18,
+    max_ids: int = 6,
+) -> List[int]:
+    """
+    Wrapper for feasible retrieval-set LOO rerun attribution.
+    """
+    if not citation_index or not docs_by_doc_id:
+        return []
+    candidate_ids = _select_top_m_candidate_citation_ids(
+        answer=answer,
+        citation_index=citation_index,
+        docs_by_doc_id=docs_by_doc_id,
+        top_m=top_m,
+    )
+    if not candidate_ids:
+        return []
+
+    selected: List[int] = []
+    scored_changes: List[tuple[float, int]] = []
+    for cid in candidate_ids:
+        loo_answer = rerun_answers_by_citation_id.get(cid)
+        if not loo_answer:
+            continue
+        change = _answer_change_score(answer, loo_answer)
+        scored_changes.append((change, cid))
+        if change >= change_threshold:
+            selected.append(cid)
+            if len(selected) >= max_ids:
+                break
+
+    if selected:
+        return selected
+
+    scored_changes.sort(key=lambda x: x[0], reverse=True)
+    fallback = [cid for change, cid in scored_changes if change > 0]
+    return fallback[: min(2, max_ids)]
 
 
 def parse_args():
@@ -163,7 +265,29 @@ def parse_args():
         action="store_true",
         help="Stop early when answer signature is identical for four consecutive rounds (no new eval metrics).",
     )
-
+    parser.add_argument(
+        "--enable-citations",
+        action="store_true",
+        help="Enable citation generation using retrieval_loo; otherwise citations are disabled.",
+    )
+    parser.add_argument(
+        "--citation-max-docs",
+        type=int,
+        default=6,
+        help="Maximum number of citations to keep per run.",
+    )
+    parser.add_argument(
+        "--citation-top-m",
+        type=int,
+        default=4,
+        help="Top-M retrieval docs (by quick lexical overlap) to test with leave-one-out reruns.",
+    )
+    parser.add_argument(
+        "--citation-change-threshold",
+        type=float,
+        default=0.18,
+        help="Minimum answer-change score to keep a doc as a citation after leave-one-out rerun.",
+    )
     return parser.parse_args()
 
 
@@ -185,6 +309,10 @@ def run_pipeline() -> None:
     chars_per_doc = args.chars_per_doc
     max_questions = args.max_questions
     variant = args.pipeline_variant
+    citations_enabled = bool(args.enable_citations)
+    citation_max_docs = max(1, int(getattr(args, "citation_max_docs", 6)))
+    citation_top_m = max(1, int(getattr(args, "citation_top_m", 4)))
+    citation_change_threshold = float(getattr(args, "citation_change_threshold", 0.18))
 
     # Round count per variant; optional cap for quick tests
     num_iterations = get_rounds_for_variant(variant)
@@ -240,6 +368,7 @@ def run_pipeline() -> None:
         "pipeline_variant": variant,
         "num_iterations": num_iterations,
         "num_runs_per_iteration": num_runs,
+        "citations_enabled": citations_enabled,
     }
     if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
@@ -302,6 +431,9 @@ def run_pipeline() -> None:
 
         states.append(s)
 
+    # Cache LOO rerun answers keyed by (question_id, iteration_number, removed_citation_id).
+    loo_rerun_cache: Dict[tuple[int, int, int], str] = {}
+
     # -------------------------
     # Main experiment loop: iteration-major (batch across all questions)
     # -------------------------
@@ -313,12 +445,18 @@ def run_pipeline() -> None:
         # --- Step 1: batch sample_runs across all active questions ---
         # Build one conversation per (question, run) and flatten into a single batch
         batch_conversations: List[List[Dict[str, str]]] = []
+        prompt_docs_by_question: List[List[Dict[str, Any]]] = []
         for s in active:
+            prompt_docs = list(s.current_docs)
+            if citations_enabled and len(prompt_docs) > 1:
+                random.shuffle(prompt_docs)
             conversation = build_rag_conversation(
                 question=s.question_text,
-                docs=s.current_docs,
+                docs=prompt_docs,
                 chars_per_doc=chars_per_doc,
+                shuffle_docs=not citations_enabled,
             )
+            prompt_docs_by_question.append(prompt_docs)
             batch_conversations.extend([conversation] * num_runs)
 
         all_answers = llm.inference_batch(batch_conversations)
@@ -334,14 +472,107 @@ def run_pipeline() -> None:
         still_active_for_docs: List[int] = []  # indices into active[]
         for i, s in enumerate(active):
             answers = per_question_answers[i]
+            prompt_docs = prompt_docs_by_question[i]
+            citation_index: List[Dict[str, Any]] = []
+            docs_by_doc_id: Dict[str, Dict[str, Any]] = {}
+            citation_entry_by_id: Dict[int, Dict[str, Any]] = {}
+            if citations_enabled:
+                citation_index = [
+                    {
+                        "citation_id": j + 1,
+                        "doc_id": doc.get("doc_id"),
+                        "url": doc.get("url", ""),
+                        "iteration": doc.get("iteration"),
+                    }
+                    for j, doc in enumerate(prompt_docs)
+                ]
+                docs_by_doc_id = {
+                    d.get("doc_id"): d for d in prompt_docs if d.get("doc_id")
+                }
+                citation_entry_by_id = {
+                    e["citation_id"]: e for e in citation_index if "citation_id" in e
+                }
+
+            # Build/lookup cached leave-one-out rerun answers for top-M candidate docs.
+            rerun_answers_by_citation_id: Dict[int, str] = {}
+            if citations_enabled:
+                needed_cids: set[int] = set()
+                for ans in answers:
+                    needed_cids.update(
+                        _select_top_m_candidate_citation_ids(
+                            answer=ans,
+                            citation_index=citation_index,
+                            docs_by_doc_id=docs_by_doc_id,
+                            top_m=citation_top_m,
+                        )
+                    )
+
+                missing_keys: List[tuple[int, int, int]] = []
+                missing_conversations: List[List[Dict[str, str]]] = []
+                for cid in sorted(needed_cids):
+                    cache_key = (s.q_idx, it, cid)
+                    if cache_key in loo_rerun_cache:
+                        continue
+                    entry = citation_entry_by_id.get(cid)
+                    if not entry:
+                        continue
+                    removed_doc_id = entry.get("doc_id")
+                    docs_without = [
+                        d for d in prompt_docs if d.get("doc_id") != removed_doc_id
+                    ]
+                    if not docs_without:
+                        continue
+                    loo_conversation = build_rag_conversation(
+                        question=s.question_text,
+                        docs=docs_without,
+                        chars_per_doc=chars_per_doc,
+                        shuffle_docs=False,
+                    )
+                    missing_keys.append(cache_key)
+                    missing_conversations.append(loo_conversation)
+
+                if missing_conversations:
+                    missing_outputs = llm.inference_batch(missing_conversations)
+                    for key, out in zip(missing_keys, missing_outputs):
+                        loo_rerun_cache[key] = out
+
+                for cid in needed_cids:
+                    cache_key = (s.q_idx, it, cid)
+                    if cache_key in loo_rerun_cache:
+                        rerun_answers_by_citation_id[cid] = loo_rerun_cache[cache_key]
+
+            runs = []
+            for r, ans in enumerate(answers):
+                if not citations_enabled:
+                    citation_ids = []
+                else:
+                    citation_ids = _infer_citation_ids_via_retrieval_loo(
+                        ans,
+                        citation_index,
+                        docs_by_doc_id,
+                        rerun_answers_by_citation_id=rerun_answers_by_citation_id,
+                        top_m=citation_top_m,
+                        change_threshold=citation_change_threshold,
+                        max_ids=citation_max_docs,
+                    )
+                runs.append(
+                    {
+                        "run_id": f"{it}_{r}",
+                        "answer": ans,
+                        "citation_ids": citation_ids,
+                        "citations": _resolve_citations(citation_ids, citation_index)
+                        if citations_enabled
+                        else [],
+                    }
+                )
+
             iteration_obj: Dict[str, Any] = {
                 "iteration_number": it,
                 "documents": s.current_docs,
-                "runs": [
-                    {"run_id": f"{it}_{r}", "answer": ans}
-                    for r, ans in enumerate(answers)
-                ],
+                "runs": runs,
             }
+            if citations_enabled:
+                iteration_obj["citation_index"] = citation_index
             s.question_obj["iterations"].append(iteration_obj)
 
             # Convergence early stop
