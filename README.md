@@ -76,6 +76,11 @@ python -u pipeline.py \
 - `--num-runs`: Responses per round (default 10)
 - `--chars-per-doc`: Character limit per document
 - `--enable-citations`: Enable citation generation. Omit to disable citations.
+- `--search-embedding-mode`: `local` (SentenceTransformer, no API key) or `api` (LiteLLM). Used only with `--pipeline-variant search`.
+- `--search-embedding-model`: Embedding model name. For `local` mode: a SentenceTransformer name (default: `all-MiniLM-L6-v2`); for `api` mode: a LiteLLM model name.
+- `--search-top-k`: Number of top chunks retrieved per round in the search variant (default: `10`). Increasing this value gives the model more context per round.
+- `--search-chunk-size`: Character size of each text chunk when indexing documents in the search variant (default: `500`). Smaller values produce more granular chunks; larger values provide more context per chunk.
+- `--search-chunk-overlap`: Character overlap between consecutive chunks in the search variant (default: `50`). Overlap ensures content at chunk boundaries is still retrievable.
 
 ### Testing variants
 
