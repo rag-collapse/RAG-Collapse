@@ -66,6 +66,7 @@ def get_next_documents(
     question_text: Optional[str] = None,
     store: Optional[Any] = None,
     hybrid_config: Optional[HybridContextConfig] = None,
+    search_top_k: int = SEARCH_TOP_K,
 ) -> List[Dict[str, Any]]:
     """
     Return the document list for the next iteration.
@@ -92,7 +93,7 @@ def get_next_documents(
             raise ValueError("search variant requires store and question_text")
         new_docs = answers_to_documents(document_texts, iteration=iteration)
         store.add_documents(new_docs)
-        return store.search(question_text, k=SEARCH_TOP_K)
+        return store.search(question_text, k=search_top_k)
 
     raise ValueError(f"Unknown variant: {variant}. Use one of {PIPELINE_VARIANTS}")
 
