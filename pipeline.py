@@ -17,6 +17,8 @@ from pipeline.config import (
     is_replace_one,
     is_search,
     SEARCH_TOP_K,
+    SEARCH_CHUNK_SIZE,
+    SEARCH_CHUNK_OVERLAP,
 )
 from pipeline.context_builder import (
     HybridContextConfig,
@@ -230,6 +232,24 @@ def parse_args():
         help="Embedding model: for local mode = SentenceTransformer name (e.g. all-MiniLM-L6-v2); for api = LiteLLM model name.",
     )
     parser.add_argument(
+        "--search-top-k",
+        type=int,
+        default=SEARCH_TOP_K,
+        help="Number of top chunks to retrieve per round in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-size",
+        type=int,
+        default=SEARCH_CHUNK_SIZE,
+        help="Character size of each text chunk when indexing documents in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-overlap",
+        type=int,
+        default=SEARCH_CHUNK_OVERLAP,
+        help="Character overlap between consecutive chunks in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=None,
@@ -314,6 +334,11 @@ def run_pipeline() -> None:
     citation_top_m = max(1, int(getattr(args, "citation_top_m", 4)))
     citation_change_threshold = float(getattr(args, "citation_change_threshold", 0.18))
 
+    # Search retrieval settings (used only for search variant)
+    search_top_k = args.search_top_k
+    search_chunk_size = args.search_chunk_size
+    search_chunk_overlap = args.search_chunk_overlap
+
     # Round count per variant; optional cap for quick tests
     num_iterations = get_rounds_for_variant(variant)
     if args.max_iterations is not None:
@@ -375,6 +400,10 @@ def run_pipeline() -> None:
         experiments_metadata["num_db_docs"] = args.num_db_docs
         experiments_metadata["db_doc_selection"] = args.db_doc_selection
         experiments_metadata["synth_doc_selection"] = args.synth_doc_selection
+    if is_search(variant):
+        experiments_metadata["search_top_k"] = search_top_k
+        experiments_metadata["search_chunk_size"] = search_chunk_size
+        experiments_metadata["search_chunk_overlap"] = search_chunk_overlap
     experiments: Dict[str, Any] = {
         "experiment_metadata": experiments_metadata,
         "questions": [],
@@ -418,10 +447,14 @@ def run_pipeline() -> None:
         }
 
         if is_search(variant):
-            s.store = ChunkedRetrievalStore(embed_fn=embed_fn)
+            s.store = ChunkedRetrievalStore(
+                embed_fn=embed_fn,
+                chunk_size=search_chunk_size,
+                chunk_overlap=search_chunk_overlap,
+            )
             ref_docs = references_to_documents(s.references, iteration=0)
             s.store.add_documents(ref_docs)
-            s.current_docs = s.store.search(s.question_text, k=SEARCH_TOP_K)
+            s.current_docs = s.store.search(s.question_text, k=search_top_k)
         elif is_replace_one(variant):
             s.current_docs = get_initial_documents_replace_one(s.references)
             s.store = None
@@ -619,6 +652,7 @@ def run_pipeline() -> None:
                     question_text=s.question_text,
                     store=s.store,
                     hybrid_config=hybrid_config,
+                    search_top_k=search_top_k,
                 )
 
     # Collect results (preserve original question order)
