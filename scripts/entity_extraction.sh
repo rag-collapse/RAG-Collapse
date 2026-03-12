@@ -25,8 +25,7 @@ conda activate ragenv
 # Used to resolve the FlashInference error.
 export VLLM_USE_FLASHINFER=0
 
-# Use a local HF cache so compute nodes don't need internet.
-CACHE_DIR="$(pwd)/model_cache"
+CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
