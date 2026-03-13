@@ -11,19 +11,13 @@
 #SBATCH -e outputs/slurm-%j-vllm-qwen2.5-14b-error.out
 #SBATCH --mail-type=ALL
 
-model_cache_dir="/work/pi_dagarwal_umass_edu/hf_cache"
+model_cache_dir="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
 
 module load conda/latest
 module load cuda/12.6
 conda activate ragenv
 
 # Keep libraries quiet
-export OMP_NUM_THREADS=6
-export NCCL_ASYNC_ERROR_HANDLING=1
-
-# --- Silence / avoid the bind + chatter on single node ---
-export NCCL_IB_DISABLE=1
-export NCCL_SOCKET_IFNAME=lo
 export GLOO_SOCKET_IFNAME=lo
 export NCCL_DEBUG=ERROR
 export TORCH_CPP_LOG_LEVEL=ERROR
