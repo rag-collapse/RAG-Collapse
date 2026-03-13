@@ -161,6 +161,32 @@ def parse_args():
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--top-p", type=float, default=0.9)
 
+    # -------------------------
+    # Document generation model (optional; falls back to main LLM if not set)
+    # -------------------------
+    parser.add_argument(
+        "--doc-model-mode",
+        choices=["api", "local", "server"],
+        default=None,
+        help="Model mode for document generation. Omit to reuse the main model.",
+    )
+    parser.add_argument(
+        "--doc-vllm-api-base",
+        default=None,
+        help="vLLM server base URL for doc generation (required when --doc-model-mode server).",
+    )
+    parser.add_argument(
+        "--doc-model-name",
+        default=None,
+        help="Model identifier for doc generation. Defaults to --model-name.",
+    )
+    parser.add_argument("--doc-temperature", type=float, default=None,
+        help="Temperature for doc generation. Defaults to --temperature.")
+    parser.add_argument("--doc-max-tokens", type=int, default=None,
+        help="Max tokens for doc generation. Defaults to --max-tokens.")
+    parser.add_argument("--doc-top-p", type=float, default=None,
+        help="Top-p for doc generation. Defaults to --top-p.")
+
     # Local-only knobs (ignored for api mode)
     parser.add_argument("--max-model-len", type=int, default=8192)
     parser.add_argument("--gpu-mem-util", type=float, default=0.7)
@@ -310,6 +336,8 @@ def run_pipeline() -> None:
 
     if args.model_mode == "server" and not args.vllm_api_base:
         raise SystemExit("ERROR: --vllm-api-base is required when --model-mode=server")
+    if args.doc_model_mode == "server" and not args.doc_vllm_api_base:
+        raise SystemExit("ERROR: --doc-vllm-api-base is required when --doc-model-mode=server")
 
     dataset_path = args.dataset_path
     output_path = args.output_path
@@ -374,6 +402,25 @@ def run_pipeline() -> None:
     )
     print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
+    if args.doc_model_mode is not None:
+        doc_llm, doc_model_name = build_llm(
+            model_mode=args.doc_model_mode,
+            model_name=args.doc_model_name or args.model_name,
+            temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
+            max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
+            top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
+            api_base=args.doc_vllm_api_base,
+            max_model_len=args.max_model_len,
+            gpu_memory_utilization=args.gpu_mem_util,
+            cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            require_gpu=not args.allow_no_gpu,
+            tensor_parallel_size=tp_size,
+        )
+        print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
+    else:
+        doc_llm = llm
+        doc_model_name = resolved_model_name
+
     experiments_metadata: Dict[str, Any] = {
         "model": resolved_model_name,
         "pipeline_variant": variant,
@@ -386,6 +433,9 @@ def run_pipeline() -> None:
         experiments_metadata["num_db_docs"] = args.num_db_docs
         experiments_metadata["db_doc_selection"] = args.db_doc_selection
         experiments_metadata["synth_doc_selection"] = args.synth_doc_selection
+    if args.doc_model_mode is not None:
+        experiments_metadata["doc_model"] = doc_model_name
+        experiments_metadata["doc_model_mode"] = args.doc_model_mode
     experiments: Dict[str, Any] = {
         "experiment_metadata": experiments_metadata,
         "questions": [],
@@ -615,7 +665,7 @@ def run_pipeline() -> None:
                 runs_per_q.append(len(convos))
 
             print(f"[Iter {it + 1}/{num_iterations}] Creating {len(doc_batch)} documents...", flush=True)
-            all_doc_texts = llm.inference_batch(doc_batch)
+            all_doc_texts = doc_llm.inference_batch(doc_batch)
             print(f"[Iter {it + 1}/{num_iterations}] Document creation complete.", flush=True)
 
             # Slice back and update each question's docs for next iteration
@@ -650,6 +700,11 @@ def run_pipeline() -> None:
         llm.shutdown()
     except Exception:
         pass
+    if doc_llm is not llm:
+        try:
+            doc_llm.shutdown()
+        except Exception:
+            pass
 
     print(f"Wrote {output_path}")
 

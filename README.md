@@ -137,6 +137,7 @@ python -u pipeline.py \
 - `--num-runs`: Responses per round (default 10)
 - `--chars-per-doc`: Character limit per document
 - `--enable-citations`: Enable citation generation. Omit to disable citations.
+- `--doc-model-mode`: Optional. Route document generation (the expand-to-article step) to a separate model. Same choices as `--model-mode`. Omit to reuse the main model. When `server`, also pass `--doc-vllm-api-base`. Optional overrides: `--doc-model-name`, `--doc-temperature`, `--doc-max-tokens`, `--doc-top-p`.
 
 ### Quick smoke test (1 question, 2 rounds)
 
