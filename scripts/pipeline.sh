@@ -54,6 +54,15 @@ run_server() {
   python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL" $COMMON $EXTRA "$@"
 }
 
+# To use a separate (smaller) model for document generation, start a second
+# vLLM server on a different port and export DOC_VLLM_API_BASE, then replace
+# the run_server definition above with this one:
+# run_server() {
+#   python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" \
+#     --doc-model-mode server --doc-vllm-api-base "$DOC_VLLM_API_BASE" \
+#     --model-name "$MODEL" $COMMON $EXTRA "$@"
+# }
+
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
 run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
