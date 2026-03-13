@@ -15,7 +15,7 @@ where `MODEL_SUBDIR` matches the experiment/eval layout, e.g.:
 - `Qwen/Qwen2.5-7B-Instruct`
 - `Qwen/Qwen2.5-14B-Instruct`
 
-Within each model subdirectory you will see PNG files:
+Within each model subdirectory you will see PNG files (only Qwen2.5-14B-Instruct are for 400 questions dataset, old visualizations are for 50 questions dataset):
 
 - `collapse_by_simulation.png`
 - `unique_words_per_round.png`
@@ -53,52 +53,9 @@ New (or updated) PNGs will be written to:
 
 ### Models and images
 
-Below we list all expected figures for each model so results can be browsed directly.
-(Results of Same-answer percentage per round need to be calculated for Qwen/Qwen2.5-7B-Instruct and Qwen/Qwen2.5-14B-Instruct)
+Below we list all expected figures for the Qwen/Qwen2.5-14B-Instruct model (for the 400 questions dataset) so results can be browsed directly. 
 
-#### Qwen/Qwen2.5-1.5B-Instruct
-
-- Collapse by simulation  
-  ![1.5B – collapse_by_simulation](Qwen/Qwen2.5-1.5B-Instruct/collapse_by_simulation.png)
-- Unique words per round  
-  ![1.5B – unique_words_per_round](Qwen/Qwen2.5-1.5B-Instruct/unique_words_per_round.png)
-- Unique entities per round  
-  ![1.5B – unique_entities_per_round](Qwen/Qwen2.5-1.5B-Instruct/unique_entities_per_round.png)
-- Entity similarity per round  
-  ![1.5B – entity_similarity_per_round](Qwen/Qwen2.5-1.5B-Instruct/entity_similarity_per_round.png)
-- Same-answer percentage per round  
-  ![1.5B – same_answer_percentage_per_round](Qwen/Qwen2.5-1.5B-Instruct/same_answer_percentage_per_round.png)
-- Avg TES per round  
-  ![1.5B – avg_pairwise_tes_per_round](Qwen/Qwen2.5-1.5B-Instruct/avg_pairwise_tes_per_round.png)
-- Avg ROUGE-1 per round  
-  ![1.5B – avg_pairwise_rouge1_per_round](Qwen/Qwen2.5-1.5B-Instruct/avg_pairwise_rouge1_per_round.png)
-- Avg ROUGE-2 per round  
-  ![1.5B – avg_pairwise_rouge2_per_round](Qwen/Qwen2.5-1.5B-Instruct/avg_pairwise_rouge2_per_round.png)
-- Avg ROUGE-L per round  
-  ![1.5B – avg_pairwise_rougeL_per_round](Qwen/Qwen2.5-1.5B-Instruct/avg_pairwise_rougeL_per_round.png)
-
-#### Qwen/Qwen2.5-7B-Instruct
-
-- Collapse by simulation  
-  ![7B – collapse_by_simulation](Qwen/Qwen2.5-7B-Instruct/collapse_by_simulation.png)
-- Unique words per round  
-  ![7B – unique_words_per_round](Qwen/Qwen2.5-7B-Instruct/unique_words_per_round.png)
-- Unique entities per round  
-  ![7B – unique_entities_per_round](Qwen/Qwen2.5-7B-Instruct/unique_entities_per_round.png)
-- Entity similarity per round  
-  ![7B – entity_similarity_per_round](Qwen/Qwen2.5-7B-Instruct/entity_similarity_per_round.png)
-- Same-answer percentage per round  
-  ![7B – same_answer_percentage_per_round](Qwen/Qwen2.5-7B-Instruct/same_answer_percentage_per_round.png)
-- Avg TES per round  
-  ![7B – avg_pairwise_tes_per_round](Qwen/Qwen2.5-7B-Instruct/avg_pairwise_tes_per_round.png)
-- Avg ROUGE-1 per round  
-  ![7B – avg_pairwise_rouge1_per_round](Qwen/Qwen2.5-7B-Instruct/avg_pairwise_rouge1_per_round.png)
-- Avg ROUGE-2 per round  
-  ![7B – avg_pairwise_rouge2_per_round](Qwen/Qwen2.5-7B-Instruct/avg_pairwise_rouge2_per_round.png)
-- Avg ROUGE-L per round  
-  ![7B – avg_pairwise_rougeL_per_round](Qwen/Qwen2.5-7B-Instruct/avg_pairwise_rougeL_per_round.png)
-
-#### Qwen/Qwen2.5-14B-Instruct
+#### Qwen/Qwen2.5-14B-Instruct for 400 questions dataset
 
 - Collapse by simulation  
   ![14B – collapse_by_simulation](Qwen/Qwen2.5-14B-Instruct/collapse_by_simulation.png)

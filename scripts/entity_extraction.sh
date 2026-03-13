@@ -2,10 +2,10 @@
 #SBATCH --job-name=entity-extraction
 #SBATCH --output=logs/entity-extraction_%A.out
 #SBATCH --error=logs/entity-extraction_%A.err
-#SBATCH --time=7:00:00
+#SBATCH --time=8:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=24G
+#SBATCH --mem=64G
 #SBATCH -C "vram40|vram48|vram80"
 #SBATCH --cpus-per-task=2
 
@@ -22,22 +22,17 @@ module load conda/latest
 module load cuda/12.6
 # activate conda environment
 conda activate ragenv
+# Used to resolve the FlashInference error.
+export VLLM_USE_FLASHINFER=0
 
-# Use a local HF cache so compute nodes don't need internet.
-CACHE_DIR="$(pwd)/model_cache"
+CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
-# Input/output by model subdir, matching experiment/eval/viz layout, e.g.:
-#   Qwen/Qwen2.5-1.5B-Instruct
-#   Qwen/Qwen2.5-7B-Instruct
-#   Qwen/Qwen2.5-14B-Instruct
-# Default: Qwen 14B local.
-# Override with:
-#   sbatch --export=ALL,MODEL_SUBDIR="Qwen/Qwen2.5-7B-Instruct",MODEL_MODE=...,MODEL_NAME=... scripts/entity_extraction.sh
 MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"
-EXPERIMENT_DIR="${EXPERIMENT_DIR:-experiment_outputs/$MODEL_SUBDIR}"
+# Modify the experiment directory as per the specific model and result path.
+EXPERIMENT_DIR="${EXPERIMENT_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/oyilmazel_umass_edu/experiment_outputs/Qwen/Qwen2.5-14B-Instruct}"
 OUT_DIR="${OUT_DIR:-entity_extraction_output/$MODEL_SUBDIR}"
 MODEL_MODE="${MODEL_MODE:-local}"
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-14B-Instruct}"
