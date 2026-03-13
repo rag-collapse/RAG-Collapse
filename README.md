@@ -136,6 +136,7 @@ python -u pipeline.py \
 - `--max-iterations`: Cap on rounds for quick tests (e.g. `--max-iterations 2`)
 - `--num-runs`: Responses per round (default 10)
 - `--chars-per-doc`: Character limit per document
+- `--enable-citations`: Enable citation generation. Omit to disable citations.
 
 ### Quick smoke test (1 question, 2 rounds)
 
