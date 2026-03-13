@@ -63,6 +63,23 @@ run_server() {
 #     --model-name "$MODEL" $COMMON $EXTRA "$@"
 # }
 
+# --- Smoke test (1 question, 2 rounds) ---
+# Uncomment the block below to quickly verify the server connection and pipeline logic.
+# Results go to experiment_outputs/smoke_test/ so they won't overwrite production outputs.
+# Once confirmed working, comment this block out and uncomment the production runs below.
+#
+# mkdir -p experiment_outputs/smoke_test
+# run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 \
+#   --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/replace_all.json
+#
+# run_server --pipeline-variant replace_one --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/replace_one.json
+#
+# run_server --pipeline-variant search --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/search.json
+
+# --- Production runs ---
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
 run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
