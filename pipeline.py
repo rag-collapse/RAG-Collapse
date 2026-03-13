@@ -597,7 +597,7 @@ def run_pipeline() -> None:
                 answers = per_question_answers[i]
                 if is_replace_one(variant) or is_search(variant):
                     answers = [random.choice(answers)]
-                convos = [get_create_document_conversation(content=ans) for ans in answers]
+                convos = [get_create_document_conversation(question=active[i].question_text, answer=ans) for ans in answers]
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))
 
