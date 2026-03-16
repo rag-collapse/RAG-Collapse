@@ -133,6 +133,39 @@ def _infer_citation_ids_via_retrieval_loo(
     return fallback[: min(2, max_ids)]
 
 
+def _paraphrase_reference_dataset(
+    dataset: List[Dict[str, Any]],
+    llm: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Rewrite human-authored reference docs through the same document-creation step used
+    for model answers so both document sources share the same surface style.
+    """
+    conversations: List[List[Dict[str, str]]] = []
+    ref_locations: List[tuple[int, int]] = []
+
+    for row_idx, row in enumerate(dataset):
+        for ref_idx, ref in enumerate(row.get("references", []) or []):
+            text = (ref.get("text") or "").strip()
+            if not text:
+                continue
+            conversations.append(get_create_document_conversation(content=text))
+            ref_locations.append((row_idx, ref_idx))
+
+    if not conversations:
+        return dataset
+
+    paraphrased_texts = llm.inference_batch(conversations)
+    rewritten_dataset = []
+    for row in dataset:
+        rewritten_dataset.append({**row, "references": [dict(ref) for ref in row.get("references", []) or []]})
+
+    for (row_idx, ref_idx), paraphrased_text in zip(ref_locations, paraphrased_texts):
+        rewritten_dataset[row_idx]["references"][ref_idx]["text"] = paraphrased_text
+
+    return rewritten_dataset
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RAG collapse pipeline")
 
@@ -149,6 +182,17 @@ def parse_args():
         "--model-name",
         required=True,
         help="Model identifier",
+    )
+    parser.add_argument(
+        "--doc-model-mode",
+        choices=["api", "local"],
+        default="local",
+        help="Model mode for document rewriting/paraphrasing. Defaults to local.",
+    )
+    parser.add_argument(
+        "--doc-model-name",
+        default="Qwen/Qwen2.5-1.5B-Instruct",
+        help="Model identifier for document rewriting/paraphrasing. Defaults to Qwen/Qwen2.5-1.5B-Instruct.",
     )
 
     # Generation params (applies to both modes)
@@ -205,6 +249,11 @@ def parse_args():
         type=int,
         default=400,
         help="Character limit per document",
+    )
+    parser.add_argument(
+        "--paraphrase-reference-docs",
+        action="store_true",
+        help="Rewrite human-written reference docs through the create-document prompt before iteration 0.",
     )
     parser.add_argument(
         "--max-questions",
@@ -307,6 +356,7 @@ def run_pipeline() -> None:
     output_path = args.output_path
     num_runs = args.num_runs
     chars_per_doc = args.chars_per_doc
+    paraphrase_reference_docs = bool(args.paraphrase_reference_docs)
     max_questions = args.max_questions
     variant = args.pipeline_variant
     citations_enabled = bool(args.enable_citations)
@@ -362,13 +412,33 @@ def run_pipeline() -> None:
         require_gpu=not args.allow_no_gpu,
         tensor_parallel_size=tp_size,
     )
+    doc_model_mode = args.doc_model_mode or args.model_mode
+    doc_model_name = args.doc_model_name or args.model_name
+    if doc_model_mode == args.model_mode and doc_model_name == args.model_name:
+        doc_llm = llm
+        resolved_doc_model_name = resolved_model_name
+    else:
+        doc_llm, resolved_doc_model_name = build_llm(
+            model_mode=doc_model_mode,
+            model_name=doc_model_name,
+            temperature=args.temperature,
+            max_tokens=args.max_tokens,
+            top_p=args.top_p,
+            max_model_len=args.max_model_len,
+            gpu_memory_utilization=args.gpu_mem_util,
+            cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            require_gpu=not args.allow_no_gpu,
+            tensor_parallel_size=tp_size,
+        )
 
     experiments_metadata: Dict[str, Any] = {
         "model": resolved_model_name,
+        "doc_model": resolved_doc_model_name,
         "pipeline_variant": variant,
         "num_iterations": num_iterations,
         "num_runs_per_iteration": num_runs,
         "citations_enabled": citations_enabled,
+        "reference_docs_paraphrased": paraphrase_reference_docs,
     }
     if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
@@ -387,6 +457,14 @@ def run_pipeline() -> None:
             embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
         else:
             embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
+
+    if paraphrase_reference_docs:
+        # Normalize the surface form of human-written references using the same
+        # document-creation step applied to model-generated answers.
+        dataset = _paraphrase_reference_dataset(
+            dataset,
+            doc_llm,
+        )
 
     # -------------------------
     # Initialize per-question state
@@ -601,7 +679,7 @@ def run_pipeline() -> None:
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))
 
-            all_doc_texts = llm.inference_batch(doc_batch)
+            all_doc_texts = doc_llm.inference_batch(doc_batch)
 
             # Slice back and update each question's docs for next iteration
             offset = 0
@@ -635,6 +713,11 @@ def run_pipeline() -> None:
         llm.shutdown()
     except Exception:
         pass
+    if doc_llm is not llm:
+        try:
+            doc_llm.shutdown()
+        except Exception:
+            pass
 
     print(f"Wrote {output_path}")
 
