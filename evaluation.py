@@ -290,7 +290,7 @@ def evaluate_experiment(
             rouge_metrics = calculate_pairwise_rouge(answers)
             pairwise_tes_metrics = calculate_pairwise_TES(answers, embed_model)
             unique_words = calculate_unique_words(answers)
-
+            ai_citation_percentage = calculate_ai_citation_percentage(iteration)
             ai_reference_percentage = calculate_ai_reference_percentage(references)
 
             metrics = {
@@ -299,6 +299,7 @@ def evaluate_experiment(
                 **rouge_metrics,
                 "ai_reference_percentage": ai_reference_percentage,
                 "unique_words": unique_words,
+                "ai_citation_percentage": float(ai_citation_percentage),
             }
             if enable_same_answer_judge and judge_llm is not None:
                 metrics["same_answer_percentage"] = float(
