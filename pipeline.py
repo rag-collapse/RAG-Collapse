@@ -186,13 +186,13 @@ def parse_args():
     parser.add_argument(
         "--doc-model-mode",
         choices=["api", "local"],
-        default=None,
-        help="Optional separate model mode for document rewriting/paraphrasing. Defaults to --model-mode.",
+        default="local",
+        help="Model mode for document rewriting/paraphrasing. Defaults to local.",
     )
     parser.add_argument(
         "--doc-model-name",
-        default=None,
-        help="Optional separate model identifier for document rewriting/paraphrasing. Defaults to --model-name.",
+        default="Qwen/Qwen2.5-1.5B-Instruct",
+        help="Model identifier for document rewriting/paraphrasing. Defaults to Qwen/Qwen2.5-1.5B-Instruct.",
     )
 
     # Generation params (applies to both modes)
