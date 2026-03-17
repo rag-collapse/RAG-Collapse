@@ -138,6 +138,12 @@ python -u pipeline.py \
 - `--chars-per-doc`: Character limit per document
 - `--enable-citations`: Enable citation generation. Omit to disable citations.
 - `--doc-model-mode`: Optional. Route document generation (the expand-to-article step) to a separate model. Same choices as `--model-mode`. Omit to reuse the main model. When `server`, also pass `--doc-vllm-api-base`. Optional overrides: `--doc-model-name`, `--doc-temperature`, `--doc-max-tokens`, `--doc-top-p`.
+- `--paraphrase-reference-docs`: Rewrite human-authored reference docs through the document-creation prompt before iteration 0, normalizing surface style between human and AI-generated docs.
+- `--search-embedding-mode`: `local` (SentenceTransformer, no API key) or `api` (LiteLLM). Used only with `--pipeline-variant search`.
+- `--search-embedding-model`: Embedding model name. For `local` mode: a SentenceTransformer name (default: `all-MiniLM-L6-v2`); for `api` mode: a LiteLLM model name.
+- `--search-top-k`: Number of top chunks retrieved per round in the search variant (default: `10`).
+- `--search-chunk-size`: Character size of each text chunk when indexing documents in the search variant (default: `500`).
+- `--search-chunk-overlap`: Character overlap between consecutive chunks in the search variant (default: `50`).
 
 ### Quick smoke test (1 question, 2 rounds)
 
