@@ -4,7 +4,7 @@
 #SBATCH --mem=32g
 #SBATCH --nodes=1
 #SBATCH -p gpu,gpu-preempt
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --constraint=vram40|vram48|vram80
 #SBATCH -t 48:00:00
 #SBATCH -o outputs/slurm-%j-vllm-qwen2.5-14b.out
@@ -33,7 +33,7 @@ MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
 SERVED_MODEL_NAME="qwen2.5-14b"
 PORT=5150
 HOST="0.0.0.0"
-TP_SIZE=2
+TP_SIZE=1
 GPU_UTIL=0.90
 MAX_NUM_SEQS=128
 NUM_BATCHED_TOKENS=8192
@@ -58,7 +58,8 @@ vllm serve "${MODEL_NAME}" \
   --max-num-seqs "${MAX_NUM_SEQS}" \
   --max-num-batched-tokens "${NUM_BATCHED_TOKENS}"   \
   --gpu-memory-utilization "${GPU_UTIL}" \
-  --uvicorn-log-level error \
-  --disable-uvicorn-access-log \
+  --uvicorn-log-level info \
+  --disable-access-log-for-endpoints /health,/metrics \
   --trust-remote-code 2>&1 | tee -a "${log_file}"
 # --disable-log-stats
+# --disable-uvicorn-access-log   # re-add this to silence all request logs
