@@ -6,8 +6,8 @@
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=48G
-#SBATCH -C "vram40|vram48|vram80"
+#SBATCH --constraint=vram40|vram48|vram80
+#SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
 
@@ -20,9 +20,9 @@ fi
 module load conda/latest
 conda activate ragenv
 
-module load cuda/12.6
+# module load cuda/12.6
 
-nvidia-smi
+# nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
@@ -50,18 +50,18 @@ mkdir -p logs "$OUTDIR"
 
 # --- Server mode: HTTP client to a running vLLM server (recommended) ---
 # Start vLLM server first, then export VLLM_API_BASE and sbatch --export=ALL
-run_server() {
-  python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL" $COMMON $EXTRA "$@"
-}
+# run_server() {
+#   python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL" $COMMON $EXTRA "$@"
+# }
 
 # To use a separate (smaller) model for document generation, start a second
 # vLLM server on a different port and export DOC_VLLM_API_BASE, then replace
 # the run_server definition above with this one:
-# run_server() {
-#   python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" \
-#     --doc-model-mode server --doc-vllm-api-base "$DOC_VLLM_API_BASE" \
-#     --model-name "$MODEL" $COMMON $EXTRA "$@"
-# }
+run_server() {
+  python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" \
+    --doc-model-mode server --doc-vllm-api-base "$DOC_VLLM_API_BASE" \
+    --model-name "$MODEL" $COMMON $EXTRA "$@"
+}
 
 # --- Smoke test (1 question, 2 rounds) ---
 # Uncomment the block below to quickly verify the server connection and pipeline logic.
@@ -82,7 +82,7 @@ run_server() {
 # --- Production runs ---
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
 # Replace All, Replace One, Search
-run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
+#run_server --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --num-iterations 10 --output-path "$OUTDIR/local_replace_all.json"
 
 #run_server --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
 
