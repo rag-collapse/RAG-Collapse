@@ -461,6 +461,10 @@ def run_pipeline() -> None:
             "store", "question_obj", "convergence_signatures", "active",
         )
 
+    total_questions = min(max_questions, len(dataset)) if max_questions is not None else len(dataset)
+    if is_search(variant):
+        print(f"[Init] Building retrieval stores for {total_questions} question(s) (embedding on CPU — this may take a few minutes)...", flush=True)
+
     states: List[_QState] = []
     for q_idx, row in enumerate(dataset):
         if max_questions is not None and q_idx >= max_questions:
@@ -483,6 +487,8 @@ def run_pipeline() -> None:
             ref_docs = references_to_documents(s.references, iteration=0)
             s.store.add_documents(ref_docs)
             s.current_docs = s.store.search(s.question_text, k=SEARCH_TOP_K)
+            if (q_idx + 1) % 50 == 0 or (q_idx + 1) == total_questions:
+                print(f"[Init] Embedded {q_idx + 1}/{total_questions} question(s).", flush=True)
         elif is_replace_one(variant):
             s.current_docs = get_initial_documents_replace_one(s.references)
             s.store = None
