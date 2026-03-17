@@ -17,6 +17,8 @@ from pipeline.config import (
     is_replace_one,
     is_search,
     SEARCH_TOP_K,
+    SEARCH_CHUNK_SIZE,
+    SEARCH_CHUNK_OVERLAP,
 )
 from pipeline.context_builder import (
     HybridContextConfig,
@@ -133,6 +135,39 @@ def _infer_citation_ids_via_retrieval_loo(
     return fallback[: min(2, max_ids)]
 
 
+def _paraphrase_reference_dataset(
+    dataset: List[Dict[str, Any]],
+    llm: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Rewrite human-authored reference docs through the same document-creation step used
+    for model answers so both document sources share the same surface style.
+    """
+    conversations: List[List[Dict[str, str]]] = []
+    ref_locations: List[tuple[int, int]] = []
+
+    for row_idx, row in enumerate(dataset):
+        for ref_idx, ref in enumerate(row.get("references", []) or []):
+            text = (ref.get("text") or "").strip()
+            if not text:
+                continue
+            conversations.append(get_create_document_conversation(question=row.get("question", ""), answer=text))
+            ref_locations.append((row_idx, ref_idx))
+
+    if not conversations:
+        return dataset
+
+    paraphrased_texts = llm.inference_batch(conversations)
+    rewritten_dataset = []
+    for row in dataset:
+        rewritten_dataset.append({**row, "references": [dict(ref) for ref in row.get("references", []) or []]})
+
+    for (row_idx, ref_idx), paraphrased_text in zip(ref_locations, paraphrased_texts):
+        rewritten_dataset[row_idx]["references"][ref_idx]["text"] = paraphrased_text
+
+    return rewritten_dataset
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RAG collapse pipeline")
 
@@ -155,7 +190,6 @@ def parse_args():
         required=True,
         help="Model identifier",
     )
-
     # Generation params (applies to both modes)
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--max-tokens", type=int, default=512)
@@ -238,6 +272,11 @@ def parse_args():
         help="Character limit per document",
     )
     parser.add_argument(
+        "--paraphrase-reference-docs",
+        action="store_true",
+        help="Rewrite human-written reference docs through the create-document prompt before iteration 0.",
+    )
+    parser.add_argument(
         "--max-questions",
         type=int,
         default=None,
@@ -259,6 +298,24 @@ def parse_args():
         "--search-embedding-model",
         default="all-MiniLM-L6-v2",
         help="Embedding model: for local mode = SentenceTransformer name (e.g. all-MiniLM-L6-v2); for api = LiteLLM model name.",
+    )
+    parser.add_argument(
+        "--search-top-k",
+        type=int,
+        default=SEARCH_TOP_K,
+        help="Number of top chunks to retrieve per round in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-size",
+        type=int,
+        default=SEARCH_CHUNK_SIZE,
+        help="Character size of each text chunk when indexing documents in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-overlap",
+        type=int,
+        default=SEARCH_CHUNK_OVERLAP,
+        help="Character overlap between consecutive chunks in the search variant (default: %(default)s).",
     )
     parser.add_argument(
         "--max-iterations",
@@ -343,12 +400,18 @@ def run_pipeline() -> None:
     output_path = args.output_path
     num_runs = args.num_runs
     chars_per_doc = args.chars_per_doc
+    paraphrase_reference_docs = bool(args.paraphrase_reference_docs)
     max_questions = args.max_questions
     variant = args.pipeline_variant
     citations_enabled = bool(args.enable_citations)
     citation_max_docs = max(1, int(getattr(args, "citation_max_docs", 6)))
     citation_top_m = max(1, int(getattr(args, "citation_top_m", 4)))
     citation_change_threshold = float(getattr(args, "citation_change_threshold", 0.18))
+
+    # Search retrieval settings (used only for search variant)
+    search_top_k = args.search_top_k
+    search_chunk_size = args.search_chunk_size
+    search_chunk_overlap = args.search_chunk_overlap
 
     # Round count per variant; optional cap for quick tests
     num_iterations = get_rounds_for_variant(variant)
@@ -427,6 +490,7 @@ def run_pipeline() -> None:
         "num_iterations": num_iterations,
         "num_runs_per_iteration": num_runs,
         "citations_enabled": citations_enabled,
+        "reference_docs_paraphrased": paraphrase_reference_docs,
     }
     if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
@@ -436,6 +500,10 @@ def run_pipeline() -> None:
     if args.doc_model_mode is not None:
         experiments_metadata["doc_model"] = doc_model_name
         experiments_metadata["doc_model_mode"] = args.doc_model_mode
+    if is_search(variant):
+        experiments_metadata["search_top_k"] = search_top_k
+        experiments_metadata["search_chunk_size"] = search_chunk_size
+        experiments_metadata["search_chunk_overlap"] = search_chunk_overlap
     experiments: Dict[str, Any] = {
         "experiment_metadata": experiments_metadata,
         "questions": [],
@@ -448,6 +516,14 @@ def run_pipeline() -> None:
             embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
         else:
             embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
+
+    if paraphrase_reference_docs:
+        # Normalize the surface form of human-written references using the same
+        # document-creation step applied to model-generated answers.
+        dataset = _paraphrase_reference_dataset(
+            dataset,
+            doc_llm,
+        )
 
     # -------------------------
     # Initialize per-question state
@@ -483,10 +559,14 @@ def run_pipeline() -> None:
         }
 
         if is_search(variant):
-            s.store = ChunkedRetrievalStore(embed_fn=embed_fn)
+            s.store = ChunkedRetrievalStore(
+                embed_fn=embed_fn,
+                chunk_size=search_chunk_size,
+                chunk_overlap=search_chunk_overlap,
+            )
             ref_docs = references_to_documents(s.references, iteration=0)
             s.store.add_documents(ref_docs)
-            s.current_docs = s.store.search(s.question_text, k=SEARCH_TOP_K)
+            s.current_docs = s.store.search(s.question_text, k=search_top_k)
             if (q_idx + 1) % 50 == 0 or (q_idx + 1) == total_questions:
                 print(f"[Init] Embedded {q_idx + 1}/{total_questions} question(s).", flush=True)
         elif is_replace_one(variant):
@@ -666,7 +746,7 @@ def run_pipeline() -> None:
                 answers = per_question_answers[i]
                 if is_replace_one(variant) or is_search(variant):
                     answers = [random.choice(answers)]
-                convos = [get_create_document_conversation(content=ans) for ans in answers]
+                convos = [get_create_document_conversation(question=active[i].question_text, answer=ans) for ans in answers]
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))
 
@@ -690,6 +770,7 @@ def run_pipeline() -> None:
                     question_text=s.question_text,
                     store=s.store,
                     hybrid_config=hybrid_config,
+                    search_top_k=search_top_k,
                 )
 
     # Collect results (preserve original question order)

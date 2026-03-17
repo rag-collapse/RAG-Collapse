@@ -1,14 +1,17 @@
 _CREATE_DOCUMENT_SYSTEM_PROMPT = """You are a professional content writer who creates web articles, blog posts, and reviews in various styles."""
 
-_CREATE_DOCUMENT_USER_PROMPT = """Your task is to generate a complete web document based on the provided source content.
+_CREATE_DOCUMENT_USER_PROMPT = """Your task is to generate a complete web document based on the provided content.
 
-You will be given source content about a topic. Your job is to expand this into a full, well-written document that could appear on a website or blog. Think of writing in styles like articles, blog posts, reviews, news, etc.
+You will be given a question and an answer. Your job is to expand this into a full, well-written document that could appear on a website or blog. Think of writing in styles like articles, blog posts, reviews, news, etc. Think of the most suitable format.
 
-Here is the source content to base your document on:
-{content}
+Here is the question:
+{question}
+
+Here is the answer:
+{answer}
 
 Instructions:
-- Transform the source content into a polished, engaging document suitable for web publication
+- Transform the content into a polished, engaging document suitable for web publication
 - Write in a tone, similar to what you'd find on popular web publications
 - Output ONLY the document text in plain text format - no meta-commentary, explanations, or markdown formatting
 - Stay focused on the topic provided in the source content
@@ -30,7 +33,7 @@ Instructions:
 """
 
 
-def get_create_document_conversation(content: str) -> list[dict[str, str]]:
+def get_create_document_conversation(question: str, answer: str) -> list[dict[str, str]]:
     """
     Create a conversation prompt for generating a web document from source content. The outputs can be passed to inference_batch method to get a response.
     """
@@ -39,7 +42,7 @@ def get_create_document_conversation(content: str) -> list[dict[str, str]]:
         {"role": "system", "content": _CREATE_DOCUMENT_SYSTEM_PROMPT},
         {
             "role": "user",
-            "content": _CREATE_DOCUMENT_USER_PROMPT.format(content=content),
+            "content": _CREATE_DOCUMENT_USER_PROMPT.format(question=question, answer=answer),
         },
     ]
 
