@@ -85,6 +85,48 @@ def get_context_str_from_docs(
             context_parts.append(f"Context {i + 1}:\n{content}")
     return "\n\n".join(context_parts)
 
+_AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool. Before answering, use the retrieve tool to search for relevant information. You may call it multiple times with different queries if needed. Once you have gathered enough context, provide a concise, accurate answer based solely on what you retrieved."""
+
+_AGENTIC_RAG_USER_PROMPT = """Question: {question}
+
+Use the retrieve tool to find relevant context, then answer the question. Output ONLY the answer in plain text format - no meta-commentary or markdown formatting."""
+
+
+def get_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
+    """
+    Build the initial conversation for the agentic_rag variant.
+    No documents are injected — the model uses the retrieve tool to fetch context on its own.
+    """
+    return [
+        {"role": "system", "content": _AGENTIC_RAG_SYSTEM_PROMPT},
+        {"role": "user", "content": _AGENTIC_RAG_USER_PROMPT.format(question=question)},
+    ]
+
+
+# Tool spec for the agentic_rag retrieve tool (OpenAI function-calling format).
+# vLLM requires --enable-auto-tool-choice --tool-call-parser hermes for Qwen2.5.
+RETRIEVE_TOOL_SPEC = {
+    "type": "function",
+    "function": {
+        "name": "retrieve",
+        "description": (
+            "Search the document store for passages relevant to a query. "
+            "Call this one or more times before answering to gather context. "
+            "Returns the top matching text chunks from the knowledge base."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "A natural-language search query.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
 # Example usage, comment out and run python formatters.py to test
 
 # if __name__ == "__main__":
