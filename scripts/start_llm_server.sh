@@ -29,8 +29,12 @@ export NCCL_DEBUG=ERROR
 export TORCH_CPP_LOG_LEVEL=ERROR
 export GLOG_minloglevel=3
 
-MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
-SERVED_MODEL_NAME="qwen2.5-14b"
+# If serving for document generation
+# CHANGE TO Qwen/Qwen2.5-7B-Instruct
+# Don't forget to change job name in the header as well
+
+MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
+SERVED_MODEL_NAME="qwen2.5-7b"
 PORT=5150
 HOST="0.0.0.0"
 TP_SIZE=1
@@ -50,16 +54,24 @@ echo "Reachable at:      http://${FQDN}:${PORT}/v1"
 } | tee "${log_file}"
 
 # Start server in the foreground — Slurm keeps the allocation alive
+# If you are using a reasoning model, you need to put the --reasoning-parser deepseek_r1 after the first line
+# example
+# vllm serve "${MODEL_NAME}" \
+#   --reasoning-parser deepseek_r1 \
+#   --host "${HOST}" \
+# no need to change deepseek_r1 part, it seems to be universal
+
 vllm serve "${MODEL_NAME}" \
   --host "${HOST}" \
   --port "${PORT}" \
   --served-model-name "${SERVED_MODEL_NAME}" \
   --tensor-parallel-size "${TP_SIZE}" \
   --max-num-seqs "${MAX_NUM_SEQS}" \
-  --max-num-batched-tokens "${NUM_BATCHED_TOKENS}"   \
+  --max-num-batched-tokens "${NUM_BATCHED_TOKENS}" \
   --gpu-memory-utilization "${GPU_UTIL}" \
   --uvicorn-log-level info \
-  --disable-access-log-for-endpoints /health,/metrics \
   --trust-remote-code 2>&1 | tee -a "${log_file}"
+
+# --disable-access-log-for-endpoints /health,/metrics \
 # --disable-log-stats
 # --disable-uvicorn-access-log   # re-add this to silence all request logs
