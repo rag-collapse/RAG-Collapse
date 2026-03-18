@@ -17,6 +17,8 @@ from pipeline.config import (
     is_replace_one,
     is_search,
     SEARCH_TOP_K,
+    SEARCH_CHUNK_SIZE,
+    SEARCH_CHUNK_OVERLAP,
 )
 from pipeline.context_builder import (
     HybridContextConfig,
@@ -133,6 +135,39 @@ def _infer_citation_ids_via_retrieval_loo(
     return fallback[: min(2, max_ids)]
 
 
+def _paraphrase_reference_dataset(
+    dataset: List[Dict[str, Any]],
+    llm: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Rewrite human-authored reference docs through the same document-creation step used
+    for model answers so both document sources share the same surface style.
+    """
+    conversations: List[List[Dict[str, str]]] = []
+    ref_locations: List[tuple[int, int]] = []
+
+    for row_idx, row in enumerate(dataset):
+        for ref_idx, ref in enumerate(row.get("references", []) or []):
+            text = (ref.get("text") or "").strip()
+            if not text:
+                continue
+            conversations.append(get_create_document_conversation(question=row.get("question", ""), answer=text))
+            ref_locations.append((row_idx, ref_idx))
+
+    if not conversations:
+        return dataset
+
+    paraphrased_texts = llm.inference_batch(conversations)
+    rewritten_dataset = []
+    for row in dataset:
+        rewritten_dataset.append({**row, "references": [dict(ref) for ref in row.get("references", []) or []]})
+
+    for (row_idx, ref_idx), paraphrased_text in zip(ref_locations, paraphrased_texts):
+        rewritten_dataset[row_idx]["references"][ref_idx]["text"] = paraphrased_text
+
+    return rewritten_dataset
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RAG collapse pipeline")
 
@@ -141,20 +176,50 @@ def parse_args():
     # -------------------------
     parser.add_argument(
         "--model-mode",
-        choices=["api", "local"],
+        choices=["api", "local", "server"],
         required=True,
-        help="Run mode for the model",
+        help="Run mode: 'api' (LiteLLM/proprietary), 'local' (in-process vLLM), 'server' (HTTP client to vLLM server)",
+    )
+    parser.add_argument(
+        "--vllm-api-base",
+        default=None,
+        help="vLLM server base URL (required for --model-mode server), e.g. http://host:5150/v1",
     )
     parser.add_argument(
         "--model-name",
         required=True,
         help="Model identifier",
     )
-
     # Generation params (applies to both modes)
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--top-p", type=float, default=0.9)
+
+    # -------------------------
+    # Document generation model (optional; falls back to main LLM if not set)
+    # -------------------------
+    parser.add_argument(
+        "--doc-model-mode",
+        choices=["api", "local", "server"],
+        default=None,
+        help="Model mode for document generation. Omit to reuse the main model.",
+    )
+    parser.add_argument(
+        "--doc-vllm-api-base",
+        default=None,
+        help="vLLM server base URL for doc generation (required when --doc-model-mode server).",
+    )
+    parser.add_argument(
+        "--doc-model-name",
+        default=None,
+        help="Model identifier for doc generation. Defaults to --model-name.",
+    )
+    parser.add_argument("--doc-temperature", type=float, default=None,
+        help="Temperature for doc generation. Defaults to --temperature.")
+    parser.add_argument("--doc-max-tokens", type=int, default=None,
+        help="Max tokens for doc generation. Defaults to --max-tokens.")
+    parser.add_argument("--doc-top-p", type=float, default=None,
+        help="Top-p for doc generation. Defaults to --top-p.")
 
     # Local-only knobs (ignored for api mode)
     parser.add_argument("--max-model-len", type=int, default=8192)
@@ -207,6 +272,11 @@ def parse_args():
         help="Character limit per document",
     )
     parser.add_argument(
+        "--paraphrase-reference-docs",
+        action="store_true",
+        help="Rewrite human-written reference docs through the create-document prompt before iteration 0.",
+    )
+    parser.add_argument(
         "--max-questions",
         type=int,
         default=None,
@@ -228,6 +298,24 @@ def parse_args():
         "--search-embedding-model",
         default="all-MiniLM-L6-v2",
         help="Embedding model: for local mode = SentenceTransformer name (e.g. all-MiniLM-L6-v2); for api = LiteLLM model name.",
+    )
+    parser.add_argument(
+        "--search-top-k",
+        type=int,
+        default=SEARCH_TOP_K,
+        help="Number of top chunks to retrieve per round in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-size",
+        type=int,
+        default=SEARCH_CHUNK_SIZE,
+        help="Character size of each text chunk when indexing documents in the search variant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--search-chunk-overlap",
+        type=int,
+        default=SEARCH_CHUNK_OVERLAP,
+        help="Character overlap between consecutive chunks in the search variant (default: %(default)s).",
     )
     parser.add_argument(
         "--max-iterations",
@@ -303,16 +391,27 @@ def run_pipeline() -> None:
     """
     args = parse_args()
 
+    if args.model_mode == "server" and not args.vllm_api_base:
+        raise SystemExit("ERROR: --vllm-api-base is required when --model-mode=server")
+    if args.doc_model_mode == "server" and not args.doc_vllm_api_base:
+        raise SystemExit("ERROR: --doc-vllm-api-base is required when --doc-model-mode=server")
+
     dataset_path = args.dataset_path
     output_path = args.output_path
     num_runs = args.num_runs
     chars_per_doc = args.chars_per_doc
+    paraphrase_reference_docs = bool(args.paraphrase_reference_docs)
     max_questions = args.max_questions
     variant = args.pipeline_variant
     citations_enabled = bool(args.enable_citations)
     citation_max_docs = max(1, int(getattr(args, "citation_max_docs", 6)))
     citation_top_m = max(1, int(getattr(args, "citation_top_m", 4)))
     citation_change_threshold = float(getattr(args, "citation_change_threshold", 0.18))
+
+    # Search retrieval settings (used only for search variant)
+    search_top_k = args.search_top_k
+    search_chunk_size = args.search_chunk_size
+    search_chunk_overlap = args.search_chunk_overlap
 
     # Round count per variant; optional cap for quick tests
     num_iterations = get_rounds_for_variant(variant)
@@ -337,19 +436,20 @@ def run_pipeline() -> None:
     # Initialize model (CLI-driven)
     # -------------------------
     tp_size = getattr(args, "tensor_parallel_size", 1) or 1
-    # vLLM handles tensor parallelism internally (spawns its own processes), so we don't need torch.distributed.run
-    # Just pass tensor_parallel_size to vLLM and it will use all GPUs visible via CUDA_VISIBLE_DEVICES
-    cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
-    print(f"[GPU Config] CUDA_VISIBLE_DEVICES={cuda_devices}, tensor_parallel_size={tp_size}")
-    if tp_size > 1:
-        import subprocess
-        try:
-            result = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                gpu_count = len([line for line in result.stdout.strip().split('\n') if 'GPU' in line])
-                print(f"[GPU Config] Detected {gpu_count} GPU(s) via nvidia-smi")
-        except Exception:
-            pass
+    if args.model_mode != "server":
+        # vLLM handles tensor parallelism internally (spawns its own processes), so we don't need torch.distributed.run
+        # Just pass tensor_parallel_size to vLLM and it will use all GPUs visible via CUDA_VISIBLE_DEVICES
+        cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
+        print(f"[GPU Config] CUDA_VISIBLE_DEVICES={cuda_devices}, tensor_parallel_size={tp_size}")
+        if tp_size > 1:
+            import subprocess
+            try:
+                result = subprocess.run(["nvidia-smi", "--list-gpus"], capture_output=True, text=True, timeout=2)
+                if result.returncode == 0:
+                    gpu_count = len([line for line in result.stdout.strip().split('\n') if 'GPU' in line])
+                    print(f"[GPU Config] Detected {gpu_count} GPU(s) via nvidia-smi")
+            except Exception:
+                pass
     llm, resolved_model_name = build_llm(
         model_mode=args.model_mode,
         model_name=args.model_name,
@@ -361,7 +461,28 @@ def run_pipeline() -> None:
         cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
         require_gpu=not args.allow_no_gpu,
         tensor_parallel_size=tp_size,
+        api_base=args.vllm_api_base,
     )
+    print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
+
+    if args.doc_model_mode is not None:
+        doc_llm, doc_model_name = build_llm(
+            model_mode=args.doc_model_mode,
+            model_name=args.doc_model_name or args.model_name,
+            temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
+            max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
+            top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
+            api_base=args.doc_vllm_api_base,
+            max_model_len=args.max_model_len,
+            gpu_memory_utilization=args.gpu_mem_util,
+            cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            require_gpu=not args.allow_no_gpu,
+            tensor_parallel_size=tp_size,
+        )
+        print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
+    else:
+        doc_llm = llm
+        doc_model_name = resolved_model_name
 
     experiments_metadata: Dict[str, Any] = {
         "model": resolved_model_name,
@@ -369,12 +490,20 @@ def run_pipeline() -> None:
         "num_iterations": num_iterations,
         "num_runs_per_iteration": num_runs,
         "citations_enabled": citations_enabled,
+        "reference_docs_paraphrased": paraphrase_reference_docs,
     }
     if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
         experiments_metadata["num_db_docs"] = args.num_db_docs
         experiments_metadata["db_doc_selection"] = args.db_doc_selection
         experiments_metadata["synth_doc_selection"] = args.synth_doc_selection
+    if args.doc_model_mode is not None:
+        experiments_metadata["doc_model"] = doc_model_name
+        experiments_metadata["doc_model_mode"] = args.doc_model_mode
+    if is_search(variant):
+        experiments_metadata["search_top_k"] = search_top_k
+        experiments_metadata["search_chunk_size"] = search_chunk_size
+        experiments_metadata["search_chunk_overlap"] = search_chunk_overlap
     experiments: Dict[str, Any] = {
         "experiment_metadata": experiments_metadata,
         "questions": [],
@@ -388,6 +517,14 @@ def run_pipeline() -> None:
         else:
             embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
 
+    if paraphrase_reference_docs:
+        # Normalize the surface form of human-written references using the same
+        # document-creation step applied to model-generated answers.
+        dataset = _paraphrase_reference_dataset(
+            dataset,
+            doc_llm,
+        )
+
     # -------------------------
     # Initialize per-question state
     # -------------------------
@@ -399,6 +536,10 @@ def run_pipeline() -> None:
             "q_idx", "question_text", "references", "current_docs",
             "store", "question_obj", "convergence_signatures", "active",
         )
+
+    total_questions = min(max_questions, len(dataset)) if max_questions is not None else len(dataset)
+    if is_search(variant):
+        print(f"[Init] Building retrieval stores for {total_questions} question(s) (embedding on CPU — this may take a few minutes)...", flush=True)
 
     states: List[_QState] = []
     for q_idx, row in enumerate(dataset):
@@ -418,10 +559,16 @@ def run_pipeline() -> None:
         }
 
         if is_search(variant):
-            s.store = ChunkedRetrievalStore(embed_fn=embed_fn)
+            s.store = ChunkedRetrievalStore(
+                embed_fn=embed_fn,
+                chunk_size=search_chunk_size,
+                chunk_overlap=search_chunk_overlap,
+            )
             ref_docs = references_to_documents(s.references, iteration=0)
             s.store.add_documents(ref_docs)
-            s.current_docs = s.store.search(s.question_text, k=SEARCH_TOP_K)
+            s.current_docs = s.store.search(s.question_text, k=search_top_k)
+            if (q_idx + 1) % 50 == 0 or (q_idx + 1) == total_questions:
+                print(f"[Init] Embedded {q_idx + 1}/{total_questions} question(s).", flush=True)
         elif is_replace_one(variant):
             s.current_docs = get_initial_documents_replace_one(s.references)
             s.store = None
@@ -459,7 +606,9 @@ def run_pipeline() -> None:
             prompt_docs_by_question.append(prompt_docs)
             batch_conversations.extend([conversation] * num_runs)
 
+        print(f"[Iter {it + 1}/{num_iterations}] Sending {len(batch_conversations)} answer requests ({len(active)} question(s) × {num_runs} runs)...", flush=True)
         all_answers = llm.inference_batch(batch_conversations)
+        print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
 
         # Slice answers back to per-question groups
         offset = 0
@@ -597,11 +746,13 @@ def run_pipeline() -> None:
                 answers = per_question_answers[i]
                 if is_replace_one(variant) or is_search(variant):
                     answers = [random.choice(answers)]
-                convos = [get_create_document_conversation(content=ans) for ans in answers]
+                convos = [get_create_document_conversation(question=active[i].question_text, answer=ans) for ans in answers]
                 doc_batch.extend(convos)
                 runs_per_q.append(len(convos))
 
-            all_doc_texts = llm.inference_batch(doc_batch)
+            print(f"[Iter {it + 1}/{num_iterations}] Creating {len(doc_batch)} documents...", flush=True)
+            all_doc_texts = doc_llm.inference_batch(doc_batch)
+            print(f"[Iter {it + 1}/{num_iterations}] Document creation complete.", flush=True)
 
             # Slice back and update each question's docs for next iteration
             offset = 0
@@ -619,6 +770,7 @@ def run_pipeline() -> None:
                     question_text=s.question_text,
                     store=s.store,
                     hybrid_config=hybrid_config,
+                    search_top_k=search_top_k,
                 )
 
     # Collect results (preserve original question order)
@@ -635,6 +787,11 @@ def run_pipeline() -> None:
         llm.shutdown()
     except Exception:
         pass
+    if doc_llm is not llm:
+        try:
+            doc_llm.shutdown()
+        except Exception:
+            pass
 
     print(f"Wrote {output_path}")
 
