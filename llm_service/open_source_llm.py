@@ -113,8 +113,6 @@ class OpenSourceLLM(CommonLLM):
         """Properly shutdown the vLLM engine."""
         del self.llm
         gc.collect()
-
-
 class EmbeddingModel:
     def __init__(
         self, model_name: str, batch_size: int = 32, cache_dir: str = None

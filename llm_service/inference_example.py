@@ -1,14 +1,6 @@
 import numpy as np
 from open_source_llm import OpenSourceLLM, EmbeddingModel
-from batch_examples import inference_example 
-
-def chat_template_example(llm: OpenSourceLLM) -> str:
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello! Can you tell me a joke?"},
-    ]
-    prompt = llm.apply_chat_template(messages, add_generation_prompt=True)
-    return prompt
+from batch_examples import inference_example
 
 
 def embedding_example(
@@ -41,13 +33,13 @@ def embedding_example(
 
 
 if __name__ == "__main__":
+    # Reads VLLM_API_BASE from environment (set before running this script).
+    # e.g. export VLLM_API_BASE="http://gypsum-gpu188.unity.rc.umass.edu:5150/v1"
     llm = OpenSourceLLM(
-        model_name="Qwen/Qwen2.5-7B-Instruct",
+        model_name="qwen2.5-14b",
         temperature=0.7,
         max_tokens=1024,
         top_p=0.9,
-        gpu_memory_utilization=0.7,
-        max_model_len=8192
     )
 
     embedding_model = EmbeddingModel(
@@ -62,13 +54,6 @@ if __name__ == "__main__":
         outputs = inference_example(llm)
         for i, output in enumerate(outputs):
             print(f"Output {i + 1}: {output}")
-
-        print("=== Chat Template Example ===")
-        prompt = chat_template_example(llm)
-        print("Prompt:", prompt)
-        print(
-            "PS: Any prompts to the LLMs gets parsed into a special format called chat template. It is a string not a list. Lists are used in APIs to handle conversations easier, this is abstracted in API calls, but not in local LLMs."
-        )
 
         print("=== Embedding Example ===")
         embeddings = embedding_example(llm, embedding_model)
@@ -86,7 +71,5 @@ if __name__ == "__main__":
         print(embedding_model.similarity_batch(embeddings, embeddings))
 
     finally:
-        # Clean up vLLM engine processes
-        llm.shutdown()
         embedding_model.shutdown()
-        print("\nCleaned up LLM resources.")
+        print("\nCleaned up embedding model resources.")
