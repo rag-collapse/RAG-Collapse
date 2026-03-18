@@ -39,6 +39,7 @@ We support three **document-setting variants** (set via `--pipeline-variant`):
 - **Replace All** (`hybrid` with `--num-synth-docs 10 --num-db-docs 0`): Each round the model sees only *synthetic* docs (from its own prior outputs, expanded into web-style articles via a dedicated prompt). Round 0 uses the question's references; from round 1 onward context is 10 synthetic docs. **10 rounds.**
 - **Replace One** (`replace_one`): Start with the question's references (up to 10). Each round, replace exactly one slot in that list with one new AI-generated doc; the list evolves over **20 rounds.**
 - **Search** (`search`): Each round the model sees the top-k chunks from a vector store (chunked docs, embedded with SentenceTransformer by default). New generated docs are added to the store each round. **30 rounds.**
+- **Agentic RAG** (`agentic_rag`): Same as search — vector store seeded from references, new AI-generated docs added each round — but instead of pre-fetching top-k into the prompt, the model is given a `retrieve(query)` tool and decides what to search on its own. **30 rounds.**
 
 **Feedback step:** Each answer is passed through a "create document" prompt (see `formatters.py`) so the model produces a full web-style article; that text becomes the synthetic document(s) for the next iteration.
 
@@ -144,6 +145,9 @@ python -u pipeline.py \
 - `--search-top-k`: Number of top chunks retrieved per round in the search variant (default: `10`).
 - `--search-chunk-size`: Character size of each text chunk when indexing documents in the search variant (default: `500`).
 - `--search-chunk-overlap`: Character overlap between consecutive chunks in the search variant (default: `50`).
+- `--agentic-max-tool-calls`: Max retrieve tool calls per answer in `agentic_rag` variant (default: `10`). The model can call `retrieve` up to this many times before being forced to produce a final answer.
+
+> **Note:** The vLLM server must be started with `--enable-auto-tool-choice --tool-call-parser hermes` for the `agentic_rag` variant to work (Qwen2.5 family). See `scripts/start_llm_server.sh` for details and alternative parsers for other model families.
 
 ### Quick smoke test (1 question, 2 rounds)
 
@@ -167,6 +171,11 @@ python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --mod
 python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name qwen2.5-14b \
   --pipeline-variant search --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
   --output-path experiment_outputs/test_search.json --max-questions 1 --max-iterations 2
+
+# Agentic RAG (requires --enable-auto-tool-choice --tool-call-parser hermes on the server)
+python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name qwen2.5-14b \
+  --pipeline-variant agentic_rag --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
+  --output-path experiment_outputs/test_agentic_rag.json --max-questions 1 --max-iterations 2
 ```
 
 **Local mode** (no server needed; requires GPU):

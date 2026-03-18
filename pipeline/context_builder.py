@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pipeline.config import PIPELINE_VARIANTS, is_hybrid, is_replace_one, is_search, SEARCH_TOP_K
+from pipeline.config import PIPELINE_VARIANTS, is_hybrid, is_replace_one, is_search, is_agentic_rag, SEARCH_TOP_K
 from pipeline.feedback_loop import (
     answers_to_documents,
     next_docs_replace_one,
@@ -91,6 +91,13 @@ def get_next_documents(
     if is_search(variant):
         if store is None or question_text is None:
             raise ValueError("search variant requires store and question_text")
+        new_docs = answers_to_documents(document_texts, iteration=iteration)
+        store.add_documents(new_docs)
+        return store.search(question_text, k=search_top_k)
+
+    if is_agentic_rag(variant):
+        if store is None or question_text is None:
+            raise ValueError("agentic_rag variant requires store and question_text")
         new_docs = answers_to_documents(document_texts, iteration=iteration)
         store.add_documents(new_docs)
         return store.search(question_text, k=search_top_k)
