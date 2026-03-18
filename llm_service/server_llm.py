@@ -1,5 +1,6 @@
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
 import os
 from .common_llm import CommonLLM
 
@@ -96,3 +97,106 @@ class ServerLLM(CommonLLM):
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_chat_complete, conversations))
+
+    def inference_agentic_single(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        tool_executor: "Callable[[str, dict], str]",
+        max_tool_calls: int = 10,
+    ) -> str:
+        """
+        Single agentic loop: call the model, execute any tool calls it makes,
+        append results, and repeat until finish_reason is 'stop' or max_tool_calls
+        is exhausted (in which case one final call is made with tool_choice='none').
+
+        tool_executor(name, args_dict) -> str
+            Executes a named tool with parsed arguments and returns a plain-text result.
+
+        Server must be started with:
+            --enable-auto-tool-choice --tool-call-parser hermes   (Qwen2.5 family)
+        For other models:
+            --tool-call-parser mistral                             (Mistral / Mixtral)
+            --tool-call-parser llama3_json                         (Llama-3.x)
+            --enable-auto-tool-choice --tool-call-parser deepseek_v3 (DeepSeek-V3 / R1)
+        """
+        import json
+        history = list(messages)
+
+        for _ in range(max_tool_calls):
+            response = self.client.chat.completions.create(
+                model=self.served_model_name,
+                messages=history,
+                tools=tools,
+                tool_choice="auto",
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                top_p=self.top_p,
+            )
+            choice = response.choices[0]
+
+            if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
+                # Model produced a final answer
+                return choice.message.content or ""
+
+            # Append assistant message with tool_calls
+            history.append({
+                "role": "assistant",
+                "content": choice.message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in choice.message.tool_calls
+                ],
+            })
+
+            # Execute each tool call and append results
+            for tc in choice.message.tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments)
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                result = tool_executor(tc.function.name, args)
+                history.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result,
+                })
+
+        # max_tool_calls exhausted — force a final text answer
+        response = self.client.chat.completions.create(
+            model=self.served_model_name,
+            messages=history,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            top_p=self.top_p,
+            tool_choice="none",
+        )
+        return response.choices[0].message.content or ""
+
+    def inference_agentic_batch(
+        self,
+        conversations: list[list[dict]],
+        tools: list[dict],
+        tool_executors: "list[Callable[[str, dict], str]]",
+        max_tool_calls: int = 10,
+    ) -> list[str]:
+        """
+        Parallel agentic inference across a batch of conversations.
+        Each conversation gets its own tool_executor (so per-question retrieval stores
+        are isolated). Uses the same ThreadPoolExecutor pattern as inference_batch.
+
+        conversations[i] and tool_executors[i] must correspond.
+        """
+        def _run(args):
+            messages, executor = args
+            return self.inference_agentic_single(messages, tools, executor, max_tool_calls)
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            return list(executor.map(_run, zip(conversations, tool_executors)))

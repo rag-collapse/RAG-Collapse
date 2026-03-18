@@ -61,6 +61,13 @@ echo "Reachable at:      http://${FQDN}:${PORT}/v1"
 #   --host "${HOST}" \
 # no need to change deepseek_r1 part, it seems to be universal
 
+# Tool-call parser (required for agentic_rag variant):
+#   Qwen2.5 family  → hermes         (current, matches tokenizer_config.json)
+#   Mistral/Mixtral → mistral
+#   Llama-3.x       → llama3_json
+#   DeepSeek-V3/R1  → deepseek_v3   (also needs --reasoning-parser deepseek_r1 for R1)
+# Remove these two flags if you are NOT using the agentic_rag pipeline variant.
+
 vllm serve "${MODEL_NAME}" \
   --host "${HOST}" \
   --port "${PORT}" \
@@ -70,7 +77,9 @@ vllm serve "${MODEL_NAME}" \
   --max-num-batched-tokens "${NUM_BATCHED_TOKENS}" \
   --gpu-memory-utilization "${GPU_UTIL}" \
   --uvicorn-log-level info \
-  --trust-remote-code 2>&1 | tee -a "${log_file}"
+  --trust-remote-code \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes 2>&1 | tee -a "${log_file}"
 
 # --disable-access-log-for-endpoints /health,/metrics \
 # --disable-log-stats

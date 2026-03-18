@@ -78,6 +78,9 @@ run_server() {
 #
 # run_server --pipeline-variant search --num-iterations 2 --max-questions 1 \
 #   --output-path experiment_outputs/smoke_test/search.json
+#
+# run_server --pipeline-variant agentic_rag --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/agentic_rag.json
 
 # --- Production runs ---
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
@@ -87,6 +90,8 @@ run_server() {
 #run_server --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
 
 #run_server --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
+
+#run_server --pipeline-variant agentic_rag --num-iterations 30 --output-path "$OUTDIR/local_agentic_rag.json"
 
 
 # --- Local mode: in-process vLLM (needs GPU allocation in this job) ---

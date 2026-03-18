@@ -1,8 +1,8 @@
 """
 Pipeline variant configuration: how many rounds we run and how many references we use.
 
-We support three variants (set via --pipeline-variant). Two of them are "hybrid" in the
-sense that context is built from both references and model-generated docs; the third is
+We support four variants (set via --pipeline-variant). Two of them are "hybrid" in the
+sense that context is built from both references and model-generated docs; the others are
 retrieval-based.
 
   hybrid (pool mix)
@@ -22,6 +22,11 @@ retrieval-based.
   search
     Not hybrid: each round we run vector search over all docs (original + generated so
     far) and feed the top results to the model. We run 30 rounds; no limit on refs.
+
+  agentic_rag
+    Same as search — vector store seeded from references, new AI-generated docs added each
+    round — but instead of pre-fetching top-k into the prompt, the model is given a
+    retrieve(query) tool and decides what to search on its own. 30 rounds.
 """
 
 from typing import Final
@@ -30,8 +35,9 @@ from typing import Final
 PIPELINE_HYBRID: Final[str] = "hybrid"
 PIPELINE_REPLACE_ONE: Final[str] = "replace_one"
 PIPELINE_SEARCH: Final[str] = "search"
+PIPELINE_AGENTIC_RAG: Final[str] = "agentic_rag"
 
-PIPELINE_VARIANTS: Final[tuple] = (PIPELINE_HYBRID, PIPELINE_REPLACE_ONE, PIPELINE_SEARCH)
+PIPELINE_VARIANTS: Final[tuple] = (PIPELINE_HYBRID, PIPELINE_REPLACE_ONE, PIPELINE_SEARCH, PIPELINE_AGENTIC_RAG)
 
 # Rounds per variant (experiment defaults from paper)
 ROUNDS_REPLACE_ALL: Final[int] = 10   # used for hybrid (any synth/db combo)
@@ -42,6 +48,7 @@ ROUNDS_BY_VARIANT: Final[dict] = {
     PIPELINE_HYBRID: ROUNDS_REPLACE_ALL,
     PIPELINE_REPLACE_ONE: ROUNDS_REPLACE_ONE,
     PIPELINE_SEARCH: ROUNDS_SEARCH,
+    PIPELINE_AGENTIC_RAG: ROUNDS_SEARCH,
 }
 
 # Minimum number of references (citations) per question; questions with fewer are skipped
@@ -57,6 +64,9 @@ RUNS_PER_ROUND: Final[int] = 10
 SEARCH_TOP_K: Final[int] = 10
 SEARCH_CHUNK_SIZE: Final[int] = 500
 SEARCH_CHUNK_OVERLAP: Final[int] = 50
+
+# Agentic RAG
+AGENTIC_MAX_TOOL_CALLS: Final[int] = 10
 
 
 def get_rounds_for_variant(variant: str) -> int:
@@ -83,3 +93,8 @@ def is_search(variant: str) -> bool:
 def is_hybrid(variant: str) -> bool:
     """True if variant is hybrid (needs hybrid_config, initial_docs from refs)."""
     return variant == PIPELINE_HYBRID
+
+
+def is_agentic_rag(variant: str) -> bool:
+    """True if variant is agentic_rag (model retrieves context via tool calls)."""
+    return variant == PIPELINE_AGENTIC_RAG
