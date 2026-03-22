@@ -635,12 +635,14 @@ def run_pipeline() -> None:
                 f"({len(active)} question(s) × {num_runs} runs, max {agentic_max_tool_calls} tool calls each)...",
                 flush=True,
             )
-            all_answers = llm.inference_agentic_batch(
+            agentic_results = llm.inference_agentic_batch(
                 agentic_conversations,
                 tools=[RETRIEVE_TOOL_SPEC],
                 tool_executors=agentic_executors,
                 max_tool_calls=agentic_max_tool_calls,
             )
+            all_answers = [ans for ans, _ in agentic_results]
+            all_tool_calls_used = [n for _, n in agentic_results]
             print(f"[Iter {it + 1}/{num_iterations}] Agentic inference complete.", flush=True)
 
         else:
@@ -667,17 +669,25 @@ def run_pipeline() -> None:
             all_answers = llm.inference_batch(batch_conversations)
             print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
 
-        # Slice answers back to per-question groups
+        # Slice answers (and tool call counts for agentic) back to per-question groups
         offset = 0
         per_question_answers: List[List[str]] = []
+        per_question_tool_calls: List[List[int]] = []
+        _tool_calls_src = all_tool_calls_used if is_agentic_rag(variant) else None
         for _ in active:
             per_question_answers.append(all_answers[offset : offset + num_runs])
+            per_question_tool_calls.append(
+                _tool_calls_src[offset : offset + num_runs]
+                if _tool_calls_src is not None
+                else [0] * num_runs
+            )
             offset += num_runs
 
         # --- Step 2: record iteration results and check convergence ---
         still_active_for_docs: List[int] = []  # indices into active[]
         for i, s in enumerate(active):
             answers = per_question_answers[i]
+            run_tool_calls = per_question_tool_calls[i]
             prompt_docs = prompt_docs_by_question[i]
             citation_index: List[Dict[str, Any]] = []
             docs_by_doc_id: Dict[str, Dict[str, Any]] = {}
@@ -748,7 +758,7 @@ def run_pipeline() -> None:
                         rerun_answers_by_citation_id[cid] = loo_rerun_cache[cache_key]
 
             runs = []
-            for r, ans in enumerate(answers):
+            for r, (ans, n_tool_calls) in enumerate(zip(answers, run_tool_calls)):
                 if not citations_enabled:
                     citation_ids = []
                 else:
@@ -761,16 +771,17 @@ def run_pipeline() -> None:
                         change_threshold=citation_change_threshold,
                         max_ids=citation_max_docs,
                     )
-                runs.append(
-                    {
-                        "run_id": f"{it}_{r}",
-                        "answer": ans,
-                        "citation_ids": citation_ids,
-                        "citations": _resolve_citations(citation_ids, citation_index)
-                        if citations_enabled
-                        else [],
-                    }
-                )
+                run_obj: Dict[str, Any] = {
+                    "run_id": f"{it}_{r}",
+                    "answer": ans,
+                    "citation_ids": citation_ids,
+                    "citations": _resolve_citations(citation_ids, citation_index)
+                    if citations_enabled
+                    else [],
+                }
+                if is_agentic_rag(variant):
+                    run_obj["tool_calls_used"] = n_tool_calls
+                runs.append(run_obj)
 
             iteration_obj: Dict[str, Any] = {
                 "iteration_number": it,
