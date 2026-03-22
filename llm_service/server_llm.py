@@ -104,7 +104,7 @@ class ServerLLM(CommonLLM):
         tools: list[dict],
         tool_executor: "Callable[[str, dict], str]",
         max_tool_calls: int = 10,
-    ) -> str:
+    ) -> "tuple[str, int]":
         """
         Single agentic loop: call the model, execute any tool calls it makes,
         append results, and repeat until finish_reason is 'stop' or max_tool_calls
@@ -112,6 +112,9 @@ class ServerLLM(CommonLLM):
 
         tool_executor(name, args_dict) -> str
             Executes a named tool with parsed arguments and returns a plain-text result.
+
+        Returns (answer, tool_calls_used) where tool_calls_used is the number of
+        retrieve tool-call rounds executed before the final answer.
 
         Server must be started with:
             --enable-auto-tool-choice --tool-call-parser hermes   (Qwen2.5 family)
@@ -122,6 +125,7 @@ class ServerLLM(CommonLLM):
         """
         import json
         history = list(messages)
+        tool_calls_used = 0
 
         for _ in range(max_tool_calls):
             response = self.client.chat.completions.create(
@@ -137,7 +141,9 @@ class ServerLLM(CommonLLM):
 
             if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
                 # Model produced a final answer
-                return choice.message.content or ""
+                return choice.message.content or "", tool_calls_used
+
+            tool_calls_used += 1
 
             # Append assistant message with tool_calls
             history.append({
@@ -178,7 +184,7 @@ class ServerLLM(CommonLLM):
             top_p=self.top_p,
             tool_choice="none",
         )
-        return response.choices[0].message.content or ""
+        return response.choices[0].message.content or "", tool_calls_used
 
     def inference_agentic_batch(
         self,
@@ -186,13 +192,15 @@ class ServerLLM(CommonLLM):
         tools: list[dict],
         tool_executors: "list[Callable[[str, dict], str]]",
         max_tool_calls: int = 10,
-    ) -> list[str]:
+    ) -> "list[tuple[str, int]]":
         """
         Parallel agentic inference across a batch of conversations.
         Each conversation gets its own tool_executor (so per-question retrieval stores
         are isolated). Uses the same ThreadPoolExecutor pattern as inference_batch.
 
         conversations[i] and tool_executors[i] must correspond.
+
+        Returns list of (answer, tool_calls_used) tuples.
         """
         def _run(args):
             messages, executor = args
