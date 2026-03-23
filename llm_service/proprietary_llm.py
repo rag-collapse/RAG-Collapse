@@ -1,4 +1,5 @@
 from litellm import completion, batch_completion #,_turn_on_debug
+from litellm.exceptions import BadRequestError as LiteLLMBadRequestError
 from .common_llm import CommonLLM
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
@@ -81,12 +82,27 @@ class ProprietaryLLM(CommonLLM):
         params = self._get_completion_params()
 
         for i in range(max_tool_calls):
-            response = completion(
-                messages=history,
-                tools=tools,
-                tool_choice="auto",
-                **params,
-            )
+            # First call: require at least one tool use; after that let the model decide.
+            tc_mode = "required" if i == 0 else "auto"
+            try:
+                response = completion(
+                    messages=history,
+                    tools=tools,
+                    tool_choice=tc_mode,
+                    **params,
+                )
+            except LiteLLMBadRequestError:
+                if tc_mode != "required":
+                    raise
+                # Upstream proxy (e.g. keymaker → Azure) doesn't support tool_choice="required".
+                # Fall back to "auto" for this call and all subsequent ones.
+                tc_mode = "auto"
+                response = completion(
+                    messages=history,
+                    tools=tools,
+                    tool_choice="auto",
+                    **params,
+                )
             choice = response.choices[0]
 
             if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:

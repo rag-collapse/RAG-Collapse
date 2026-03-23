@@ -170,16 +170,21 @@ def _paraphrase_reference_dataset(
     return rewritten_dataset
 
 
-def _make_retrieve_executor(store, k: int, chars_per_doc: int):
+def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks: list = None):
     """
     Return a tool_executor callable for the agentic_rag retrieve tool.
     Searches the given ChunkedRetrievalStore and formats results as 'Context N:' strings,
     matching the format used by build_rag_conversation so the model sees consistent context.
+
+    If retrieved_chunks is provided (a list passed by reference), every chunk returned
+    by a retrieve call is appended to it for post-hoc citation tracking.
     """
     def execute(name: str, args: dict) -> str:
         if name == "retrieve":
             query = args.get("query", "")
             chunks = store.search(query, k=k)
+            if retrieved_chunks is not None:
+                retrieved_chunks.extend(chunks)
             return get_context_str_from_docs(chunks, chars_per_doc=chars_per_doc, shuffle=False)
         return f"Unknown tool: {name}"
     return execute
@@ -623,11 +628,18 @@ def run_pipeline() -> None:
             # No documents are pre-injected into the prompt.
             agentic_conversations: List[List[Dict[str, str]]] = []
             agentic_executors = []
+            # per_question_run_chunks[q][r] = list of chunks retrieved during run r of question q
+            per_question_run_chunks: List[List[List[Dict[str, Any]]]] = []
             for s in active:
                 conv = build_agentic_rag_conversation(s.question_text)
-                executor_fn = _make_retrieve_executor(s.store, search_top_k, chars_per_doc)
-                agentic_conversations.extend([conv] * num_runs)
-                agentic_executors.extend([executor_fn] * num_runs)
+                run_chunks_for_q: List[List[Dict[str, Any]]] = []
+                for _ in range(num_runs):
+                    run_chunks: List[Dict[str, Any]] = []
+                    executor_fn = _make_retrieve_executor(s.store, search_top_k, chars_per_doc, run_chunks)
+                    agentic_conversations.append(conv)
+                    agentic_executors.append(executor_fn)
+                    run_chunks_for_q.append(run_chunks)
+                per_question_run_chunks.append(run_chunks_for_q)
                 prompt_docs_by_question.append([])  # no pre-fetched docs
 
             print(
@@ -684,6 +696,8 @@ def run_pipeline() -> None:
             offset += num_runs
 
         # --- Step 2: record iteration results and check convergence ---
+        if not is_agentic_rag(variant):
+            per_question_run_chunks = [[] for _ in active]
         still_active_for_docs: List[int] = []  # indices into active[]
         for i, s in enumerate(active):
             answers = per_question_answers[i]
@@ -692,6 +706,17 @@ def run_pipeline() -> None:
             citation_index: List[Dict[str, Any]] = []
             docs_by_doc_id: Dict[str, Dict[str, Any]] = {}
             citation_entry_by_id: Dict[int, Dict[str, Any]] = {}
+            # For agentic_rag, use docs retrieved via tool calls instead of prompt docs.
+            # Aggregate unique doc_ids across all runs, look up full docs from s.current_docs.
+            if citations_enabled and is_agentic_rag(variant):
+                run_chunks_for_q = per_question_run_chunks[i]
+                seen_doc_ids: set = set()
+                for run_chunks in run_chunks_for_q:
+                    for chunk in run_chunks:
+                        seen_doc_ids.add(chunk.get("doc_id", ""))
+                seen_doc_ids.discard("")
+                current_docs_by_id = {d.get("doc_id"): d for d in s.current_docs if d.get("doc_id")}
+                prompt_docs = [current_docs_by_id[did] for did in seen_doc_ids if did in current_docs_by_id]
             if citations_enabled:
                 citation_index = [
                     {
