@@ -2,8 +2,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from llm_service.common_llm import CommonLLM
 from llm_service.proprietary_llm import ProprietaryLLM
-from llm_service.open_source_llm import OpenSourceLLM
 from llm_service.server_llm import ServerLLM
+# OpenSourceLLM is imported lazily inside build_llm (local branch only) to avoid
+# pulling in the full vLLM import chain (which requires llguidance and a GPU)
+# when running in api or server mode.
 
 
 def build_llm(
@@ -54,6 +56,7 @@ def build_llm(
                     "model_mode=local requires a GPU, but cuda_visible_devices is empty."
                 )
 
+        from llm_service.open_source_llm import OpenSourceLLM  # lazy: avoids vLLM import on api/server paths
         llm = OpenSourceLLM(
             model_name=name,
             temperature=temperature,

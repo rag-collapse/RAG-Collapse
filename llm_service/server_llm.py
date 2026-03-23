@@ -127,7 +127,7 @@ class ServerLLM(CommonLLM):
         history = list(messages)
         tool_calls_used = 0
 
-        for _ in range(max_tool_calls):
+        for i in range(max_tool_calls):
             response = self.client.chat.completions.create(
                 model=self.served_model_name,
                 messages=history,
