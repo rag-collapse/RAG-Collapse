@@ -87,15 +87,19 @@ def get_context_str_from_docs(
 
 _AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool called `retrieve`.
 
-Rules you must follow:
-1. ALWAYS call `retrieve` at least once before answering — never answer from memory alone.
-2. For questions involving multiple entities, comparisons, or lists (e.g. "best X in Y", "differences between A and B", "top N ..."), call `retrieve` separately for each entity or sub-topic so you have specific evidence for each.
-3. Only answer after you have retrieved sufficient context. Base your answer solely on what you retrieved.
-4. Output ONLY the final answer — no tool call commentary, no markdown, no preamble."""
+You MUST follow this retrieval strategy before answering:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Retrieve broadly: Call `retrieve` with a broad query covering the overall question.
+Step 3 — Retrieve specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, you MUST call `retrieve` separately for each one — do not consolidate into a single query. Each entity or sub-topic deserves its own targeted retrieval call.
+Step 4 — Answer: Synthesize what you retrieved into a concise answer. Base your answer solely on retrieved context — never on memory.
+
+Additional rules:
+- ALWAYS call `retrieve` at least once before answering.
+- Output ONLY the final answer in plain text — no tool call commentary, no markdown, no preamble."""
 
 _AGENTIC_RAG_USER_PROMPT = """Question: {question}
 
-Call the retrieve tool to gather relevant context (use multiple queries if the question involves several entities or topics), then answer based solely on what you retrieved. Output ONLY the answer in plain text."""
+Decompose the question. If it involves multiple entities, topics, or a ranked list, call `retrieve` separately for each — one query is not enough to cover all aspects. Then answer based solely on what you retrieved. Output ONLY the answer in plain text."""
 
 
 def get_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
