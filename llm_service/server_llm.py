@@ -128,11 +128,13 @@ class ServerLLM(CommonLLM):
         tool_calls_used = 0
 
         for i in range(max_tool_calls):
+            # First call: require at least one tool use; after that let the model decide.
+            tc_mode = "required" if i == 0 else "auto"
             response = self.client.chat.completions.create(
                 model=self.served_model_name,
                 messages=history,
                 tools=tools,
-                tool_choice="auto",
+                tool_choice=tc_mode,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
