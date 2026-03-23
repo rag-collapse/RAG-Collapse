@@ -85,11 +85,17 @@ def get_context_str_from_docs(
             context_parts.append(f"Context {i + 1}:\n{content}")
     return "\n\n".join(context_parts)
 
-_AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool. Before answering, use the retrieve tool to search for relevant information. You may call it multiple times with different queries if needed. Once you have gathered enough context, provide a concise, accurate answer based solely on what you retrieved."""
+_AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool called `retrieve`.
+
+Rules you must follow:
+1. ALWAYS call `retrieve` at least once before answering — never answer from memory alone.
+2. For questions involving multiple entities, comparisons, or lists (e.g. "best X in Y", "differences between A and B", "top N ..."), call `retrieve` separately for each entity or sub-topic so you have specific evidence for each.
+3. Only answer after you have retrieved sufficient context. Base your answer solely on what you retrieved.
+4. Output ONLY the final answer — no tool call commentary, no markdown, no preamble."""
 
 _AGENTIC_RAG_USER_PROMPT = """Question: {question}
 
-Use the retrieve tool to find relevant context, then answer the question. Output ONLY the answer in plain text format - no meta-commentary or markdown formatting."""
+Call the retrieve tool to gather relevant context (use multiple queries if the question involves several entities or topics), then answer based solely on what you retrieved. Output ONLY the answer in plain text."""
 
 
 def get_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
