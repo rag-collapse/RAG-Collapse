@@ -1,6 +1,9 @@
 from litellm import completion, batch_completion #,_turn_on_debug
 from .common_llm import CommonLLM
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
 import os
+import json
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -58,3 +61,85 @@ class ProprietaryLLM(CommonLLM):
 
     def inference_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
         return self.generate_batch(conversations)
+
+    def inference_agentic_single(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        tool_executor: "Callable[[str, dict], str]",
+        max_tool_calls: int = 10,
+    ) -> "tuple[str, int]":
+        """
+        Single agentic loop using litellm (OpenAI-compatible API).
+        Mirrors ServerLLM.inference_agentic_single — same message format,
+        same tool_choice escalation strategy.
+
+        Returns (answer, tool_calls_used).
+        """
+        history = list(messages)
+        tool_calls_used = 0
+        params = self._get_completion_params()
+
+        for i in range(max_tool_calls):
+            response = completion(
+                messages=history,
+                tools=tools,
+                tool_choice="auto",
+                **params,
+            )
+            choice = response.choices[0]
+
+            if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
+                return choice.message.content or "", tool_calls_used
+
+            tool_calls_used += 1
+
+            history.append({
+                "role": "assistant",
+                "content": choice.message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in choice.message.tool_calls
+                ],
+            })
+
+            for tc in choice.message.tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments)
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                result = tool_executor(tc.function.name, args)
+                history.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result,
+                })
+
+        # max_tool_calls exhausted — force a final text answer
+        response = completion(messages=history, tool_choice="none", **params)
+        return response.choices[0].message.content or "", tool_calls_used
+
+    def inference_agentic_batch(
+        self,
+        conversations: list[list[dict]],
+        tools: list[dict],
+        tool_executors: "list[Callable[[str, dict], str]]",
+        max_tool_calls: int = 10,
+    ) -> "list[tuple[str, int]]":
+        """
+        Parallel agentic inference across a batch of conversations.
+        Returns list of (answer, tool_calls_used) tuples.
+        """
+        def _run(args):
+            messages, executor = args
+            return self.inference_agentic_single(messages, tools, executor, max_tool_calls)
+
+        with ThreadPoolExecutor() as executor:
+            return list(executor.map(_run, zip(conversations, tool_executors)))
