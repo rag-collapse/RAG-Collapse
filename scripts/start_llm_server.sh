@@ -4,7 +4,7 @@
 #SBATCH --mem=32g
 #SBATCH --nodes=1
 #SBATCH -p gpu,gpu-preempt
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --constraint=vram40|vram48|vram80
 #SBATCH -t 48:00:00
 #SBATCH -o outputs/slurm-%j-vllm-qwen2.5-14b.out
@@ -33,11 +33,11 @@ export GLOG_minloglevel=3
 # CHANGE TO Qwen/Qwen2.5-7B-Instruct
 # Don't forget to change job name in the header as well
 
-MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
-SERVED_MODEL_NAME="qwen2.5-7b"
+MODEL_NAME="Qwen/Qwen2.5-14B-Instruct"
+SERVED_MODEL_NAME="qwen2.5-14b"
 PORT=5150
 HOST="0.0.0.0"
-TP_SIZE=1
+TP_SIZE=2
 GPU_UTIL=0.90
 MAX_NUM_SEQS=128
 NUM_BATCHED_TOKENS=8192
