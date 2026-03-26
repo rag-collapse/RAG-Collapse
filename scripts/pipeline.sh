@@ -20,9 +20,9 @@ fi
 module load conda/latest
 conda activate ragenv
 
-# module load cuda/12.6
+module load cuda/12.6
 
-# nvidia-smi
+nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
