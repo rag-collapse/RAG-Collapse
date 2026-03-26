@@ -25,6 +25,7 @@ class ServerLLM(CommonLLM):
         api_base: str = None,
         api_key: str = "EMPTY",
         max_workers: int = 96,
+        enable_thinking: bool = True,
         **kwargs,
     ) -> None:
         self.model_name = model_name
@@ -32,6 +33,10 @@ class ServerLLM(CommonLLM):
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.max_workers = max_workers
+        # extra_body is passed to every chat completion request.
+        # Set enable_thinking=False for Qwen3/Qwen3.5 non-reasoning mode.
+        # Requires the server to be started with --reasoning-parser qwen3.
+        self._extra_body = {"chat_template_kwargs": {"enable_thinking": False}} if not enable_thinking else {}
 
         api_base = api_base or os.environ.get("VLLM_API_BASE")
         if api_base is None:
@@ -92,6 +97,7 @@ class ServerLLM(CommonLLM):
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
+                extra_body=self._extra_body or None,
             )
             return response.choices[0].message.content
 
@@ -138,6 +144,7 @@ class ServerLLM(CommonLLM):
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
+                extra_body=self._extra_body or None,
             )
             choice = response.choices[0]
 
