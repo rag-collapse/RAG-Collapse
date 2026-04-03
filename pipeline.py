@@ -10,6 +10,7 @@ except ImportError:
     def record(fn):
         return fn  # no-op when not running under torch.distributed.run
 
+from pipeline.ai_detector import AIDetector
 from pipeline.config import (
     PIPELINE_VARIANTS,
     get_rounds_for_variant,
@@ -170,7 +171,7 @@ def _paraphrase_reference_dataset(
     return rewritten_dataset
 
 
-def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks: list = None):
+def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks: list = None, ai_detector=None):
     """
     Return a tool_executor callable for the agentic_rag retrieve tool.
     Searches the given ChunkedRetrievalStore and formats results as 'Context N:' strings,
@@ -178,6 +179,9 @@ def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks:
 
     If retrieved_chunks is provided (a list passed by reference), every chunk returned
     by a retrieve call is appended to it for post-hoc citation tracking.
+
+    If ai_detector is provided, each context label is annotated with the AI-generated
+    percentage using desklib/ai-text-detector-v1.01 (LABEL_1 probability).
     """
     def execute(name: str, args: dict) -> str:
         if name == "retrieve":
@@ -185,7 +189,11 @@ def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks:
             chunks = store.search(query, k=k)
             if retrieved_chunks is not None:
                 retrieved_chunks.extend(chunks)
-            return get_context_str_from_docs(chunks, chars_per_doc=chars_per_doc, shuffle=False)
+            ai_scores = None
+            if ai_detector is not None:
+                truncated = [(doc.get("text") or "")[:chars_per_doc] for doc in chunks]
+                ai_scores = ai_detector.score_texts(truncated)
+            return get_context_str_from_docs(chunks, chars_per_doc=chars_per_doc, shuffle=False, ai_scores=ai_scores)
         return f"Unknown tool: {name}"
     return execute
 
@@ -404,6 +412,19 @@ def parse_args():
         default=0.18,
         help="Minimum answer-change score to keep a doc as a citation after leave-one-out rerun.",
     )
+
+    # -------------------------
+    # AI detection mitigation
+    # -------------------------
+    parser.add_argument(
+        "--enable-ai-detection-mitigation-prompt",
+        action="store_true",
+        help=(
+            "Annotate each context document with its AI-generated probability from "
+            "desklib/ai-text-detector-v1.01 before injecting it into the prompt, "
+            "e.g. 'Context 1 - 72%% AI-Generated'. Runs on CPU."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -520,6 +541,7 @@ def run_pipeline() -> None:
         "num_runs_per_iteration": num_runs,
         "citations_enabled": citations_enabled,
         "reference_docs_paraphrased": paraphrase_reference_docs,
+        "ai_detection_mitigation_prompt": bool(getattr(args, "enable_ai_detection_mitigation_prompt", False)),
     }
     if is_hybrid(variant):
         experiments_metadata["num_synth_docs"] = args.num_synth_docs
@@ -547,6 +569,12 @@ def run_pipeline() -> None:
             embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
         else:
             embed_fn = make_embed_fn_litellm(model=args.search_embedding_model)
+
+    # AI detection mitigation: annotate context docs with LABEL_1 probability
+    ai_detector = None
+    if getattr(args, "enable_ai_detection_mitigation_prompt", False):
+        ai_detector = AIDetector()
+        print("[AIDetector] AI detection mitigation prompt enabled.", flush=True)
 
     if paraphrase_reference_docs:
         # Normalize the surface form of human-written references using the same
@@ -635,7 +663,7 @@ def run_pipeline() -> None:
                 run_chunks_for_q: List[List[Dict[str, Any]]] = []
                 for _ in range(num_runs):
                     run_chunks: List[Dict[str, Any]] = []
-                    executor_fn = _make_retrieve_executor(s.store, search_top_k, chars_per_doc, run_chunks)
+                    executor_fn = _make_retrieve_executor(s.store, search_top_k, chars_per_doc, run_chunks, ai_detector)
                     agentic_conversations.append(conv)
                     agentic_executors.append(executor_fn)
                     run_chunks_for_q.append(run_chunks)
@@ -664,11 +692,16 @@ def run_pipeline() -> None:
                 prompt_docs = list(s.current_docs)
                 if citations_enabled and len(prompt_docs) > 1:
                     random.shuffle(prompt_docs)
+                doc_ai_scores = None
+                if ai_detector is not None:
+                    truncated_texts = [(doc.get("text") or "")[:chars_per_doc] for doc in prompt_docs]
+                    doc_ai_scores = ai_detector.score_texts(truncated_texts)
                 conversation = build_rag_conversation(
                     question=s.question_text,
                     docs=prompt_docs,
                     chars_per_doc=chars_per_doc,
                     shuffle_docs=not citations_enabled,
+                    ai_scores=doc_ai_scores,
                 )
                 prompt_docs_by_question.append(prompt_docs)
                 batch_conversations.extend([conversation] * num_runs)
