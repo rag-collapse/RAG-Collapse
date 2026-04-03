@@ -1,4 +1,4 @@
-from openai import OpenAI, InternalServerError
+from openai import OpenAI, InternalServerError, BadRequestError
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import os
@@ -148,16 +148,32 @@ class ServerLLM(CommonLLM):
         for i in range(max_tool_calls):
             # First call: require at least one tool use; after that let the model decide.
             tc_mode = "required" if i == 0 else "auto"
-            response = _create_with_retry(
-                model=self.served_model_name,
-                messages=history,
-                tools=tools,
-                tool_choice=tc_mode,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                top_p=self.top_p,
-                extra_body=self._extra_body or None,
-            )
+            try:
+                response = _create_with_retry(
+                    model=self.served_model_name,
+                    messages=history,
+                    tools=tools,
+                    tool_choice=tc_mode,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    top_p=self.top_p,
+                    extra_body=self._extra_body or None,
+                )
+            except BadRequestError:
+                if tc_mode != "required":
+                    raise
+                # Model/parser doesn't support tool_choice="required" (e.g. llama3_json).
+                # Fall back to "auto" for this and all subsequent calls.
+                response = _create_with_retry(
+                    model=self.served_model_name,
+                    messages=history,
+                    tools=tools,
+                    tool_choice="auto",
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    top_p=self.top_p,
+                    extra_body=self._extra_body or None,
+                )
             choice = response.choices[0]
 
             if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
