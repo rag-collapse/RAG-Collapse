@@ -1,7 +1,9 @@
-from openai import OpenAI
+from openai import OpenAI, InternalServerError
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import os
+import threading
+import time
 from .common_llm import CommonLLM
 
 
@@ -130,13 +132,23 @@ class ServerLLM(CommonLLM):
             --enable-auto-tool-choice --tool-call-parser deepseek_v3 (DeepSeek-V3 / R1)
         """
         import json
+
+        def _create_with_retry(**kwargs):
+            for attempt in range(3):
+                try:
+                    return self.client.chat.completions.create(**kwargs)
+                except InternalServerError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 ** attempt)
+
         history = list(messages)
         tool_calls_used = 0
 
         for i in range(max_tool_calls):
             # First call: require at least one tool use; after that let the model decide.
             tc_mode = "required" if i == 0 else "auto"
-            response = self.client.chat.completions.create(
+            response = _create_with_retry(
                 model=self.served_model_name,
                 messages=history,
                 tools=tools,
@@ -185,7 +197,7 @@ class ServerLLM(CommonLLM):
                 })
 
         # max_tool_calls exhausted — force a final text answer
-        response = self.client.chat.completions.create(
+        response = _create_with_retry(
             model=self.served_model_name,
             messages=history,
             temperature=self.temperature,
@@ -211,9 +223,12 @@ class ServerLLM(CommonLLM):
 
         Returns list of (answer, tool_calls_used) tuples.
         """
+        sem = threading.Semaphore(32)
+
         def _run(args):
             messages, executor = args
-            return self.inference_agentic_single(messages, tools, executor, max_tool_calls)
+            with sem:
+                return self.inference_agentic_single(messages, tools, executor, max_tool_calls)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_run, zip(conversations, tool_executors)))
