@@ -16,6 +16,7 @@ class AIDetector:
     def __init__(self, batch_size: int = 8) -> None:
         self._batch_size = batch_size
         self._pipe = None  # lazy init
+        self._single_label = False  # True when checkpoint has num_labels=1
 
     def _load(self) -> None:
         import torch
@@ -33,7 +34,6 @@ class AIDetector:
         # model directly to the pipeline (no from_pretrained on weights).
         config = AutoConfig.from_pretrained(self.MODEL_ID)
         tokenizer = AutoTokenizer.from_pretrained(self.MODEL_ID)
-        model = AutoModelForSequenceClassification.from_config(config)
 
         try:
             weights_path = hf_hub_download(self.MODEL_ID, "pytorch_model.bin")
@@ -43,6 +43,29 @@ class AIDetector:
             weights_path = hf_hub_download(self.MODEL_ID, "model.safetensors")
             state_dict = load_file(weights_path)
 
+        # The fine-tuned checkpoint may have a different num_labels than the config
+        # (e.g. num_labels=1 vs config's num_labels=2), which causes a shape mismatch
+        # even with strict=False. Detect the actual value from the classifier weight
+        # and patch the config before instantiating the model.
+        classifier_key = next(
+            (k for k in state_dict if k.endswith("classifier.weight") or k.endswith("out_proj.weight")),
+            None,
+        )
+        if classifier_key is not None:
+            actual_num_labels = state_dict[classifier_key].shape[0]
+            if actual_num_labels != config.num_labels:
+                print(
+                    f"[AIDetector] num_labels mismatch — config: {config.num_labels}, "
+                    f"checkpoint: {actual_num_labels}. Patching config.",
+                    flush=True,
+                )
+                config.num_labels = actual_num_labels
+                config.id2label = {i: f"LABEL_{i}" for i in range(actual_num_labels)}
+                config.label2id = {f"LABEL_{i}": i for i in range(actual_num_labels)}
+
+        self._single_label = config.num_labels == 1
+
+        model = AutoModelForSequenceClassification.from_config(config)
         model.load_state_dict(state_dict, strict=False)
         model.eval()
 
@@ -54,12 +77,15 @@ class AIDetector:
             truncation=True,
             batch_size=self._batch_size,
         )
-        print(f"[AIDetector] Loaded {self.MODEL_ID} on CPU.", flush=True)
+        print(f"[AIDetector] Loaded {self.MODEL_ID} on CPU (num_labels={config.num_labels}).", flush=True)
 
     def score_texts(self, texts: List[str]) -> List[float]:
         """
         Return LABEL_1 (AI-generated) probability for each text in [0.0, 1.0].
         Empty strings are given a score of 0.0 without being sent to the model.
+
+        When the checkpoint has num_labels=1 (single sigmoid output), the pipeline
+        score is P(AI-generated) directly.
         """
         if self._pipe is None:
             self._load()
@@ -75,7 +101,10 @@ class AIDetector:
         results = self._pipe(valid_texts)
 
         for idx, entry in zip(valid_indices, results):
-            if entry["label"] == "LABEL_1":
+            if self._single_label:
+                # num_labels=1: single sigmoid output, score = P(AI-generated)
+                scores[idx] = entry["score"]
+            elif entry["label"] == "LABEL_1":
                 scores[idx] = entry["score"]
             else:
                 scores[idx] = 1.0 - entry["score"]
