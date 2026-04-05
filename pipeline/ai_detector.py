@@ -18,48 +18,42 @@ class AIDetector:
         self._pipe = None  # lazy init
 
     def _load(self) -> None:
-        from transformers import pipeline as hf_pipeline
+        import torch
+        from huggingface_hub import hf_hub_download
+        from transformers import (
+            AutoConfig,
+            AutoTokenizer,
+            AutoModelForSequenceClassification,
+            pipeline as hf_pipeline,
+        )
+
+        # desklib/ai-text-detector-v1.01 was saved with an old transformers version.
+        # Transformers 4.46+ added _get_key_renaming_mapping which rejects its state dict
+        # as "corrupted". Bypass by loading weights manually and passing the instantiated
+        # model directly to the pipeline (no from_pretrained on weights).
+        config = AutoConfig.from_pretrained(self.MODEL_ID)
+        tokenizer = AutoTokenizer.from_pretrained(self.MODEL_ID)
+        model = AutoModelForSequenceClassification.from_config(config)
 
         try:
-            self._pipe = hf_pipeline(
-                "text-classification",
-                model=self.MODEL_ID,
-                device="cpu",
-                truncation=True,
-                batch_size=self._batch_size,
-            )
-        except ValueError:
-            # desklib/ai-text-detector-v1.01 was saved with an old transformers version.
-            # Newer transformers (v4.46+) added _get_key_renaming_mapping which rejects
-            # the state dict as "corrupted". Work around by loading weights manually.
-            import torch
-            from huggingface_hub import hf_hub_download
-            from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
+            weights_path = hf_hub_download(self.MODEL_ID, "pytorch_model.bin")
+            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+        except Exception:
+            from safetensors.torch import load_file
+            weights_path = hf_hub_download(self.MODEL_ID, "model.safetensors")
+            state_dict = load_file(weights_path)
 
-            config = AutoConfig.from_pretrained(self.MODEL_ID)
-            tokenizer = AutoTokenizer.from_pretrained(self.MODEL_ID)
-            model = AutoModelForSequenceClassification(config)
+        model.load_state_dict(state_dict, strict=False)
+        model.eval()
 
-            try:
-                weights_path = hf_hub_download(self.MODEL_ID, "pytorch_model.bin")
-                state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
-            except Exception:
-                from safetensors.torch import load_file
-                weights_path = hf_hub_download(self.MODEL_ID, "model.safetensors")
-                state_dict = load_file(weights_path)
-
-            model.load_state_dict(state_dict, strict=False)
-            model.eval()
-
-            self._pipe = hf_pipeline(
-                "text-classification",
-                model=model,
-                tokenizer=tokenizer,
-                device="cpu",
-                truncation=True,
-                batch_size=self._batch_size,
-            )
-
+        self._pipe = hf_pipeline(
+            "text-classification",
+            model=model,
+            tokenizer=tokenizer,
+            device="cpu",
+            truncation=True,
+            batch_size=self._batch_size,
+        )
         print(f"[AIDetector] Loaded {self.MODEL_ID} on CPU.", flush=True)
 
     def score_texts(self, texts: List[str]) -> List[float]:
