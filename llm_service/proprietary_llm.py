@@ -153,6 +153,12 @@ class ProprietaryLLM(CommonLLM):
         Parallel agentic inference across a batch of conversations.
         Returns list of (answer, tool_calls_used) tuples.
         """
+        if len(conversations) != len(tool_executors):
+            raise ValueError(
+                f"conversations and tool_executors must have the same length, "
+                f"got {len(conversations)} and {len(tool_executors)}"
+            )
+
         def _run(args):
             messages, executor = args
             return self.inference_agentic_single(messages, tools, executor, max_tool_calls)
