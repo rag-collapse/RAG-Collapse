@@ -48,8 +48,7 @@ mkdir -p logs "$OUT_DIR"
 
 EXPERIMENT_DIR="$INDIR"
 
-# Use the current generator model as the same-answer judge model by default.
-export SAME_ANSWER_MODEL_NAME="$MODEL_SUBDIR"
+export SAME_ANSWER_MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
 for base in local_search local_replace_one local_replace_all; do
   in_file="$EXPERIMENT_DIR/${base}.json"
