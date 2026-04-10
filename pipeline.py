@@ -16,9 +16,11 @@ from pipeline.config import (
     is_hybrid,
     is_replace_one,
     is_search,
+    is_agentic_rag,
     SEARCH_TOP_K,
     SEARCH_CHUNK_SIZE,
     SEARCH_CHUNK_OVERLAP,
+    AGENTIC_MAX_TOOL_CALLS,
 )
 from pipeline.context_builder import (
     HybridContextConfig,
@@ -27,12 +29,12 @@ from pipeline.context_builder import (
     get_next_documents,
 )
 from pipeline.data_loader import load_dataset, prepare_dataset
-from pipeline.prompt_builder import build_rag_conversation
+from pipeline.prompt_builder import build_rag_conversation, build_agentic_rag_conversation
 from pipeline.model_runner import build_llm
 from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
 from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
-from formatters import get_create_document_conversation
+from formatters import get_create_document_conversation, get_context_str_from_docs, RETRIEVE_TOOL_SPEC
 
 _WORD_RE = re.compile(r"[A-Za-z0-9']+")
 
@@ -166,6 +168,26 @@ def _paraphrase_reference_dataset(
         rewritten_dataset[row_idx]["references"][ref_idx]["text"] = paraphrased_text
 
     return rewritten_dataset
+
+
+def _make_retrieve_executor(store, k: int, chars_per_doc: int, retrieved_chunks: list = None):
+    """
+    Return a tool_executor callable for the agentic_rag retrieve tool.
+    Searches the given ChunkedRetrievalStore and formats results as 'Context N:' strings,
+    matching the format used by build_rag_conversation so the model sees consistent context.
+
+    If retrieved_chunks is provided (a list passed by reference), every chunk returned
+    by a retrieve call is appended to it for post-hoc citation tracking.
+    """
+    def execute(name: str, args: dict) -> str:
+        if name == "retrieve":
+            query = args.get("query", "")
+            chunks = store.search(query, k=k)
+            if retrieved_chunks is not None:
+                retrieved_chunks.extend(chunks)
+            return get_context_str_from_docs(chunks, chars_per_doc=chars_per_doc, shuffle=False)
+        return f"Unknown tool: {name}"
+    return execute
 
 
 def parse_args():
@@ -318,6 +340,12 @@ def parse_args():
         help="Character overlap between consecutive chunks in the search variant (default: %(default)s).",
     )
     parser.add_argument(
+        "--agentic-max-tool-calls",
+        type=int,
+        default=AGENTIC_MAX_TOOL_CALLS,
+        help="Maximum retrieve tool calls per answer in the agentic_rag variant (default: %(default)s).",
+    )
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=None,
@@ -412,6 +440,7 @@ def run_pipeline() -> None:
     search_top_k = args.search_top_k
     search_chunk_size = args.search_chunk_size
     search_chunk_overlap = args.search_chunk_overlap
+    agentic_max_tool_calls = args.agentic_max_tool_calls
 
     # Round count per variant; optional cap for quick tests
     num_iterations = get_rounds_for_variant(variant)
@@ -500,10 +529,12 @@ def run_pipeline() -> None:
     if args.doc_model_mode is not None:
         experiments_metadata["doc_model"] = doc_model_name
         experiments_metadata["doc_model_mode"] = args.doc_model_mode
-    if is_search(variant):
+    if is_search(variant) or is_agentic_rag(variant):
         experiments_metadata["search_top_k"] = search_top_k
         experiments_metadata["search_chunk_size"] = search_chunk_size
         experiments_metadata["search_chunk_overlap"] = search_chunk_overlap
+    if is_agentic_rag(variant):
+        experiments_metadata["agentic_max_tool_calls"] = agentic_max_tool_calls
     experiments: Dict[str, Any] = {
         "experiment_metadata": experiments_metadata,
         "questions": [],
@@ -511,7 +542,7 @@ def run_pipeline() -> None:
 
     # Search variant: build embed function (local defaults to HF_HOME cache; no API key needed)
     embed_fn = None
-    if is_search(variant):
+    if is_search(variant) or is_agentic_rag(variant):
         if args.search_embedding_mode == "local":
             embed_fn = make_embed_fn_local(model_name=args.search_embedding_model)
         else:
@@ -538,7 +569,7 @@ def run_pipeline() -> None:
         )
 
     total_questions = min(max_questions, len(dataset)) if max_questions is not None else len(dataset)
-    if is_search(variant):
+    if is_search(variant) or is_agentic_rag(variant):
         print(f"[Init] Building retrieval stores for {total_questions} question(s) (embedding on CPU — this may take a few minutes)...", flush=True)
 
     states: List[_QState] = []
@@ -558,7 +589,7 @@ def run_pipeline() -> None:
             "iterations": [],
         }
 
-        if is_search(variant):
+        if is_search(variant) or is_agentic_rag(variant):
             s.store = ChunkedRetrievalStore(
                 embed_fn=embed_fn,
                 chunk_size=search_chunk_size,
@@ -590,41 +621,103 @@ def run_pipeline() -> None:
             break
 
         # --- Step 1: batch sample_runs across all active questions ---
-        # Build one conversation per (question, run) and flatten into a single batch
-        batch_conversations: List[List[Dict[str, str]]] = []
         prompt_docs_by_question: List[List[Dict[str, Any]]] = []
-        for s in active:
-            prompt_docs = list(s.current_docs)
-            if citations_enabled and len(prompt_docs) > 1:
-                random.shuffle(prompt_docs)
-            conversation = build_rag_conversation(
-                question=s.question_text,
-                docs=prompt_docs,
-                chars_per_doc=chars_per_doc,
-                shuffle_docs=not citations_enabled,
+
+        if is_agentic_rag(variant):
+            # Agentic flow: model retrieves its own context via the retrieve tool.
+            # No documents are pre-injected into the prompt.
+            agentic_conversations: List[List[Dict[str, str]]] = []
+            agentic_executors = []
+            # per_question_run_chunks[q][r] = list of chunks retrieved during run r of question q
+            per_question_run_chunks: List[List[List[Dict[str, Any]]]] = []
+            for s in active:
+                conv = build_agentic_rag_conversation(s.question_text)
+                run_chunks_for_q: List[List[Dict[str, Any]]] = []
+                for _ in range(num_runs):
+                    run_chunks: List[Dict[str, Any]] = []
+                    executor_fn = _make_retrieve_executor(s.store, search_top_k, chars_per_doc, run_chunks)
+                    agentic_conversations.append(conv)
+                    agentic_executors.append(executor_fn)
+                    run_chunks_for_q.append(run_chunks)
+                per_question_run_chunks.append(run_chunks_for_q)
+                prompt_docs_by_question.append([])  # no pre-fetched docs
+
+            print(
+                f"[Iter {it + 1}/{num_iterations}] Sending {len(agentic_conversations)} agentic answer requests "
+                f"({len(active)} question(s) × {num_runs} runs, max {agentic_max_tool_calls} tool calls each)...",
+                flush=True,
             )
-            prompt_docs_by_question.append(prompt_docs)
-            batch_conversations.extend([conversation] * num_runs)
+            agentic_results = llm.inference_agentic_batch(
+                agentic_conversations,
+                tools=[RETRIEVE_TOOL_SPEC],
+                tool_executors=agentic_executors,
+                max_tool_calls=agentic_max_tool_calls,
+            )
+            all_answers = [ans for ans, _ in agentic_results]
+            all_tool_calls_used = [n for _, n in agentic_results]
+            print(f"[Iter {it + 1}/{num_iterations}] Agentic inference complete.", flush=True)
 
-        print(f"[Iter {it + 1}/{num_iterations}] Sending {len(batch_conversations)} answer requests ({len(active)} question(s) × {num_runs} runs)...", flush=True)
-        all_answers = llm.inference_batch(batch_conversations)
-        print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
+        else:
+            # Standard flow: pre-fetch docs and inject into prompt.
+            batch_conversations: List[List[Dict[str, str]]] = []
+            for s in active:
+                prompt_docs = list(s.current_docs)
+                if citations_enabled and len(prompt_docs) > 1:
+                    random.shuffle(prompt_docs)
+                conversation = build_rag_conversation(
+                    question=s.question_text,
+                    docs=prompt_docs,
+                    chars_per_doc=chars_per_doc,
+                    shuffle_docs=not citations_enabled,
+                )
+                prompt_docs_by_question.append(prompt_docs)
+                batch_conversations.extend([conversation] * num_runs)
 
-        # Slice answers back to per-question groups
+            print(
+                f"[Iter {it + 1}/{num_iterations}] Sending {len(batch_conversations)} answer requests "
+                f"({len(active)} question(s) × {num_runs} runs)...",
+                flush=True,
+            )
+            all_answers = llm.inference_batch(batch_conversations)
+            print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
+
+        # Slice answers (and tool call counts for agentic) back to per-question groups
         offset = 0
         per_question_answers: List[List[str]] = []
+        per_question_tool_calls: List[List[int]] = []
+        _tool_calls_src = all_tool_calls_used if is_agentic_rag(variant) else None
         for _ in active:
             per_question_answers.append(all_answers[offset : offset + num_runs])
+            per_question_tool_calls.append(
+                _tool_calls_src[offset : offset + num_runs]
+                if _tool_calls_src is not None
+                else [0] * num_runs
+            )
             offset += num_runs
 
         # --- Step 2: record iteration results and check convergence ---
+        if not is_agentic_rag(variant):
+            per_question_run_chunks = [[] for _ in active]
         still_active_for_docs: List[int] = []  # indices into active[]
         for i, s in enumerate(active):
             answers = per_question_answers[i]
+            run_tool_calls = per_question_tool_calls[i]
             prompt_docs = prompt_docs_by_question[i]
             citation_index: List[Dict[str, Any]] = []
             docs_by_doc_id: Dict[str, Dict[str, Any]] = {}
             citation_entry_by_id: Dict[int, Dict[str, Any]] = {}
+            # For agentic_rag, use docs retrieved via tool calls instead of prompt docs.
+            # Deduplicate directly from the retrieved chunks — they already carry all doc
+            # fields and may come from anywhere in the full store, not just s.current_docs.
+            if citations_enabled and is_agentic_rag(variant):
+                run_chunks_for_q = per_question_run_chunks[i]
+                retrieved_by_id: Dict[str, Dict[str, Any]] = {}
+                for run_chunks in run_chunks_for_q:
+                    for chunk in run_chunks:
+                        did = chunk.get("doc_id", "")
+                        if did and did not in retrieved_by_id:
+                            retrieved_by_id[did] = chunk
+                prompt_docs = list(retrieved_by_id.values())
             if citations_enabled:
                 citation_index = [
                     {
@@ -691,7 +784,7 @@ def run_pipeline() -> None:
                         rerun_answers_by_citation_id[cid] = loo_rerun_cache[cache_key]
 
             runs = []
-            for r, ans in enumerate(answers):
+            for r, (ans, n_tool_calls) in enumerate(zip(answers, run_tool_calls)):
                 if not citations_enabled:
                     citation_ids = []
                 else:
@@ -704,16 +797,17 @@ def run_pipeline() -> None:
                         change_threshold=citation_change_threshold,
                         max_ids=citation_max_docs,
                     )
-                runs.append(
-                    {
-                        "run_id": f"{it}_{r}",
-                        "answer": ans,
-                        "citation_ids": citation_ids,
-                        "citations": _resolve_citations(citation_ids, citation_index)
-                        if citations_enabled
-                        else [],
-                    }
-                )
+                run_obj: Dict[str, Any] = {
+                    "run_id": f"{it}_{r}",
+                    "answer": ans,
+                    "citation_ids": citation_ids,
+                    "citations": _resolve_citations(citation_ids, citation_index)
+                    if citations_enabled
+                    else [],
+                }
+                if is_agentic_rag(variant):
+                    run_obj["tool_calls_used"] = n_tool_calls
+                runs.append(run_obj)
 
             iteration_obj: Dict[str, Any] = {
                 "iteration_number": it,
@@ -744,7 +838,7 @@ def run_pipeline() -> None:
             runs_per_q: List[int] = []
             for i in still_active_for_docs:
                 answers = per_question_answers[i]
-                if is_replace_one(variant) or is_search(variant):
+                if is_replace_one(variant) or is_search(variant) or is_agentic_rag(variant):
                     answers = [random.choice(answers)]
                 convos = [get_create_document_conversation(question=active[i].question_text, answer=ans) for ans in answers]
                 doc_batch.extend(convos)
