@@ -1,4 +1,11 @@
-from openai import OpenAI, InternalServerError, BadRequestError
+from openai import (
+    OpenAI,
+    APIConnectionError,
+    APITimeoutError,
+    BadRequestError,
+    InternalServerError,
+    RateLimitError,
+)
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import os
@@ -137,7 +144,12 @@ class ServerLLM(CommonLLM):
             for attempt in range(3):
                 try:
                     return self.client.chat.completions.create(**kwargs)
-                except InternalServerError:
+                except (
+                    InternalServerError,   # 500 — vLLM transient crash
+                    RateLimitError,        # 429 — server backpressure
+                    APIConnectionError,    # network blip
+                    APITimeoutError,       # request timed out
+                ):
                     if attempt == 2:
                         raise
                     time.sleep(2 ** attempt)
@@ -241,6 +253,12 @@ class ServerLLM(CommonLLM):
 
         Returns list of (answer, tool_calls_used) tuples.
         """
+        if len(conversations) != len(tool_executors):
+            raise ValueError(
+                f"conversations and tool_executors must have the same length, "
+                f"got {len(conversations)} and {len(tool_executors)}"
+            )
+
         sem = threading.Semaphore(32)
 
         def _run(args):
