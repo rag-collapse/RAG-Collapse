@@ -740,16 +740,17 @@ def run_pipeline() -> None:
             docs_by_doc_id: Dict[str, Dict[str, Any]] = {}
             citation_entry_by_id: Dict[int, Dict[str, Any]] = {}
             # For agentic_rag, use docs retrieved via tool calls instead of prompt docs.
-            # Aggregate unique doc_ids across all runs, look up full docs from s.current_docs.
+            # Deduplicate directly from the retrieved chunks — they already carry all doc
+            # fields and may come from anywhere in the full store, not just s.current_docs.
             if citations_enabled and is_agentic_rag(variant):
                 run_chunks_for_q = per_question_run_chunks[i]
-                seen_doc_ids: set = set()
+                retrieved_by_id: Dict[str, Dict[str, Any]] = {}
                 for run_chunks in run_chunks_for_q:
                     for chunk in run_chunks:
-                        seen_doc_ids.add(chunk.get("doc_id", ""))
-                seen_doc_ids.discard("")
-                current_docs_by_id = {d.get("doc_id"): d for d in s.current_docs if d.get("doc_id")}
-                prompt_docs = [current_docs_by_id[did] for did in seen_doc_ids if did in current_docs_by_id]
+                        did = chunk.get("doc_id", "")
+                        if did and did not in retrieved_by_id:
+                            retrieved_by_id[did] = chunk
+                prompt_docs = list(retrieved_by_id.values())
             if citations_enabled:
                 citation_index = [
                     {
