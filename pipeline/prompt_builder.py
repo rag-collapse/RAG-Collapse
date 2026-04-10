@@ -31,6 +31,7 @@ from typing import Dict, List
 from formatters import (
     get_context_str_from_docs,
     get_rag_generation_conversation,
+    get_agentic_rag_conversation,
 )
 
 
@@ -55,3 +56,11 @@ def build_rag_conversation(
         context=context,
         question=question,
     )
+
+
+def build_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
+    """
+    Build the initial conversation for the agentic_rag variant.
+    No documents are pre-injected; the model calls the retrieve tool autonomously.
+    """
+    return get_agentic_rag_conversation(question)

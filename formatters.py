@@ -85,6 +85,58 @@ def get_context_str_from_docs(
             context_parts.append(f"Context {i + 1}:\n{content}")
     return "\n\n".join(context_parts)
 
+_AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool called `retrieve`.
+
+You MUST follow this retrieval strategy before answering:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Retrieve broadly: Call `retrieve` with a broad query covering the overall question.
+Step 3 — Retrieve specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, you MUST call `retrieve` separately for each one — do not consolidate into a single query. Each entity or sub-topic deserves its own targeted retrieval call.
+Step 4 — Answer: Synthesize what you retrieved into a concise answer. Base your answer solely on retrieved context — never on memory.
+
+Additional rules:
+- ALWAYS call `retrieve` at least once before answering.
+- Output ONLY the final answer in plain text — no tool call commentary, no markdown, no preamble."""
+
+_AGENTIC_RAG_USER_PROMPT = """Question: {question}
+
+Decompose the question. If it involves multiple entities, topics, or a ranked list, call `retrieve` separately for each — one query is not enough to cover all aspects. Then answer based solely on what you retrieved. Output ONLY the answer in plain text."""
+
+
+def get_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
+    """
+    Build the initial conversation for the agentic_rag variant.
+    No documents are injected — the model uses the retrieve tool to fetch context on its own.
+    """
+    return [
+        {"role": "system", "content": _AGENTIC_RAG_SYSTEM_PROMPT},
+        {"role": "user", "content": _AGENTIC_RAG_USER_PROMPT.format(question=question)},
+    ]
+
+
+# Tool spec for the agentic_rag retrieve tool (OpenAI function-calling format).
+# vLLM requires --enable-auto-tool-choice --tool-call-parser hermes for Qwen2.5.
+RETRIEVE_TOOL_SPEC = {
+    "type": "function",
+    "function": {
+        "name": "retrieve",
+        "description": (
+            "Search the document store for passages relevant to a query. "
+            "Call this one or more times before answering to gather context. "
+            "Returns the top matching text chunks from the knowledge base."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "A natural-language search query.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
 # Example usage, comment out and run python formatters.py to test
 
 # if __name__ == "__main__":

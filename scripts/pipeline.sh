@@ -20,9 +20,9 @@ fi
 module load conda/latest
 conda activate ragenv
 
-# module load cuda/12.6
+module load cuda/12.6
 
-# nvidia-smi
+nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
@@ -78,6 +78,9 @@ run_server() {
 #
 # run_server --pipeline-variant search --num-iterations 2 --max-questions 1 \
 #   --output-path experiment_outputs/smoke_test/search.json
+#
+# run_server --pipeline-variant agentic_rag --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/agentic_rag.json
 
 # --- Production runs ---
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
@@ -87,6 +90,8 @@ run_server() {
 #run_server --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
 
 #run_server --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
+
+#run_server --pipeline-variant agentic_rag --num-iterations 30 --output-path "$OUTDIR/local_agentic_rag.json"
 
 
 # --- Local mode: in-process vLLM (needs GPU allocation in this job) ---
@@ -105,3 +110,15 @@ run_server() {
 # run_api --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --output-path "$OUTDIR/api_hybrid_replace_all.json"
 # run_api --pipeline-variant hybrid --num-synth-docs 1 --num-db-docs 3 --output-path "$OUTDIR/api_hybrid_replace_one.json"
 # run_api --pipeline-variant search --output-path "$OUTDIR/api_search.json"
+
+# --- API agentic_rag smoke test (1 question, 2 iterations) ---
+# Requires API_KEY set in .env and MODEL_API pointing to an OpenAI-compatible model.
+# MODEL_API="openai/gpt4o"
+# run_api() { python -u pipeline.py --model-mode api --model-name "openai/gpt-4o" $COMMON "$@"; }
+# mkdir -p experiment_outputs/smoke_test
+# run_api --pipeline-variant agentic_rag --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/api_agentic_rag.json
+
+# --- API agentic_rag production run ---
+# run_api --pipeline-variant agentic_rag --num-iterations 30 --max-questions 400 \
+#   --output-path "$OUTDIR/api_agentic_rag.json"
