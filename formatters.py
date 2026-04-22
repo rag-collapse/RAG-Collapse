@@ -66,23 +66,34 @@ def get_rag_generation_conversation(
 
 
 def get_context_str_from_docs(
-    docs: list[dict[str, str]], chars_per_doc: int = None, shuffle: bool = True
+    docs: list[dict[str, str]],
+    chars_per_doc: int = None,
+    shuffle: bool = True,
+    ai_scores: list[float] | None = None,
 ) -> str:
     """
     Convert a list of documents into a single context string for RAG generation.
     Uses neutral labels "Context n" (no URLs) and optionally shuffles to reduce position bias.
+
+    If ai_scores is provided (one float per doc, LABEL_1 probability), each context label
+    is annotated with the rounded AI-generated percentage, e.g. "Context 1 - 72% AI-Generated".
     """
     import random
-    ordered = list(docs)
-    if shuffle and len(ordered) > 1:
-        random.shuffle(ordered)
+    indexed = list(enumerate(docs))
+    if shuffle and len(indexed) > 1:
+        random.shuffle(indexed)
     context_parts = []
-    for i, doc in enumerate(ordered):
+    for display_idx, (orig_idx, doc) in enumerate(indexed):
         content = doc.get("text")
         if content:
             if chars_per_doc is not None:
                 content = content[:chars_per_doc]
-            context_parts.append(f"Context {i + 1}:\n{content}")
+            if ai_scores is not None and orig_idx < len(ai_scores):
+                pct = round(ai_scores[orig_idx] * 100)
+                label = f"Context {display_idx + 1} - {pct}% AI-Generated"
+            else:
+                label = f"Context {display_idx + 1}"
+            context_parts.append(f"{label}:\n{content}")
     return "\n\n".join(context_parts)
 
 _AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool called `retrieve`.
