@@ -111,8 +111,8 @@ def calculate_pairwise_TES(answers: list[str], embeding_model: EmbeddingModel) -
         embeding_model.embed_batch(chunks) for chunks in chunked_answers
     ]
     for i, j in combinations(range(n), 2):
-        chunks_i = answer_embeddings[i]  # (M, D)
-        chunks_j = answer_embeddings[j]  # (M, D)
+        chunks_i = np.atleast_2d(answer_embeddings[i])  # ensure (M, D) even if M=1
+        chunks_j = np.atleast_2d(answer_embeddings[j])  # ensure (M, D) even if M=1
 
         # (M,)
         chunk_level_scores = np.sum(chunks_i * chunks_j, axis=1)  # dot prod per row
