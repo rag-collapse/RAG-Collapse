@@ -19,6 +19,11 @@ Instructions:
 
 _RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context. You provide accurate, well-grounded responses based solely on the retrieved documents."""
 
+# Separate prompt used as the seed for GEPA optimization.
+# apply_best_prompt.py writes the optimized result back here, leaving
+# _RAG_GENERATION_SYSTEM_PROMPT untouched so the original baseline is preserved.
+GEPA_RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context. You provide accurate, well-grounded responses based solely on the retrieved documents."""
+
 _RAG_GENERATION_USER_PROMPT = """You have been provided with relevant context retrieved from a document database. Use this context to answer the user's question.
 
 Context:
@@ -50,10 +55,12 @@ def get_create_document_conversation(question: str, answer: str) -> list[dict[st
 
 
 def get_rag_generation_conversation(
-    context: str, question: str
+    context: str,
+    question: str,
+    system_prompt: str = _RAG_GENERATION_SYSTEM_PROMPT,
 ) -> list[dict[str, str]]:
     conversation = [
-        {"role": "system", "content": _RAG_GENERATION_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": _RAG_GENERATION_USER_PROMPT.format(
