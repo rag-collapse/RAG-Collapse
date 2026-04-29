@@ -47,10 +47,10 @@ fi
 
 # --- Config (override via environment before submitting) ---
 LITELLM_API_BASE="${LITELLM_API_BASE:-https://thekeymaker.umass.edu/}"
-TASK_MODEL="${TASK_MODEL:-anthropic/claude-haiku-4-5-20251001}"
-DOC_GEN_MODEL="${DOC_GEN_MODEL:-anthropic/claude-haiku-4-5-20251001}"
-JUDGE_MODEL="${JUDGE_MODEL:-anthropic/claude-haiku-4-5-20251001}"
-REFLECTION_MODEL="${REFLECTION_MODEL:-anthropic/claude-opus-4-7}"
+TASK_MODEL="${TASK_MODEL:-bedrock/us.anthropic.claude-haiku-4-5}"
+DOC_GEN_MODEL="${DOC_GEN_MODEL:-bedrock/google.gemma-3-12b-it}"
+JUDGE_MODEL="${JUDGE_MODEL:-azure/gpt-5}"
+REFLECTION_MODEL="${REFLECTION_MODEL:-bedrock/us.anthropic.claude-opus-4-1}"
 EMBED_MODEL="${EMBED_MODEL:-all-MiniLM-L6-v2}"
 MAX_METRIC_CALLS="${MAX_METRIC_CALLS:-100}"
 
