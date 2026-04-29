@@ -88,13 +88,21 @@ class E5Embedder:
     def __init__(self, model_name: str = EMBED_MODEL, cache_dir: str | None = None):
         import torch
         from transformers import AutoModel, AutoTokenizer
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
-        self.model = (
-            AutoModel.from_pretrained(model_name, cache_dir=cache_dir)
-            .to(self.device)
-            .eval()
-        )
+        model = AutoModel.from_pretrained(model_name, cache_dir=cache_dir).eval()
+        if torch.cuda.is_available():
+            try:
+                # Verify the GPU is compatible before committing to it
+                model = model.cuda()
+                torch.zeros(1).cuda()  # triggers incompatibility error on old CC GPUs
+                self.device = "cuda"
+            except (RuntimeError, torch.AcceleratorError):
+                print("[E5Embedder] GPU not compatible with installed PyTorch — falling back to CPU.")
+                model = model.cpu()
+                self.device = "cpu"
+        else:
+            self.device = "cpu"
+        self.model = model
         print(f"[E5Embedder] Loaded {model_name!r} on {self.device}.")
 
     def encode(
