@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J vllm-deepseek-r1-distill-qwen-7b
+#SBATCH -J vllm-deepseek-r1-distill-qwen-7b-agentic-rag
 #SBATCH -c 6
 #SBATCH --mem=32g
 #SBATCH --nodes=1
