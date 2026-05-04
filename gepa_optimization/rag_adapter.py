@@ -15,6 +15,7 @@ Secondary objective    : avg quality across variants        (higher = better gro
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -23,6 +24,10 @@ from llm_service.proprietary_llm import ProprietaryLLM
 from formatters import get_context_str_from_docs
 from pipeline_simulator import simulate_replace_all, simulate_replace_one, simulate_search
 from scoring import anti_collapse_score, judge_quality_score, ANTI_COLLAPSE_THRESHOLD, QUALITY_THRESHOLD
+from gepa_logger import GEPALogger, candidate_id_from_prompt
+
+if TYPE_CHECKING:
+    pass
 
 VARIANTS = ["replace_all", "replace_one", "search"]
 
@@ -73,6 +78,7 @@ class RAGSystemPromptAdapter(GEPAAdapter):
         n_rounds: int = 10,
         embed_model: str = "all-MiniLM-L6-v2",
         chars_per_doc: int = 800,
+        logger: GEPALogger | None = None,
     ):
         self._task_llm = ProprietaryLLM(
             model_name=task_model,
@@ -96,6 +102,8 @@ class RAGSystemPromptAdapter(GEPAAdapter):
         self._n_rounds = n_rounds
         self._embed_model = embed_model
         self._chars_per_doc = chars_per_doc
+        self._logger = logger
+        self._iteration = 0
 
     # ------------------------------------------------------------------
     # evaluate
@@ -108,6 +116,17 @@ class RAGSystemPromptAdapter(GEPAAdapter):
         capture_traces: bool = False,
     ) -> EvaluationBatch:
         system_prompt = candidate["system_prompt"]
+        self._iteration += 1
+        cid = candidate_id_from_prompt(system_prompt)
+
+        if self._logger:
+            self._logger.log_prompt(
+                candidate_id=cid,
+                iteration=self._iteration,
+                prompt_text=system_prompt,
+                source="seed" if self._iteration == 1 else "mutation",
+            )
+
         outputs, scores, trajectories, objective_scores = [], [], [], []
 
         for inst in batch:
@@ -131,12 +150,19 @@ class RAGSystemPromptAdapter(GEPAAdapter):
             # ── Score each variant ────────────────────────────────────
             results: dict[str, VariantResult] = {}
             for variant, answers in variant_answers.items():
+                _meta = {
+                    "candidate_id": cid,
+                    "iteration": self._iteration,
+                    "question": inst.question,
+                    "variant": variant,
+                }
                 ac, unique_ents = anti_collapse_score(
                     question=inst.question,
                     answers=answers,
                     model=self._judge_model,
                     api_base=self._judge_api_base,
                     api_key=self._judge_api_key,
+                    _meta=_meta,
                 )
                 final = answers[-1] if answers else ""
                 q = judge_quality_score(
@@ -146,14 +172,44 @@ class RAGSystemPromptAdapter(GEPAAdapter):
                     judge_model=self._judge_model,
                     judge_api_base=self._judge_api_base,
                     judge_api_key=self._judge_api_key,
+                    _meta=_meta,
                 )
                 results[variant] = VariantResult(
                     answers=answers, anti_collapse=ac,
                     unique_entities=unique_ents, quality=q,
                 )
+                if self._logger:
+                    self._logger.log_evaluation(
+                        candidate_id=cid,
+                        iteration=self._iteration,
+                        question=inst.question,
+                        variant=variant,
+                        round_answers=answers,
+                        anti_collapse=ac,
+                        unique_entities=unique_ents,
+                        quality=q,
+                    )
 
             avg_ac = sum(r.anti_collapse for r in results.values()) / len(results)
             avg_q  = sum(r.quality       for r in results.values()) / len(results)
+
+            per_variant_summary = {
+                v: {
+                    "anti_collapse":   round(r.anti_collapse, 4),
+                    "unique_entities": r.unique_entities,
+                    "quality":         round(r.quality, 4),
+                }
+                for v, r in results.items()
+            }
+            if self._logger:
+                self._logger.log_aggregate(
+                    candidate_id=cid,
+                    iteration=self._iteration,
+                    question=inst.question,
+                    avg_anti_collapse=avg_ac,
+                    avg_quality=avg_q,
+                    per_variant=per_variant_summary,
+                )
 
             outputs.append(RAGOutput(avg_anti_collapse=avg_ac, avg_quality=avg_q,
                                      per_variant={v: {"anti_collapse":    r.anti_collapse,
