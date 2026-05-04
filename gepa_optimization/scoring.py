@@ -63,9 +63,11 @@ def _extract_entities(
     model: str,
     api_base: str,
     api_key: str,
+    _meta: dict | None = None,
 ) -> list[list[str]]:
     """Extract answer-relevant entities from each answer via litellm."""
     result = []
+    call_meta = {**(_meta or {}), "role": "entity_extraction"}
     for answer in answers:
         if not answer or not answer.strip():
             result.append([])
@@ -81,6 +83,7 @@ def _extract_entities(
                 model=model, messages=messages,
                 api_base=api_base, api_key=api_key,
                 temperature=0.0, max_tokens=256,
+                metadata=call_meta,
             )
             raw = response.choices[0].message.content
             parsed = parse_json_from_response(raw)
@@ -99,6 +102,7 @@ def _cluster_entities(
     model: str,
     api_base: str,
     api_key: str,
+    _meta: dict | None = None,
 ) -> dict[str, list[str]]:
     """Cluster entity mentions into canonical forms via litellm."""
     if not unique_mentions:
@@ -115,6 +119,7 @@ def _cluster_entities(
             model=model, messages=messages,
             api_base=api_base, api_key=api_key,
             temperature=0.0, max_tokens=512,
+            metadata={**(_meta or {}), "role": "entity_clustering"},
         )
         raw = response.choices[0].message.content
         parsed = parse_json_from_response(raw)
@@ -136,6 +141,7 @@ def anti_collapse_score(
     model: str,
     api_base: str,
     api_key: str,
+    _meta: dict | None = None,
 ) -> Tuple[float, int]:
     """
     Returns (score, unique_entity_count).
@@ -152,13 +158,13 @@ def anti_collapse_score(
     if len(clean) < 2:
         return 1.0, 0
 
-    per_answer_entities = _extract_entities(question, clean, model, api_base, api_key)
+    per_answer_entities = _extract_entities(question, clean, model, api_base, api_key, _meta)
 
     all_mentions = list({e for entities in per_answer_entities for e in entities})
     if not all_mentions:
         return 1.0, 0
 
-    canonical_map = _cluster_entities(question, all_mentions, model, api_base, api_key)
+    canonical_map = _cluster_entities(question, all_mentions, model, api_base, api_key, _meta)
     mention_to_canonical = {
         m.lower(): c
         for c, mentions in canonical_map.items()
@@ -183,6 +189,7 @@ def judge_quality_score(
     judge_model: str,
     judge_api_base: str,
     judge_api_key: str,
+    _meta: dict | None = None,
 ) -> float:
     """
     Judge how faithful and relevant the final-round answer is against the
@@ -209,6 +216,7 @@ def judge_quality_score(
             api_key=judge_api_key,
             temperature=0.0,
             max_tokens=128,
+            metadata={**(_meta or {}), "role": "quality_judge"},
         )
         raw = response.choices[0].message.content
         parsed = json.loads(raw)

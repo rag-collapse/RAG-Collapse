@@ -32,6 +32,7 @@ load_dotenv()
 from formatters import GEPA_RAG_GENERATION_SYSTEM_PROMPT
 from rag_adapter import RAGSystemPromptAdapter
 from prepare_dataset import RAGDataInst
+from gepa_logger import GEPALogger, GEPALiteLLMCallback
 
 # ── Shared config ─────────────────────────────────────────────────────────────
 API_BASE = os.environ.get("LITELLM_API_BASE", "https://thekeymaker.umass.edu/")
@@ -44,6 +45,11 @@ REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "anthropic/claude-opus-4-7
 EMBED_MODEL      = os.environ.get("EMBED_MODEL",      "all-MiniLM-L6-v2")
 MAX_METRIC_CALLS = int(os.environ.get("MAX_METRIC_CALLS", "100"))
 
+# ── Logger — captures every LLM call and structured evaluation events ─────────
+RUN_DIR = "./gepa_runs/rag_system_prompt"
+logger = GEPALogger(f"{RUN_DIR}/logs")
+litellm.callbacks = [GEPALiteLLMCallback(logger)]
+
 # ── Reflection LM — callable so proxy config doesn't pollute global litellm state ──
 def reflection_lm(messages: list[dict], **kwargs) -> str:
     response = litellm.completion(
@@ -53,6 +59,7 @@ def reflection_lm(messages: list[dict], **kwargs) -> str:
         api_key=API_KEY,
         temperature=1.0,
         max_tokens=2048,
+        metadata={"role": "reflection"},
     )
     return response.choices[0].message.content
 
@@ -66,6 +73,7 @@ adapter = RAGSystemPromptAdapter(
     n_rounds=10,
     embed_model=EMBED_MODEL,
     chars_per_doc=800,
+    logger=logger,
 )
 
 # ── Dataset ───────────────────────────────────────────────────────────────────
@@ -97,7 +105,7 @@ result = gepa.optimize(
     max_metric_calls=MAX_METRIC_CALLS,
     candidate_selection_strategy="pareto",
     display_progress_bar=True,
-    run_dir="./gepa_runs/rag_system_prompt",
+    run_dir=RUN_DIR,
 )
 
 print("\n" + "=" * 60)
