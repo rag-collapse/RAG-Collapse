@@ -3,7 +3,7 @@
 #SBATCH -c 6
 #SBATCH --mem=32g
 #SBATCH --nodes=1
-#SBATCH -p gpu,gpu-preempt
+#SBATCH -p gpu
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=vram40|vram48|vram80
 #SBATCH -t 48:00:00
