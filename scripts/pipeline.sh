@@ -6,7 +6,8 @@
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=vram40|vram48|vram80
+#SBATCH --constraint=vram48|vram80
+#SBATCH --exclude=gpu026,gpu030
 #SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
