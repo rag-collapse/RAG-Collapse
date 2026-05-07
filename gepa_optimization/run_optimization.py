@@ -6,10 +6,10 @@ Required environment variables:
 
 Optional environment variables:
   LITELLM_API_BASE   — proxy URL                          (default: https://thekeymaker.umass.edu/)
-  TASK_MODEL         — model for RAG runs                 (default: bedrock/us.anthropic.claude-haiku-4-5)
-  DOC_GEN_MODEL      — model for AI document generation   (default: bedrock/google.gemma-3-12b-it)
-  JUDGE_MODEL        — model for quality                  (default: azure/gpt-5)
-  REFLECTION_MODEL   — model for GEPA                     (default: bedrock/us.anthropic.claude-opus-4-1)
+  TASK_MODEL         — model for RAG runs                 (default: openai/claude-haiku-4-5)
+  DOC_GEN_MODEL      — model for AI document generation   (default: openai/gemma-3-12b-it)
+  JUDGE_MODEL        — model for quality                  (default: openai/gpt4o)
+  REFLECTION_MODEL   — model for GEPA                     (default: openai/claude-opus-4-1)
   EMBED_MODEL        — local SentenceTransformer for search (default: all-MiniLM-L6-v2)
   MAX_METRIC_CALLS   — GEPA evaluation budget             (default: 100)
 
@@ -29,6 +29,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+litellm.drop_params = True  # gpt5 and some models reject temperature=0; drop silently
+
 from formatters import GEPA_RAG_GENERATION_SYSTEM_PROMPT
 from rag_adapter import RAGSystemPromptAdapter
 from prepare_dataset import RAGDataInst
@@ -38,10 +40,10 @@ from gepa_logger import GEPALogger, GEPALiteLLMCallback
 API_BASE = os.environ.get("LITELLM_API_BASE", "https://thekeymaker.umass.edu/")
 API_KEY  = os.environ["API_KEY"]
 
-TASK_MODEL       = os.environ.get("TASK_MODEL",       "bedrock/us.anthropic.claude-haiku-4-5")
-DOC_GEN_MODEL    = os.environ.get("DOC_GEN_MODEL",    "bedrock/google.gemma-3-12b-it")
-JUDGE_MODEL      = os.environ.get("JUDGE_MODEL",      "azure/gpt-5")
-REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "bedrock/us.anthropic.claude-opus-4-1")
+TASK_MODEL       = os.environ.get("TASK_MODEL",       "openai/claude-haiku-4-5")
+DOC_GEN_MODEL    = os.environ.get("DOC_GEN_MODEL",    "openai/gemma-3-12b-it")
+JUDGE_MODEL      = os.environ.get("JUDGE_MODEL",      "openai/gpt4o")
+REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "openai/claude-opus-4-1")
 EMBED_MODEL      = os.environ.get("EMBED_MODEL",      "all-MiniLM-L6-v2")
 MAX_METRIC_CALLS = int(os.environ.get("MAX_METRIC_CALLS", "100"))
 
@@ -51,7 +53,12 @@ logger = GEPALogger(f"{RUN_DIR}/logs")
 litellm.callbacks = [GEPALiteLLMCallback(logger)]
 
 # ── Reflection LM — callable so proxy config doesn't pollute global litellm state ──
-def reflection_lm(messages: list[dict], **kwargs) -> str:
+def reflection_lm(prompt: str | list[dict], **kwargs) -> str:
+    # GEPA passes a plain string from prompt_renderer; wrap it into messages format
+    if isinstance(prompt, str):
+        messages = [{"role": "user", "content": prompt}]
+    else:
+        messages = prompt
     response = litellm.completion(
         model=REFLECTION_MODEL,
         messages=messages,

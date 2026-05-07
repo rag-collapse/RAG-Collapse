@@ -247,7 +247,12 @@ def step_gepa_loop(
     trainset = trainset[:2]
     valset   = valset[:1]
 
-    def reflection_lm(messages: list[dict], **kwargs) -> str:
+    def reflection_lm(prompt: str | list[dict], **kwargs) -> str:
+        # GEPA passes a plain string from prompt_renderer; wrap it into messages format
+        if isinstance(prompt, str):
+            messages = [{"role": "user", "content": prompt}]
+        else:
+            messages = prompt
         response = litellm.completion(
             model=reflection_model,
             messages=messages,
@@ -310,14 +315,14 @@ def step_logging(log_dir: Path) -> None:
     for fname in expected:
         path = log_dir / fname
         exists = path.exists()
-        count = sum(1 for _ in path.open()) if exists else 0
+        count = sum(1 for _ in path.open(encoding="utf-8")) if exists else 0
         status = "PASS" if (exists and count > 0) else ("WARN" if exists else "FAIL")
         print(f"  [{status}] {fname}  ({count} records)")
 
     llm_path = log_dir / "llm_calls.jsonl"
     if llm_path.exists():
         print("\n  Sample llm_calls.jsonl records:")
-        with llm_path.open() as f:
+        with llm_path.open(encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i >= 3:
                     break
@@ -331,7 +336,7 @@ def step_logging(log_dir: Path) -> None:
     prompt_path = log_dir / "prompts.jsonl"
     if prompt_path.exists():
         print("\n  Prompt candidates logged:")
-        with prompt_path.open() as f:
+        with prompt_path.open(encoding="utf-8") as f:
             for line in f:
                 rec = json.loads(line)
                 if rec.get("_type") == "prompts":
@@ -346,10 +351,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="End-to-end GEPA smoke test (CPU-safe)")
     parser.add_argument("--api-key",        default=None, help="Keymaker API key (fallback: API_KEY env var)")
     parser.add_argument("--api-base",       default="https://thekeymaker.umass.edu/")
-    parser.add_argument("--task-model",     default="bedrock/us.anthropic.claude-haiku-4-5")
-    parser.add_argument("--doc-gen-model",  default="bedrock/google.gemma-3-12b-it")
-    parser.add_argument("--judge-model",    default="azure/gpt-5")
-    parser.add_argument("--reflection-model", default="bedrock/us.anthropic.claude-opus-4-1")
+    parser.add_argument("--task-model",     default="openai/claude-haiku-4-5")
+    parser.add_argument("--doc-gen-model",  default="openai/gemma-3-12b-it")
+    parser.add_argument("--judge-model",    default="openai/gpt4o")
+    parser.add_argument("--reflection-model", default="openai/claude-opus-4-1")
     parser.add_argument("--embed-model",    default="all-MiniLM-L6-v2",
                         help="SentenceTransformer model for the search variant (CPU-safe)")
     parser.add_argument("--cache-dir",      default=None,
