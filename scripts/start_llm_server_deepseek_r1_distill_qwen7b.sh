@@ -6,6 +6,7 @@
 #SBATCH -p gpu,gpu-preempt
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=vram40|vram48|vram80
+#SBATCH --exclude=gpu026
 #SBATCH -t 48:00:00
 #SBATCH -o outputs/slurm-%j-vllm-deepseek-r1-distill-qwen-7b.out
 #SBATCH -e outputs/slurm-%j-vllm-deepseek-r1-distill-qwen-7b-error.out
