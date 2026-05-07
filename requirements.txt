@@ -6,8 +6,10 @@ sentence-transformers>=3.0.0
 torch>=2.1.0
 faiss-cpu>=1.8.0
 vllm
+openai>=1.57.0
 litellm
 boto3
+pydantic>=2.10.0
 python-dotenv
 matplotlib
 rouge-score
