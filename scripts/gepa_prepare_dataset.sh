@@ -4,9 +4,9 @@
 #SBATCH --output=logs/gepa_prepare_dataset_%A.out
 #SBATCH --error=logs/gepa_prepare_dataset_%A.err
 #SBATCH --time=4:00:00
-#SBATCH --partition=gpu,gpu-preempt
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH -C "vram40|vram48|vram80"
+#SBATCH -C "vram48|vram80"
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=BEGIN,END,FAIL
