@@ -6,10 +6,10 @@ Required environment variables:
 
 Optional environment variables:
   LITELLM_API_BASE   — proxy URL                          (default: https://thekeymaker.umass.edu/)
-  TASK_MODEL         — model for RAG runs                 (default: anthropic/claude-haiku-4-5-20251001)
-  DOC_GEN_MODEL      — model for AI document generation   (default: anthropic/claude-haiku-4-5-20251001)
-  JUDGE_MODEL        — model for quality                  (default: anthropic/claude-haiku-4-5-20251001)
-  REFLECTION_MODEL   — model for GEPA                     (default: anthropic/claude-opus-4-7)
+  TASK_MODEL         — model for RAG runs                 (default: bedrock/us.anthropic.claude-haiku-4-5)
+  DOC_GEN_MODEL      — model for AI document generation   (default: bedrock/google.gemma-3-12b-it)
+  JUDGE_MODEL        — model for quality                  (default: azure/gpt-5)
+  REFLECTION_MODEL   — model for GEPA                     (default: bedrock/us.anthropic.claude-opus-4-1)
   EMBED_MODEL        — local SentenceTransformer for search (default: all-MiniLM-L6-v2)
   MAX_METRIC_CALLS   — GEPA evaluation budget             (default: 100)
 
@@ -38,10 +38,10 @@ from gepa_logger import GEPALogger, GEPALiteLLMCallback
 API_BASE = os.environ.get("LITELLM_API_BASE", "https://thekeymaker.umass.edu/")
 API_KEY  = os.environ["API_KEY"]
 
-TASK_MODEL       = os.environ.get("TASK_MODEL",       "anthropic/claude-haiku-4-5-20251001")
-DOC_GEN_MODEL    = os.environ.get("DOC_GEN_MODEL",    "anthropic/claude-haiku-4-5-20251001")
-JUDGE_MODEL      = os.environ.get("JUDGE_MODEL",      "anthropic/claude-haiku-4-5-20251001")
-REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "anthropic/claude-opus-4-7")
+TASK_MODEL       = os.environ.get("TASK_MODEL",       "bedrock/us.anthropic.claude-haiku-4-5")
+DOC_GEN_MODEL    = os.environ.get("DOC_GEN_MODEL",    "bedrock/google.gemma-3-12b-it")
+JUDGE_MODEL      = os.environ.get("JUDGE_MODEL",      "azure/gpt-5")
+REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "bedrock/us.anthropic.claude-opus-4-1")
 EMBED_MODEL      = os.environ.get("EMBED_MODEL",      "all-MiniLM-L6-v2")
 MAX_METRIC_CALLS = int(os.environ.get("MAX_METRIC_CALLS", "100"))
 
@@ -108,13 +108,13 @@ result = gepa.optimize(
     run_dir=RUN_DIR,
 )
 
+best_score = result.val_aggregate_scores[result.best_idx]
+
 print("\n" + "=" * 60)
 print("Best optimized system prompt:")
 print("=" * 60)
 print(result.best_candidate["system_prompt"])
-print(f"\nBest val score (avg anti_collapse): {result.best_score:.4f}")
-
-if hasattr(result, "pareto_frontier") and result.pareto_frontier:
-    print(f"Pareto frontier: {len(result.pareto_frontier)} candidates")
+print(f"\nBest val score (avg anti_collapse): {best_score:.4f}")
+print(f"Pareto frontier: {len(result.per_val_instance_best_candidates)} val instances tracked")
 
 print("\nTo apply: python gepa_optimization/apply_best_prompt.py --prompt '<prompt>'")

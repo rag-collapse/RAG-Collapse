@@ -36,6 +36,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import litellm
+
 DATA_DIR = Path(__file__).parent / "data"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -176,6 +178,7 @@ def step_adapter(
     doc_gen_model: str,
     judge_model: str,
     embed_model: str,
+    logger=None,
 ) -> None:
     banner("Step 4 — RAGSystemPromptAdapter.evaluate() (2 questions × 3 variants × 2 rounds)")
     from rag_adapter import RAGSystemPromptAdapter
@@ -197,6 +200,7 @@ def step_adapter(
         n_rounds=2,
         embed_model=embed_model,
         chars_per_doc=400,
+        logger=logger,
     )
 
     candidate = {"system_prompt": GEPA_RAG_GENERATION_SYSTEM_PROMPT}
@@ -229,10 +233,10 @@ def step_gepa_loop(
     judge_model: str,
     reflection_model: str,
     embed_model: str,
+    logger=None,
 ) -> None:
     banner("Step 5 — Full gepa.optimize() (max_metric_calls=5)")
     import gepa
-    import litellm
     from rag_adapter import RAGSystemPromptAdapter
     from formatters import GEPA_RAG_GENERATION_SYSTEM_PROMPT
 
@@ -251,6 +255,7 @@ def step_gepa_loop(
             api_key=api_key,
             temperature=1.0,
             max_tokens=1024,
+            metadata={"role": "reflection"},
         )
         return response.choices[0].message.content
 
@@ -263,6 +268,7 @@ def step_gepa_loop(
         n_rounds=2,
         embed_model=embed_model,
         chars_per_doc=400,
+        logger=logger,
     )
 
     print("  gepa.optimize() — max_metric_calls=5, strategy=pareto")
@@ -284,16 +290,54 @@ def step_gepa_loop(
     elapsed = time.time() - t0
 
     print(f"\n  Elapsed: {elapsed:.1f}s")
+    best_score = result.val_aggregate_scores[result.best_idx]
     check("best_candidate has system_prompt", "system_prompt" in result.best_candidate, lambda v: v)
-    check("best_score in range", round(result.best_score, 4), lambda v: 0.0 <= v <= 1.0)
+    check("best_score in range", round(best_score, 4), lambda v: 0.0 <= v <= 1.0)
 
     print("\n  Best optimized prompt:")
     print("  " + "-" * 56)
     for line in result.best_candidate["system_prompt"].splitlines():
         print(f"    {line}")
     print("  " + "-" * 56)
-    print(f"\n  Best val score (avg anti_collapse): {result.best_score:.4f}")
+    print(f"\n  Best val score (avg anti_collapse): {best_score:.4f}")
     print("\n  gepa.optimize() smoke test PASSED.")
+
+
+def step_logging(log_dir: Path) -> None:
+    banner("Step 6 — Logging verification")
+    expected = ["run_meta.jsonl", "prompts.jsonl", "evaluations.jsonl",
+                "aggregates.jsonl", "llm_calls.jsonl"]
+    for fname in expected:
+        path = log_dir / fname
+        exists = path.exists()
+        count = sum(1 for _ in path.open()) if exists else 0
+        status = "PASS" if (exists and count > 0) else ("WARN" if exists else "FAIL")
+        print(f"  [{status}] {fname}  ({count} records)")
+
+    llm_path = log_dir / "llm_calls.jsonl"
+    if llm_path.exists():
+        print("\n  Sample llm_calls.jsonl records:")
+        with llm_path.open() as f:
+            for i, line in enumerate(f):
+                if i >= 3:
+                    break
+                rec = json.loads(line)
+                print(f"    [{i+1}] role={rec.get('role')} model={rec.get('model')} "
+                      f"tokens={rec.get('usage',{}).get('total_tokens','?')} "
+                      f"duration={rec.get('duration_s')}s "
+                      f"candidate={rec.get('candidate_id')} "
+                      f"error={rec.get('error')}")
+
+    prompt_path = log_dir / "prompts.jsonl"
+    if prompt_path.exists():
+        print("\n  Prompt candidates logged:")
+        with prompt_path.open() as f:
+            for line in f:
+                rec = json.loads(line)
+                if rec.get("_type") == "prompts":
+                    preview = rec.get("prompt_text", "")[:80].replace("\n", " ")
+                    print(f"    iter={rec.get('iteration')} id={rec.get('candidate_id')} "
+                          f"source={rec.get('source')}  \"{preview}...\"")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -302,10 +346,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="End-to-end GEPA smoke test (CPU-safe)")
     parser.add_argument("--api-key",        default=None, help="Keymaker API key (fallback: API_KEY env var)")
     parser.add_argument("--api-base",       default="https://thekeymaker.umass.edu/")
-    parser.add_argument("--task-model",     default="anthropic/claude-haiku-4-5-20251001")
-    parser.add_argument("--doc-gen-model",  default="anthropic/claude-haiku-4-5-20251001")
-    parser.add_argument("--judge-model",    default="anthropic/claude-haiku-4-5-20251001")
-    parser.add_argument("--reflection-model", default="anthropic/claude-opus-4-7")
+    parser.add_argument("--task-model",     default="bedrock/us.anthropic.claude-haiku-4-5")
+    parser.add_argument("--doc-gen-model",  default="bedrock/google.gemma-3-12b-it")
+    parser.add_argument("--judge-model",    default="azure/gpt-5")
+    parser.add_argument("--reflection-model", default="bedrock/us.anthropic.claude-opus-4-1")
     parser.add_argument("--embed-model",    default="all-MiniLM-L6-v2",
                         help="SentenceTransformer model for the search variant (CPU-safe)")
     parser.add_argument("--cache-dir",      default=None,
@@ -332,6 +376,12 @@ def main() -> None:
     print(f"  Skip dataset    : {args.skip_dataset}")
     print(f"  Skip GEPA loop  : {args.skip_gepa_loop}")
 
+    from gepa_logger import GEPALogger, GEPALiteLLMCallback
+    log_dir = Path("./gepa_runs/smoke_test/logs")
+    logger = GEPALogger(log_dir)
+    litellm.callbacks = [GEPALiteLLMCallback(logger)]
+    print(f"  Log dir         : {log_dir.resolve()}")
+
     step_imports()
 
     if args.skip_dataset:
@@ -351,10 +401,12 @@ def main() -> None:
         doc_gen_model=args.doc_gen_model,
         judge_model=args.judge_model,
         embed_model=args.embed_model,
+        logger=logger,
     )
 
     if args.skip_gepa_loop:
         print("\nSkipped full gepa.optimize() (--skip-gepa-loop).")
+        step_logging(log_dir)
         print("All earlier steps passed.")
         return
 
@@ -366,10 +418,13 @@ def main() -> None:
         judge_model=args.judge_model,
         reflection_model=args.reflection_model,
         embed_model=args.embed_model,
+        logger=logger,
     )
 
+    step_logging(log_dir)
+
     banner("Smoke test COMPLETE")
-    print("  All 5 steps passed. The full GEPA loop works end-to-end on CPU.")
+    print("  All 6 steps passed. The full GEPA loop works end-to-end on CPU.")
     print("  Next: run gepa_optimization/run_optimization.py on Unity HPC.")
 
 
