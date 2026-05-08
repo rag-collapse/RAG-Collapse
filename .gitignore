@@ -1,5 +1,5 @@
 # Unity
-logs/
+# logs/
 *.err
 *.out
 
