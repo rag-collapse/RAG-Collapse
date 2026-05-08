@@ -1,10 +1,17 @@
 """
 Verify that litellm routes calls through the keymaker proxy correctly.
 
+Approach (confirmed via Context7 litellm docs):
+  Prefix model name with 'openai/' so litellm routes to the OpenAI-compatible
+  endpoint at api_base, passing the rest as the model ID in the request body.
+
+  Model IDs come from GET https://thekeymaker.umass.edu/v1/models
+  (NOT the internal routing names like azure/gpt-4o or bedrock/...)
+
 Usage:
-    python test_keymaker_litellm.py                    # test a small subset
-    python test_keymaker_litellm.py --all              # test every model
-    python test_keymaker_litellm.py --model openai/azure/gpt-5  # one model
+    python test_keymaker_litellm.py                 # test GEPA models only
+    python test_keymaker_litellm.py --all           # test every known model
+    python test_keymaker_litellm.py --model openai/gpt4o
 
 Reads API_KEY from .env or the environment.
 """
@@ -12,7 +19,6 @@ import argparse
 import os
 import sys
 import time
-from pathlib import Path
 
 import litellm
 from dotenv import load_dotenv
@@ -26,7 +32,7 @@ if not API_KEY:
     print("ERROR: API_KEY not set. Add it to .env or export it.")
     sys.exit(1)
 
-# All available keymaker models — prefixed with openai/ so litellm routes through proxy
+# All model IDs from GET /v1/models — prefixed with 'openai/' for litellm routing
 ALL_MODELS = [
     "openai/gpt4o",
     "openai/gpt-5-mini",
@@ -35,24 +41,29 @@ ALL_MODELS = [
     "openai/deepseek-v3-0324",
     "openai/Phi-4-mini-reasoning",
     "openai/Phi-4-reasoning",
+    "openai/claude-sonnet-4-6",
+    "openai/claude-haiku-4-5",
+    "openai/claude-haiku-4-5-20251001",
+    "openai/claude-opus-4-6",
+    "openai/claude-opus-4-7",
     "openai/claude-sonnet-3-7",
     "openai/mistral-large",
-    "openai/claude-haiku-4-5",
-    "openai/claude-opus-4-1",
-    "openai/claude-sonnet-4-5",
     "openai/meta.llama3-3-70b",
     "openai/qwen3-coder-30b-a3b",
     "openai/qwen3-next-80b-a3b",
     "openai/gemma-3-12b-it",
     "openai/gemma-3-27b-it",
     "openai/gemma-3-4b-it",
+    "openai/claude-opus-4-1",
+    "openai/claude-sonnet-4-5",
 ]
 
-# Quick subset — covers each provider family
-DEFAULT_MODELS = [
-    "openai/gpt4o",
-    "openai/claude-haiku-4-5",
-    "openai/gemma-3-12b-it",
+# The 4 models used by the GEPA optimization pipeline
+GEPA_MODELS = [
+    "openai/claude-haiku-4-5",     # TASK_MODEL
+    "openai/gemma-3-12b-it",       # DOC_GEN_MODEL
+    "openai/gpt4o",                # JUDGE_MODEL
+    "openai/claude-opus-4-1",      # REFLECTION_MODEL
 ]
 
 MESSAGES = [{"role": "user", "content": "Reply with exactly: OK"}]
@@ -70,48 +81,39 @@ def test_model(model: str) -> tuple[bool, str, float]:
             max_tokens=16,
         )
         text = resp.choices[0].message.content.strip()
-        elapsed = time.time() - t0
-        return True, text, elapsed
+        return True, text, time.time() - t0
     except Exception as e:
-        elapsed = time.time() - t0
-        return False, str(e), elapsed
+        return False, str(e)[:120], time.time() - t0
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--all",   action="store_true", help="Test all models")
-    parser.add_argument("--model", default=None,        help="Test one specific model")
+    parser.add_argument("--all",   action="store_true", help="Test all known models")
+    parser.add_argument("--model", default=None,        help="Test one model e.g. openai/gpt4o")
     args = parser.parse_args()
 
-    if args.model:
-        models = [args.model]
-    elif args.all:
-        models = ALL_MODELS
-    else:
-        models = DEFAULT_MODELS
+    models = [args.model] if args.model else (ALL_MODELS if args.all else GEPA_MODELS)
 
     litellm.suppress_debug_info = True
-    litellm.drop_params = True  # gpt5 rejects temperature=0
+    litellm.drop_params = True
 
     print(f"API base : {API_BASE}")
     print(f"Testing  : {len(models)} model(s)")
-    print("=" * 70)
+    print("=" * 78)
 
     passed, failed = 0, 0
     for model in models:
         ok, text, elapsed = test_model(model)
         status = "PASS" if ok else "FAIL"
-        # Truncate long error messages
-        display = text if len(text) < 80 else text[:77] + "..."
-        print(f"  [{status}] {model:<50}  {elapsed:.1f}s  {display}")
+        display = text if len(text) < 60 else text[:57] + "..."
+        print(f"  [{status}] {model:<42}  {elapsed:5.1f}s  {display}")
         if ok:
             passed += 1
         else:
             failed += 1
 
-    print("=" * 70)
+    print("=" * 78)
     print(f"  {passed} passed  |  {failed} failed")
-
     if failed > 0:
         sys.exit(1)
 

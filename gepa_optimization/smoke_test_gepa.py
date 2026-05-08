@@ -351,10 +351,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="End-to-end GEPA smoke test (CPU-safe)")
     parser.add_argument("--api-key",        default=None, help="Keymaker API key (fallback: API_KEY env var)")
     parser.add_argument("--api-base",       default="https://thekeymaker.umass.edu/")
-    parser.add_argument("--task-model",     default="openai/claude-haiku-4-5")
-    parser.add_argument("--doc-gen-model",  default="openai/gemma-3-12b-it")
-    parser.add_argument("--judge-model",    default="openai/gpt4o")
-    parser.add_argument("--reflection-model", default="openai/claude-opus-4-1")
+    parser.add_argument("--task-model",       default=os.environ.get("TASK_MODEL",       "openai/claude-haiku-4-5"))
+    parser.add_argument("--doc-gen-model",    default=os.environ.get("DOC_GEN_MODEL",    "openai/gemma-3-12b-it"))
+    parser.add_argument("--judge-model",      default=os.environ.get("JUDGE_MODEL",      "openai/gpt4o"))
+    parser.add_argument("--reflection-model", default=os.environ.get("REFLECTION_MODEL", "openai/claude-opus-4-1"))
     parser.add_argument("--embed-model",    default="all-MiniLM-L6-v2",
                         help="SentenceTransformer model for the search variant (CPU-safe)")
     parser.add_argument("--cache-dir",      default=None,
