@@ -36,6 +36,7 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+export API_KEY=""
 
 # --- API key check ---
 if [[ -z "${API_KEY:-}" ]]; then
@@ -54,7 +55,7 @@ REFLECTION_MODEL="${REFLECTION_MODEL:-openai/claude-opus-4-1}"
 EMBED_MODEL="${EMBED_MODEL:-all-MiniLM-L6-v2}"
 MAX_METRIC_CALLS="${MAX_METRIC_CALLS:-100}"
 
-export LITELLM_API_BASE TASK_MODEL DOC_GEN_MODEL JUDGE_MODEL REFLECTION_MODEL EMBED_MODEL MAX_METRIC_CALLS API_KEY
+export LITELLM_API_BASE TASK_MODEL DOC_GEN_MODEL JUDGE_MODEL REFLECTION_MODEL EMBED_MODEL MAX_METRIC_CALLS
 
 echo "========================================"
 echo "GEPA Optimization"
