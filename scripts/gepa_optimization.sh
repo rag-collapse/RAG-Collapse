@@ -36,7 +36,6 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
-export API_KEY=""
 
 # --- API key check ---
 if [[ -z "${API_KEY:-}" ]]; then
@@ -53,9 +52,10 @@ DOC_GEN_MODEL="${DOC_GEN_MODEL:-openai/gemma-3-12b-it}"
 JUDGE_MODEL="${JUDGE_MODEL:-openai/gpt4o}"
 REFLECTION_MODEL="${REFLECTION_MODEL:-openai/claude-opus-4-1}"
 EMBED_MODEL="${EMBED_MODEL:-all-MiniLM-L6-v2}"
-MAX_METRIC_CALLS="${MAX_METRIC_CALLS:-100}"
+MAX_METRIC_CALLS="${MAX_METRIC_CALLS:-300}"
+GEPA_RUN_DIR="${GEPA_RUN_DIR:-gepa_runs/rag_system_prompt_${SLURM_JOB_ID:-$(date +%Y%m%d_%H%M%S)}}"
 
-export LITELLM_API_BASE TASK_MODEL DOC_GEN_MODEL JUDGE_MODEL REFLECTION_MODEL EMBED_MODEL MAX_METRIC_CALLS
+export LITELLM_API_BASE TASK_MODEL DOC_GEN_MODEL JUDGE_MODEL REFLECTION_MODEL EMBED_MODEL MAX_METRIC_CALLS GEPA_RUN_DIR
 
 echo "========================================"
 echo "GEPA Optimization"
@@ -67,6 +67,7 @@ echo "Judge model     : $JUDGE_MODEL"
 echo "Reflection model: $REFLECTION_MODEL"
 echo "Embed model     : $EMBED_MODEL"
 echo "Max metric calls: $MAX_METRIC_CALLS"
+echo "Run dir         : $GEPA_RUN_DIR"
 echo "========================================"
 
 mkdir -p logs gepa_runs

@@ -11,7 +11,8 @@ Optional environment variables:
   JUDGE_MODEL        — model for quality                  (default: openai/gpt4o)
   REFLECTION_MODEL   — model for GEPA                     (default: openai/claude-opus-4-1)
   EMBED_MODEL        — local SentenceTransformer for search (default: all-MiniLM-L6-v2)
-  MAX_METRIC_CALLS   — GEPA evaluation budget             (default: 100)
+  MAX_METRIC_CALLS   — GEPA evaluation budget             (default: 300)
+  GEPA_RUN_DIR       — output directory for this run      (default: gepa_runs/rag_system_prompt_<timestamp>)
 
 Usage (from repo root):
   python gepa_optimization/run_optimization.py
@@ -25,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import json
 import litellm
 import gepa
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -45,10 +47,11 @@ DOC_GEN_MODEL    = os.environ.get("DOC_GEN_MODEL",    "openai/gemma-3-12b-it")
 JUDGE_MODEL      = os.environ.get("JUDGE_MODEL",      "openai/gpt4o")
 REFLECTION_MODEL = os.environ.get("REFLECTION_MODEL", "openai/claude-opus-4-1")
 EMBED_MODEL      = os.environ.get("EMBED_MODEL",      "all-MiniLM-L6-v2")
-MAX_METRIC_CALLS = int(os.environ.get("MAX_METRIC_CALLS", "100"))
+MAX_METRIC_CALLS = int(os.environ.get("MAX_METRIC_CALLS", "300"))
 
 # ── Logger — captures every LLM call and structured evaluation events ─────────
-RUN_DIR = "./gepa_runs/rag_system_prompt"
+_default_run_dir = f"./gepa_runs/rag_system_prompt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+RUN_DIR = os.environ.get("GEPA_RUN_DIR", _default_run_dir)
 logger = GEPALogger(f"{RUN_DIR}/logs")
 litellm.callbacks = [GEPALiteLLMCallback(logger)]
 
@@ -100,6 +103,7 @@ print(f"Reflection   — {REFLECTION_MODEL}")
 print(f"Embed model  — {EMBED_MODEL}")
 print(f"Proxy        — {API_BASE}")
 print(f"Max calls    — {MAX_METRIC_CALLS}")
+print(f"Run dir      — {RUN_DIR}")
 print(f"Variants     — replace_all, replace_one, search  (10 rounds each)")
 
 # ── Optimize ──────────────────────────────────────────────────────────────────
