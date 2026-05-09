@@ -31,7 +31,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-litellm.drop_params = True  # gpt5 and some models reject temperature=0; drop silently
+litellm.drop_params = True          # silently drop unsupported params (e.g. temperature on some models)
+litellm.suppress_debug_info = True  # suppress "Give Feedback" / "LiteLLM.Info" noise
 
 from formatters import GEPA_RAG_GENERATION_SYSTEM_PROMPT
 from rag_adapter import RAGSystemPromptAdapter

@@ -38,6 +38,9 @@ load_dotenv()
 
 import litellm
 
+litellm.suppress_debug_info = True  # suppress "Give Feedback" / "LiteLLM.Info" noise
+litellm.drop_params = True          # silently drop unsupported params (e.g. temperature on some models)
+
 DATA_DIR = Path(__file__).parent / "data"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

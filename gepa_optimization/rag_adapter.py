@@ -286,14 +286,8 @@ class RAGSystemPromptAdapter(GEPAAdapter):
                         "diagnosis":       " ".join(flags),
                     }
 
-                ctx_preview = (trace.original_context[:600] + "…"
-                               if len(trace.original_context) > 600
-                               else trace.original_context)
-
                 records.append({
                     "Inputs": {
-                        "Question": trace.question,
-                        "Original Context (preview)": ctx_preview,
                         "System Prompt": candidate["system_prompt"],
                     },
                     "Generated Outputs": variant_outputs,
