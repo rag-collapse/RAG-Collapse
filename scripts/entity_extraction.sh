@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=entity-extraction
+#SBATCH --job-name=entity-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/entity-extraction_%A.out
 #SBATCH --error=logs/entity-extraction_%A.err
 #SBATCH --time=8:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=64G
-#SBATCH -C "vram40|vram48|vram80"
+#SBATCH --mem=32G
+#SBATCH -C "vram48|vram80"
 #SBATCH --cpus-per-task=2
 
 set -eo pipefail
@@ -31,7 +31,7 @@ export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
 # ── Main model (change only this line to switch pipelines) ────────────────────
-MAIN_MODEL="${MAIN_MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
+MAIN_MODEL="${MAIN_MODEL:-mistralai/Mistral-7B-Instruct-v0.3}"
 
 # ── Derived paths ─────────────────────────────────────────────────────────────
 EXPERIMENT_DIR="${EXPERIMENT_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MAIN_MODEL}"
@@ -48,7 +48,5 @@ python -u entity_extraction.py \
   --model-mode "$MODEL_MODE" \
   --model-name "$ENTITY_MODEL" \
   --gpu-mem-util "$GPU_MEM_UTIL" \
-  --experiment-files "$EXPERIMENT_DIR/local_search.json" \
-                     "$EXPERIMENT_DIR/local_replace_one.json" \
-                     "$EXPERIMENT_DIR/local_replace_all.json" \
+  --experiment-files "$EXPERIMENT_DIR/local_agentic_rag.json" \
   --output-dir "$OUT_DIR"

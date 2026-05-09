@@ -1,15 +1,15 @@
 #!/bin/bash
 # --- SLURM ---
-#SBATCH --job-name=evaluation
+#SBATCH --job-name=evaluation-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
 #SBATCH --time=48:00:00
-#SBATCH --partition=gpu,gpu-preempt
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=64G
+#SBATCH --mem=32G
 #SBATCH -C "vram48|vram80"
 #SBATCH --cpus-per-task=2
-#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-type=EBGIN,END,FAIL
 
 set -eo pipefail
 
@@ -35,12 +35,8 @@ export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
 # --- Config (edit as needed) ---
-# Input subdirectory under shared experiment outputs, e.g. qwen-14b.
-INPUT_SUBDIR="${INPUT_SUBDIR:-qwen-14b}"
-
-
 # Model subdir used for evaluation outputs and judge model name, e.g. Qwen/Qwen2.5-14B-Instruct.
-MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"
+MODEL_SUBDIR="${MODEL_SUBDIR:-mistralai/Mistral-7B-Instruct-v0.3}"
 # Input/output on shared file storage (experiment_outputs read from here, evaluation_outputs written here).
 INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL_SUBDIR"
 OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_outputs/$MODEL_SUBDIR"
@@ -50,7 +46,7 @@ EXPERIMENT_DIR="$INDIR"
 
 export SAME_ANSWER_MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
-for base in local_search local_replace_one local_replace_all; do
+for base in local_search local_replace_one local_replace_all local_agentic_rag; do
   in_file="$EXPERIMENT_DIR/${base}.json"
   out_file="$OUT_DIR/${base}_eval.json"
   if [[ -f "$in_file" ]]; then

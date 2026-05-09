@@ -1,6 +1,6 @@
 #!/bin/bash
 # --- SLURM (tuned for 14B model on 2 GPUs) ---
-#SBATCH --job-name=pipeline-deepseek-r1-distill-qwen-7b-agentic-rag
+#SBATCH --job-name=pipeline-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=48:00:00
@@ -30,8 +30,8 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
-export VLLM_API_BASE="http://gpu031.unity.rc.umass.edu:5152/v1"
-export DOC_VLLM_API_BASE="http://gypsum-gpu188.unity.rc.umass.edu:5153/v1"
+export VLLM_API_BASE="http://gpu032.unity.rc.umass.edu:5151/v1"
+export DOC_VLLM_API_BASE="http://gpu030.unity.rc.umass.edu:5153/v1"
 
 if [[ -z "$VLLM_API_BASE" ]]; then
   echo "ERROR: VLLM_API_BASE is not set. Start the vLLM server first, then:"
@@ -43,7 +43,7 @@ echo "Using VLLM_API_BASE=$VLLM_API_BASE"
 
 # --- Config ---
 DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
-MODEL="deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+MODEL="mistralai/Mistral-7B-Instruct-v0.3"
 OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL"
 
 COMMON="--dataset-path $DATASET --chars-per-doc 400 --num-runs 10"
