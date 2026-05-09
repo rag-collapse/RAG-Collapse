@@ -30,19 +30,23 @@ mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
-MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"
-# Modify the experiment directory as per the specific model and result path.
-EXPERIMENT_DIR="${EXPERIMENT_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/oyilmazel_umass_edu/experiment_outputs/Qwen/Qwen2.5-14B-Instruct}"
-OUT_DIR="${OUT_DIR:-entity_extraction_output/$MODEL_SUBDIR}"
+# ── Main model (change only this line to switch pipelines) ────────────────────
+MAIN_MODEL="${MAIN_MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
+
+# ── Derived paths ─────────────────────────────────────────────────────────────
+EXPERIMENT_DIR="${EXPERIMENT_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MAIN_MODEL}"
+OUT_DIR="${OUT_DIR:-entity_extraction_output/$MAIN_MODEL}"
+
+# ── Entity extraction model (lighter model used for extraction only) ──────────
+ENTITY_MODEL="${ENTITY_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 MODEL_MODE="${MODEL_MODE:-local}"
-MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-14B-Instruct}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.7}"
 
 mkdir -p logs "$OUT_DIR"
 
 python -u entity_extraction.py \
   --model-mode "$MODEL_MODE" \
-  --model-name "$MODEL_NAME" \
+  --model-name "$ENTITY_MODEL" \
   --gpu-mem-util "$GPU_MEM_UTIL" \
   --experiment-files "$EXPERIMENT_DIR/local_search.json" \
                      "$EXPERIMENT_DIR/local_replace_one.json" \
