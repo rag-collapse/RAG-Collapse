@@ -255,16 +255,21 @@ class RAGSystemPromptAdapter(GEPAAdapter):
                 variant_feedback = {}
 
                 for variant, result in trace.results.items():
+                    # Only expose the final answer — not the full response sequence —
+                    # so the reflection LM has no visibility into the multi-round
+                    # structure and cannot reward-hack by telling the task model to
+                    # vary behaviour per round.
                     variant_outputs[variant] = {
-                        f"Round {i + 1}": a for i, a in enumerate(result.answers)
+                        "answer": result.answers[-1] if result.answers else ""
                     }
                     flags = []
                     if result.anti_collapse < ANTI_COLLAPSE_THRESHOLD:
                         flags.append(
-                            f"Entity sets collapsed across rounds "
+                            f"The answer lacks entity diversity "
                             f"(anti_collapse={result.anti_collapse:.3f}, "
                             f"unique_entities={result.unique_entities}) — "
-                            "the prompt may cause the model to echo the same entities each round."
+                            "the prompt may cause the model to fixate on a narrow subset of entities "
+                            "from the context rather than drawing on the full range of information."
                         )
                     if result.quality < QUALITY_THRESHOLD:
                         flags.append(
@@ -290,7 +295,6 @@ class RAGSystemPromptAdapter(GEPAAdapter):
                         "Question": trace.question,
                         "Original Context (preview)": ctx_preview,
                         "System Prompt": candidate["system_prompt"],
-                        "Simulation rounds": self._n_rounds,
                     },
                     "Generated Outputs": variant_outputs,
                     "Feedback": variant_feedback,

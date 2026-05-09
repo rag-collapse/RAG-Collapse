@@ -43,7 +43,7 @@ _JUDGE_USER = """Question: {question}
 Original retrieved context (ground truth):
 {context}
 
-Answer produced at the final simulation round:
+Answer:
 {answer}
 
 Rate this answer on two dimensions (each 0.0–1.0):
