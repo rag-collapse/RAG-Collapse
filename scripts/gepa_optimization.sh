@@ -36,7 +36,11 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+<<<<<<< Updated upstream
 export API_KEY="REDACTED"
+=======
+export API_KEY=""
+>>>>>>> Stashed changes
 
 # --- API key check ---
 if [[ -z "${API_KEY:-}" ]]; then

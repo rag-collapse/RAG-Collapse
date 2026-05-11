@@ -7,7 +7,10 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=vram48|vram80
+<<<<<<< Updated upstream
 #SBATCH --exclude=gpu026,gpu030
+=======
+>>>>>>> Stashed changes
 #SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
@@ -30,8 +33,13 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+<<<<<<< Updated upstream
 export VLLM_API_BASE="http://gpu032.unity.rc.umass.edu:5151/v1"
 export DOC_VLLM_API_BASE="http://gpu030.unity.rc.umass.edu:5153/v1"
+=======
+export VLLM_API_BASE=""
+export DOC_VLLM_API_BASE=""
+>>>>>>> Stashed changes
 
 if [[ -z "$VLLM_API_BASE" ]]; then
   echo "ERROR: VLLM_API_BASE is not set. Start the vLLM server first, then:"
