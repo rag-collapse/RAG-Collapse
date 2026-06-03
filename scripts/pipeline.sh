@@ -1,12 +1,12 @@
 #!/bin/bash
 # --- SLURM (tuned for 14B model on 2 GPUs) ---
-#SBATCH --job-name=pipeline
+#SBATCH --job-name=pipeline-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=vram40|vram48|vram80
+#SBATCH --constraint=vram48|vram80
 #SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
@@ -29,6 +29,8 @@ CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+export VLLM_API_BASE=""
+export DOC_VLLM_API_BASE=""
 
 if [[ -z "$VLLM_API_BASE" ]]; then
   echo "ERROR: VLLM_API_BASE is not set. Start the vLLM server first, then:"
@@ -40,7 +42,7 @@ echo "Using VLLM_API_BASE=$VLLM_API_BASE"
 
 # --- Config ---
 DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
-MODEL="Qwen/Qwen2.5-14B-Instruct"
+MODEL="mistralai/Mistral-7B-Instruct-v0.3"
 OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL"
 
 COMMON="--dataset-path $DATASET --chars-per-doc 400 --num-runs 10"
@@ -91,7 +93,7 @@ run_server() {
 
 #run_server --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
 
-#run_server --pipeline-variant agentic_rag --num-iterations 30 --output-path "$OUTDIR/local_agentic_rag.json"
+run_server --pipeline-variant agentic_rag --num-iterations 30 --output-path "$OUTDIR/local_agentic_rag.json"
 
 
 # --- Local mode: in-process vLLM (needs GPU allocation in this job) ---

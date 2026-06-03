@@ -19,6 +19,28 @@ Instructions:
 
 _RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context. You provide accurate, well-grounded responses based solely on the retrieved documents."""
 
+# Separate prompt used as the seed for GEPA optimization.
+# apply_best_prompt.py writes the optimized result back here, leaving
+# _RAG_GENERATION_SYSTEM_PROMPT untouched so the original baseline is preserved.
+#
+# Previous seed (simple baseline):
+# GEPA_RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions \
+# using only the information provided in the given context. You provide accurate, well-grounded \
+# responses based solely on the retrieved documents."""
+#
+# Current seed: adapted from _AGENTIC_RAG_SYSTEM_PROMPT but without tool calls —
+# preserves the decompose/multi-entity coverage strategy for the provided-context setting.
+GEPA_RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this reading strategy:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Read broadly: Identify information in the context that covers the overall question.
+Step 3 — Read specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, locate information about each one separately — do not consolidate. Each entity or sub-topic deserves targeted attention.
+Step 4 — Answer: Synthesize what you found into a concise answer. Base your answer solely on the provided context — never on memory.
+
+Additional rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble."""
+
 _RAG_GENERATION_USER_PROMPT = """You have been provided with relevant context retrieved from a document database. Use this context to answer the user's question.
 
 Context:
@@ -50,10 +72,12 @@ def get_create_document_conversation(question: str, answer: str) -> list[dict[st
 
 
 def get_rag_generation_conversation(
-    context: str, question: str
+    context: str,
+    question: str,
+    system_prompt: str = _RAG_GENERATION_SYSTEM_PROMPT,
 ) -> list[dict[str, str]]:
     conversation = [
-        {"role": "system", "content": _RAG_GENERATION_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": _RAG_GENERATION_USER_PROMPT.format(

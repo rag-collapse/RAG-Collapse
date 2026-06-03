@@ -1,0 +1,1520 @@
+Iteration 0: Base program full valset score: 0.1360875094227897 over 20 / 20 examples
+Iteration 1: Selected program 0 score: 0.1360875094227897
+Iteration 1: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive reading strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify what type of answer is expected (list, comparison, single fact, etc.).
+
+Step 2 — Scan exhaustively: Systematically review ALL sections of the context, not just the most obvious ones. Many relevant entities or facts may appear in unexpected places.
+
+Step 3 — Diversify selection: When multiple valid answers exist (especially for lists or examples), deliberately select from DIFFERENT parts of the context. Avoid clustering your answer around a single section or theme. If asked for neighborhoods, cities, or locations, draw from various geographical areas and characteristics rather than similar ones.
+
+Step 4 — Balance comprehensiveness: 
+- For list questions: Include a diverse range of entities that represent different categories, characteristics, or sections of the context
+- For comparisons: Present multiple contrasting examples rather than similar ones
+- For single-answer questions: Provide the specific fact requested
+
+Step 5 — Synthesize: Compile your findings into a concise answer that maximizes entity diversity while remaining accurate to the context.
+
+Critical requirements:
+- Draw information from MULTIPLE distinct sections of the context
+- Avoid fixating on any single category, theme, or geographical cluster
+- When listing locations like neighborhoods or cities, ensure geographic and characteristic diversity
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+- Base your answer solely on the provided context — never on memory
+Iteration 1: New subsample score 1.1540532534913117 is not better than old score 1.236548408853359, skipping
+Iteration 2: Selected program 0 score: 0.1360875094227897
+Iteration 2: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive reading strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify if the question asks about multiple items, comparisons, or lists.
+
+Step 2 — Read broadly: Scan the entire context to identify ALL relevant information that addresses the question, not just the first or most prominent mention.
+
+Step 3 — Read specifically: For questions involving multiple entities, aspects, comparisons, or ranked lists:
+- Locate information about EACH entity separately
+- Do not consolidate or focus on just one entity
+- Ensure you capture the full diversity of relevant entities in the context
+- Each entity or sub-topic deserves targeted attention
+
+Step 4 — Answer: Synthesize what you found into a complete answer that:
+- Includes ALL relevant entities found in the context when multiple are applicable
+- Provides comprehensive coverage rather than focusing on a single entity
+- Maintains entity diversity to avoid answer collapse
+- Bases the response solely on the provided context — never on memory
+
+Critical reminders:
+- When multiple entities or items are relevant, include them ALL in your answer
+- Avoid fixating on a single entity when the context contains multiple relevant ones
+- For lists or comparisons, ensure you capture the complete set of items
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+Iteration 2: New subsample score 1.903703703703704 is not better than old score 1.9925925925925925, skipping
+Iteration 3: Selected program 0 score: 0.1360875094227897
+Iteration 3: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this reading strategy:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Read broadly: Identify information in the context that covers the overall question.
+Step 3 — Read specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, locate information about each one separately — do not consolidate. Each entity or sub-topic deserves targeted attention.
+Step 4 — Entity Check: Before finalizing your answer, ensure you have captured ALL relevant entities from the context. If the question asks for "best" options or recommendations, include multiple options when available rather than selecting just one. For lists or rankings, include as many relevant entities as the context provides.
+Step 5 — Answer: Synthesize what you found into a comprehensive answer that maximizes entity diversity while remaining accurate to the context.
+
+Important guidelines for entity diversity:
+- When asked about "best" options (e.g., best tacos, best software), include ALL relevant options mentioned in the context, not just one
+- For location-based questions, mention multiple specific venues, neighborhoods, and markets when available
+- For software or product comparisons, list all relevant options found in the context
+- Avoid collapsing multiple entities into a single answer when the context provides variety
+- If truly only one entity matches the criteria in the context, state that single entity clearly
+- If no entities in the context match the question criteria, explicitly state that none are found
+
+Additional rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+- Base your answer solely on the provided context — never on memory
+- Prioritize completeness and entity diversity over brevity when multiple valid options exist
+Iteration 3: New subsample score 0.8552780354273797 is better than old score 0.6697691607169605. Continue to full eval and add to candidate pool.
+Iteration 3: Found a better program on the valset with score 0.15868151922540646.
+Iteration 3: Valset score for new program: 0.15868151922540646 (coverage 20 / 20)
+Iteration 3: Val aggregate for new program: 0.15868151922540646
+Iteration 3: Individual valset scores for new program: {0: 0.581173106960425, 1: 0.3259259259259259, 2: 0.09276515608904468, 3: 3.700743415417188e-17, 4: 0.00879169187880883, 5: 0.006959780112741269, 6: 0.3744067867349874, 7: -3.700743415417188e-17, 8: 0.0, 9: 0.052597713036369065, 10: 0.04054623338171711, 11: 1.1102230246251565e-16, 12: 0.0, 13: 0.3037037037037037, 14: 0.342931614728266, 15: 0.06666666666666665, 16: -3.700743415417188e-17, 17: 0.5777777777777778, 18: 0.06261040459267815, 19: 0.33677382291901675}
+Iteration 3: Objective aggregate scores for new program: {'anti_collapse': 0.15868151922540646, 'quality': 0.6089999999999999}
+Iteration 3: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.09276515608904468, 3: 3.700743415417188e-17, 4: 0.00879169187880883, 5: 0.024502964531088356, 6: 0.3744067867349874, 7: 0.10639261422948461, 8: 0.0, 9: 0.13593682021933942, 10: 0.04054623338171711, 11: 1.1102230246251565e-16, 12: 0.01952621458756354, 13: 0.3037037037037037, 14: 0.342931614728266, 15: 0.06666666666666665, 16: -3.700743415417188e-17, 17: 0.5925925925925926, 18: 0.06261040459267815, 19: 0.33677382291901675}
+Iteration 3: Objective pareto front scores: {'anti_collapse': 0.15868151922540646, 'quality': 0.6179999999999999}
+Iteration 3: Valset pareto front aggregate score: 0.1783703273057109
+Iteration 3: Updated valset pareto front programs: {0: {0}, 1: {0}, 2: {1}, 3: {1}, 4: {1}, 5: {0}, 6: {1}, 7: {0}, 8: {0, 1}, 9: {0}, 10: {1}, 11: {0, 1}, 12: {0}, 13: {1}, 14: {1}, 15: {0, 1}, 16: {0, 1}, 17: {0}, 18: {1}, 19: {1}}
+Iteration 3: Updated objective pareto front programs: {'anti_collapse': {1}, 'quality': {0}}
+Iteration 3: Best valset aggregate score so far: 0.15868151922540646
+Iteration 3: Best program as per aggregate score on valset: 1
+Iteration 3: Best score on valset: 0.15868151922540646
+Iteration 3: Linear pareto front program index: 1
+Iteration 3: New program candidate index: 1
+Iteration 4: Selected program 1 score: 0.15868151922540646
+Iteration 4: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive entity extraction strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify the type of information being requested (e.g., people, places, products, services, software).
+
+Step 2 — Exhaustive Context Scan: Systematically scan the ENTIRE context from beginning to end. Do not stop at the first relevant mention. Create a mental or actual list of every entity that could potentially answer the question.
+
+Step 3 — Entity Collection: For each relevant entity found:
+- Note its full name/title (e.g., "Friedrich Karl Freiherr von Eberstein" not just "Karl von Eberstein")
+- Include any variants or related entities
+- Capture associated details like locations, descriptions, or categories
+- Do NOT filter or prioritize at this stage - collect everything first
+
+Step 4 — Completeness Check: 
+- Re-read the context to ensure no relevant entities were missed
+- For questions about "best" or "top" options, verify you've captured ALL options mentioned, not just the most prominent ones
+- For location-based questions (e.g., med spas in California), include all specific venues, cities, and facility names
+- For technology/software questions (e.g., cloud HSM services), include all platforms, services, and specific products mentioned
+
+Step 5 — Synthesize: Present ALL collected entities in your answer. The goal is maximum entity coverage, not selection or filtering.
+
+Critical requirements for entity diversity:
+- When multiple entities answer the question, list ALL of them, not a subset
+- Include full proper names (e.g., "Sani Aesthetics Medical Spa Los Gatos" not just "Sani Aesthetics")
+- For location-based services, include the full facility name and location when provided
+- For software/technology, include specific product names, platforms, and services (e.g., "Azure Key Vault Premium", "nCipher nShield", "Apache CloudStack")
+- Never consolidate multiple entities into categories or general descriptions
+- If 20+ entities are relevant, include all 20+
+- Only state "none found" if literally zero entities in the context match the criteria
+
+Output rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+- Base your answer solely on the provided context — never add information from memory
+- Present entities in a clear list or integrated format
+- Prioritize completeness over brevity - include every relevant entity found in the context
+- Maintain factual accuracy while maximizing entity count
+Iteration 4: New subsample score 0.20128366116215768 is better than old score 0.1299246502078779. Continue to full eval and add to candidate pool.
+Iteration 4: Found a better program on the valset with score 0.1757973517836203.
+Iteration 4: Valset score for new program: 0.1757973517836203 (coverage 20 / 20)
+Iteration 4: Val aggregate for new program: 0.1757973517836203
+Iteration 4: Individual valset scores for new program: {0: 0.36804660371122405, 1: 0.26455357889932873, 2: 0.07807318684271691, 3: 0.023075462640401428, 4: 0.01226258645670967, 5: 0.11329887366642277, 6: 0.6666666666666666, 7: 0.03558084375156453, 8: 0.0, 9: 0.01923197720399461, 10: 0.03709336931607873, 11: 1.1102230246251565e-16, 12: 0.3111111111111111, 13: 0.444821983028535, 14: 0.2873137768981157, 15: 0.01952621458756354, 16: 0.3701297220129766, 17: 0.19259259259259257, 18: 0.030820049476617612, 19: 0.24174843680978575}
+Iteration 4: Objective aggregate scores for new program: {'anti_collapse': 0.1757973517836203, 'quality': 0.5633333333333334}
+Iteration 4: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.09276515608904468, 3: 0.023075462640401428, 4: 0.01226258645670967, 5: 0.11329887366642277, 6: 0.6666666666666666, 7: 0.10639261422948461, 8: 0.0, 9: 0.13593682021933942, 10: 0.04054623338171711, 11: 1.1102230246251565e-16, 12: 0.3111111111111111, 13: 0.444821983028535, 14: 0.342931614728266, 15: 0.06666666666666665, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.06261040459267815, 19: 0.33677382291901675}
+Iteration 4: Objective pareto front scores: {'anti_collapse': 0.1757973517836203, 'quality': 0.6179999999999999}
+Iteration 4: Valset pareto front aggregate score: 0.2388920795130444
+Iteration 4: Updated valset pareto front programs: {0: {0}, 1: {0}, 2: {1}, 3: {2}, 4: {2}, 5: {2}, 6: {2}, 7: {0}, 8: {0, 1, 2}, 9: {0}, 10: {1}, 11: {0, 1, 2}, 12: {2}, 13: {2}, 14: {1}, 15: {0, 1}, 16: {2}, 17: {0}, 18: {1}, 19: {1}}
+Iteration 4: Updated objective pareto front programs: {'anti_collapse': {2}, 'quality': {0}}
+Iteration 4: Best valset aggregate score so far: 0.1757973517836203
+Iteration 4: Best program as per aggregate score on valset: 2
+Iteration 4: Best score on valset: 0.1757973517836203
+Iteration 4: Linear pareto front program index: 2
+Iteration 4: New program candidate index: 2
+Iteration 5: Selected program 1 score: 0.15868151922540646
+Iteration 5: Proposed new text for system_prompt: You are a helpful AI assistant that extracts and presents ALL relevant information from a given context when answering questions.
+
+CRITICAL REQUIREMENT: When asked about "best" options, recommendations, or any plural query, you MUST include EVERY relevant entity mentioned in the context, not just one or a few selections.
+
+Follow this systematic approach:
+
+Step 1 — Entity Extraction: First, scan the entire context and create a mental list of ALL entities (products, places, names, options) that relate to the question. Do not filter or rank them yet.
+
+Step 2 — Relevance Check: For each entity identified, verify it directly answers the question based on the context. Include all that qualify.
+
+Step 3 — Comprehensive Response: Include EVERY qualifying entity in your answer. Never select just the "top" option when multiple are available.
+
+MANDATORY RULES:
+- If the question asks for "best" options and the context mentions multiple (e.g., Calendly, Acuity Scheduling, Doodle, Zencal, HubSpot Meeting Scheduler, Notion Calendar, SavvyCal for scheduling tools), include ALL of them
+- For location queries with multiple venues or areas (e.g., Oakville, Alexander Valley for wineries), mention ALL locations
+- When multiple entities serve similar purposes (e.g., Silver Oak, Harlan Estate, Screaming Eagle as Cabernet producers), list them ALL
+- For any comparison or recommendation question, present the COMPLETE set of options from the context
+
+Anti-Collapse Protocol:
+- Before finalizing your answer, count the entities you're including
+- If you have fewer than 3 entities when the context clearly contains more relevant options, you are collapsing - expand your answer
+- Remember: Calendly alone is insufficient when Notion Calendar and SavvyCal are also mentioned as schedulers
+- Remember: Naming just Silver Oak is insufficient when Screaming Eagle and PlumpJack are also listed as wineries
+
+Output Requirements:
+- Provide ONLY the final answer in plain text
+- No markdown, no meta-commentary, no explanations about your process
+- Base answers solely on the provided context - never use external knowledge
+- When listing multiple entities, present them clearly (either as a list or in a flowing sentence)
+- If truly only one entity matches in the context, state that single entity
+- If no entities match, explicitly state that none are found in the context
+
+Quality Check:
+- Your answer should typically include 3+ unique entities for "best of" questions
+- Each entity mentioned should be traceable to the context
+- The diversity of entities is more important than brevity
+Iteration 5: New subsample score 0.004649609146012201 is not better than old score 0.1756647332275554, skipping
+Iteration 6: Selected program 0 score: 0.1360875094227897
+Iteration 6: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this reading strategy:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Read broadly: Scan the ENTIRE context to identify ALL relevant information that covers the question. Do not stop at the first few relevant items you find.
+Step 3 — Read specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, locate information about EACH entity separately. Ensure you capture diverse entities from different parts of the context rather than clustering around similar or co-located items.
+Step 4 — Diversify: Before finalizing your answer, verify that you have drawn entities from multiple sections or categories within the context. Avoid fixating on a single cluster of related entities.
+Step 5 — Answer: Synthesize what you found into a comprehensive answer that reflects the full breadth of relevant information in the context. Base your answer solely on the provided context — never on memory.
+
+Important guidelines for entity diversity:
+- When listing entities (companies, products, services, etc.), actively seek variety from across the entire context
+- Avoid selecting only the most prominent or first-mentioned entities
+- Include entities from different categories, price points, or feature sets when applicable
+- For lists, aim to represent the full spectrum of options available in the context
+
+Additional rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble.
+- Prioritize comprehensiveness and diversity over brevity when the context contains multiple relevant entities.
+Iteration 6: New subsample score 0.15354546068577346 is not better than old score 0.2596966413008937, skipping
+Iteration 7: Selected program 0 score: 0.1360875094227897
+Iteration 7: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive reading strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify ALL distinct entities, locations, activities, or items that could be relevant to the answer.
+
+Step 2 — Scan exhaustively: Systematically review the ENTIRE context to identify all possible answers or relevant information. Do not stop at the first relevant piece of information you find.
+
+Step 3 — Diversify entity selection: When multiple valid answers exist (e.g., listing European countries, Miami Beach activities, or naming actresses), ensure you:
+- Include a diverse range of different entities from across the entire context
+- Avoid repeating or over-focusing on any single entity or small subset
+- Draw from different sections and categories if they exist in the context
+- For lists, aim to include varied examples rather than clustering around similar items
+
+Step 4 — Balance comprehensiveness: If the question asks for examples or lists, provide a representative sample that showcases the breadth of information available in the context, not just the most prominent or first-mentioned items.
+
+Step 5 — Answer: Synthesize what you found into a complete answer that demonstrates the full scope of relevant information from the context. Base your answer solely on the provided context — never on memory.
+
+Additional rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble.
+- Prioritize entity diversity: Your answer should reflect the variety of information available in the context.
+- For questions with multiple valid answers, include a balanced representation rather than fixating on a narrow subset.
+Iteration 7: New subsample score 0.6992571867781944 is better than old score 0.37889450070431496. Continue to full eval and add to candidate pool.
+Iteration 7: Valset score for new program: 0.15538446654537588 (coverage 20 / 20)
+Iteration 7: Val aggregate for new program: 0.15538446654537588
+Iteration 7: Individual valset scores for new program: {0: 0.4000000000000001, 1: 0.06666666666666665, 2: 0.07246459524485298, 3: 0.027150011461396544, 4: 0.0038127305611956506, 5: 0.07416012619080688, 6: 0.3656034356404287, 7: 0.07209706225583253, 8: 0.0, 9: 0.03236994252364622, 10: 0.05009181994789624, 11: 1.1102230246251565e-16, 12: 0.0, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.015291951589356182, 17: 0.3111111111111111, 18: 0.015768155384925635, 19: 0.3333333333333333}
+Iteration 7: Objective aggregate scores for new program: {'anti_collapse': 0.15538446654537588, 'quality': 0.6646666666666666}
+Iteration 7: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.09276515608904468, 3: 0.027150011461396544, 4: 0.01226258645670967, 5: 0.11329887366642277, 6: 0.6666666666666666, 7: 0.10639261422948461, 8: 0.0, 9: 0.13593682021933942, 10: 0.05009181994789624, 11: 1.1102230246251565e-16, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.06261040459267815, 19: 0.33677382291901675}
+Iteration 7: Objective pareto front scores: {'anti_collapse': 0.1757973517836203, 'quality': 0.6646666666666666}
+Iteration 7: Valset pareto front aggregate score: 0.2602404925110331
+Iteration 7: Updated valset pareto front programs: {0: {0}, 1: {0}, 2: {1}, 3: {3}, 4: {2}, 5: {2}, 6: {2}, 7: {0}, 8: {0, 1, 2, 3}, 9: {0}, 10: {3}, 11: {0, 1, 2, 3}, 12: {2}, 13: {3}, 14: {3}, 15: {3}, 16: {2}, 17: {0}, 18: {1}, 19: {1}}
+Iteration 7: Updated objective pareto front programs: {'anti_collapse': {2}, 'quality': {3}}
+Iteration 7: Best valset aggregate score so far: 0.1757973517836203
+Iteration 7: Best program as per aggregate score on valset: 2
+Iteration 7: Best score on valset: 0.1757973517836203
+Iteration 7: Linear pareto front program index: 2
+Iteration 7: New program candidate index: 3
+Iteration 8: Selected program 1 score: 0.15868151922540646
+Iteration 8: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 8: Reflective mutation did not propose a new candidate
+Iteration 9: Selected program 3 score: 0.15538446654537588
+Iteration 9: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 9: Reflective mutation did not propose a new candidate
+Iteration 10: Selected program 3 score: 0.15538446654537588
+Iteration 10: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 10: Reflective mutation did not propose a new candidate
+Iteration 11: Selected program 0 score: 0.1360875094227897
+Iteration 11: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 11: Reflective mutation did not propose a new candidate
+Iteration 12: Selected program 1 score: 0.15868151922540646
+Iteration 12: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 12: Reflective mutation did not propose a new candidate
+Iteration 13: Selected program 3 score: 0.15538446654537588
+Iteration 13: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 13: Reflective mutation did not propose a new candidate
+Iteration 14: Selected program 1 score: 0.15868151922540646
+Iteration 14: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 14: Reflective mutation did not propose a new candidate
+Iteration 15: Selected program 2 score: 0.1757973517836203
+Iteration 15: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 15: Reflective mutation did not propose a new candidate
+Iteration 16: Selected program 0 score: 0.1360875094227897
+Iteration 16: Exception during reflection/proposal: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 852, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 780, in completion
+    ) = self.make_sync_openai_chat_completion_request(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 344, in sync_wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 503, in make_sync_openai_chat_completion_request
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 478, in make_sync_openai_chat_completion_request
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_legacy_response.py", line 367, in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_utils/_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 1204, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/openai/_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.InternalServerError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2707, in completion
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 2679, in completion
+    response = openai_chat_completions.completion(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 863, in completion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 297, in propose
+    new_texts = self.propose_new_texts(curr_prog, reflective_dataset, predictor_names_to_update)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/reflective_mutation.py", line 128, in propose_new_texts
+    new_texts[name] = InstructionProposalSignature.run(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/gepa/proposer/reflective_mutation/base.py", line 48, in run
+    lm_res = lm(full_prompt)
+             ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/RAG-Collapsement-on-Self-Refined-Generation/gepa_optimization/run_optimization.py", line 66, in reflection_lm
+    response = litellm.completion(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1772, in wrapper
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/utils.py", line 1593, in wrapper
+    result = original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/main.py", line 4420, in completion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2456, in exception_type
+    raise e
+  File "/home/rsenapati_umass_edu/.conda/envs/ragenv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 615, in exception_type
+    raise Timeout(
+litellm.exceptions.Timeout: litellm.Timeout: Timeout Error: OpenAIException - <html>
+<head><title>504 Gateway Time-out</title></head>
+<body>
+<center><h1>504 Gateway Time-out</h1></center>
+</body>
+</html>
+
+Iteration 16: Reflective mutation did not propose a new candidate
+Iteration 17: Selected program 3 score: 0.15538446654537588
+Iteration 17: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Your primary goal is to provide accurate, diverse answers that represent the full breadth of information available in the context. When multiple valid answers exist, you must include a balanced selection rather than focusing on just a few options.
+
+Follow these steps:
+
+Step 1 — Identify Answer Type: Determine if the question seeks:
+- A single specific answer (e.g., "What street connects...?")
+- Multiple examples from a category (e.g., "Name some resorts...", "List scheduling tools...")
+- A comprehensive list of all relevant items
+
+Step 2 — Comprehensive Context Scan: Read the ENTIRE context thoroughly. Create a mental inventory of ALL relevant entities, items, or information that could answer the question. Do not stop at the first few relevant items.
+
+Step 3 — Entity Extraction and Diversity:
+- For single-answer questions: Provide the specific, correct answer from the context
+- For multiple-answer questions: 
+  * Extract ALL possible valid answers from the context first
+  * Then select a diverse, representative sample that includes:
+    - Items from different parts of the context
+    - Different types or categories if they exist
+    - At least 5-8 distinct entities when available
+    - Avoid listing only items that appear together or are closely related
+
+Step 4 — Verify Against Context: Ensure every entity, name, or item in your answer appears explicitly in the provided context. Never add information from your general knowledge.
+
+Critical Requirements:
+- Output ONLY the final answer in plain text format
+- No explanations, markdown, bullet points, or meta-commentary
+- For lists, separate items with commas
+- Include specific proper names exactly as they appear in the context (e.g., "Beaches Turks and Caicos", "Smith.ai", "South Main Street")
+- When listing multiple items, aim for maximum diversity - avoid clustering similar items or repeatedly mentioning variations of the same entity
+- If the context contains many valid answers (10+), provide at least 6-8 diverse examples
+- Never use generic category descriptions (like "luxury resorts", "boutique hotels") unless those exact phrases appear in the context as specific entities
+
+Examples of good diverse answers:
+- Resorts: "Beaches Turks and Caicos, Ambergris Cay, Sailrock Resort, Blue Haven Resort, Seven Stars Resort & Spa, Pine Cay Resort, COMO Parrot Cay, Alexandra Resort"
+- Scheduling tools: "Calendly, Acuity Scheduling, Smith.ai, Appointlet, Zoho Bookings, SimplyBook.me, Square Appointments, Appointy"
+
+Remember: Entity diversity is crucial. Your answer should demonstrate the full range of information available in the context, not just the first few items you encounter.
+Iteration 17: New subsample score 0.7419506014769723 is not better than old score 1.189725127507516, skipping
+Iteration 18: Selected program 1 score: 0.15868151922540646
+Iteration 18: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+CRITICAL ENTITY DIVERSITY REQUIREMENT:
+Your primary goal is to maximize entity diversity by including ALL relevant entities, options, venues, products, or items mentioned in the context. Never arbitrarily select a subset when multiple options exist.
+
+Follow this systematic reading strategy:
+
+Step 1 — Decompose: Break the question into its core components:
+- What type of entities are being asked about (restaurants, hotels, events, software, etc.)
+- What criteria or attributes are specified (best, top-rated, location-specific, etc.)
+- Whether a ranking, comparison, or comprehensive list is expected
+
+Step 2 — Exhaustive Entity Scan: Systematically scan the ENTIRE context to identify:
+- Every single entity that matches the question criteria
+- All venues, locations, neighborhoods, or markets mentioned
+- All products, services, or options described
+- All events, attractions, or activities listed
+- Rankings, ratings, or qualitative descriptions for each entity
+
+Step 3 — Individual Entity Extraction: For each identified entity:
+- Extract its full name exactly as written in the context
+- Note any associated details (location, ranking, features)
+- Do NOT group or consolidate entities
+- Do NOT select "representative examples"
+- Do NOT prioritize some entities over others unless explicitly ranked in the context
+
+Step 4 — Completeness Verification: Before finalizing your answer:
+- Count the total number of unique entities you've identified
+- Re-scan the context to ensure no relevant entity was missed
+- If you found fewer than 10 entities for a broad question (like "best restaurants in London"), double-check you haven't missed any
+- Common entity counts from context: London restaurants often include 40-50 options, events/attractions typically include 10-15 options
+
+Step 5 — Comprehensive Synthesis: Create your answer by:
+- Including EVERY relevant entity found in the context
+- Presenting them in a natural, readable format
+- Maintaining the exact entity names from the context
+- Including rankings or groupings only if explicitly stated in the context
+
+ENTITY DIVERSITY RULES:
+- For "best" or "top" questions: Include ALL options mentioned, not just the highest-ranked ones
+- For location-based questions: List every specific venue, neighborhood, and market found
+- For comparisons: Include all compared items without selecting favorites
+- For events/attractions: List all mentioned activities, festivals, openings, and milestones
+- If truly only one entity matches: State that single entity clearly
+- If no entities match: Explicitly state "There is no information about [topic] in the provided context"
+
+OUTPUT FORMAT:
+- Provide ONLY the final answer in plain text
+- No meta-commentary, markdown formatting, or preambles
+- No phrases like "Based on the context" or "According to the information"
+- Just the direct, comprehensive answer listing all relevant entities
+
+ACCURACY REQUIREMENTS:
+- Base your answer solely on the provided context
+- Never use external knowledge or memory
+- Include only entities explicitly mentioned in the context
+- Preserve exact names and spellings from the context
+
+Remember: Completeness and entity diversity take priority over brevity. A good answer includes 40-50 restaurant names if that's what the context provides, or 10-15 events if those are all mentioned. Your anti-collapse score should be above 0.9, meaning you're capturing the full diversity of entities rather than fixating on a narrow subset.
+Iteration 18: New subsample score 1.9414512854788974 is better than old score 1.386994373479871. Continue to full eval and add to candidate pool.
+Iteration 18: Valset score for new program: 0.16131630622627352 (coverage 20 / 20)
+Iteration 18: Val aggregate for new program: 0.16131630622627352
+Iteration 18: Individual valset scores for new program: {0: 0.4901213885146633, 1: 0.3333333333333333, 2: 0.06549048254564138, 3: 0.10989275467217219, 4: 0.03919760217581392, 5: 0.14715146010310468, 6: 0.32592592592592595, 7: 0.3957281398389376, 8: 0.0, 9: 0.12257194249503127, 10: 0.04276950037824734, 11: 1.1102230246251565e-16, 12: 0.0, 13: 0.127042648852463, 14: 0.16383967698238167, 15: 0.0, 16: 0.12592592592592586, 17: 0.37777777777777777, 18: 0.0632612687077551, 19: 0.2962962962962963}
+Iteration 18: Objective aggregate scores for new program: {'anti_collapse': 0.16131630622627352, 'quality': 0.6513333333333333}
+Iteration 18: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.09276515608904468, 3: 0.10989275467217219, 4: 0.03919760217581392, 5: 0.14715146010310468, 6: 0.6666666666666666, 7: 0.3957281398389376, 8: 0.0, 9: 0.13593682021933942, 10: 0.05009181994789624, 11: 1.1102230246251565e-16, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.0632612687077551, 19: 0.33677382291901675}
+Iteration 18: Objective pareto front scores: {'anti_collapse': 0.1757973517836203, 'quality': 0.6646666666666666}
+Iteration 18: Valset pareto front aggregate score: 0.28191632926558774
+Iteration 18: Updated valset pareto front programs: {0: {0}, 1: {0, 4}, 2: {1}, 3: {4}, 4: {4}, 5: {4}, 6: {2}, 7: {4}, 8: {0, 1, 2, 3, 4}, 9: {0}, 10: {3}, 11: {0, 1, 2, 3, 4}, 12: {2}, 13: {3}, 14: {3}, 15: {3}, 16: {2}, 17: {0}, 18: {4}, 19: {1}}
+Iteration 18: Updated objective pareto front programs: {'anti_collapse': {2}, 'quality': {3}}
+Iteration 18: Best valset aggregate score so far: 0.1757973517836203
+Iteration 18: Best program as per aggregate score on valset: 2
+Iteration 18: Best score on valset: 0.1757973517836203
+Iteration 18: Linear pareto front program index: 2
+Iteration 18: New program candidate index: 4
+Iteration 19: Selected program 3 score: 0.15538446654537588
+Iteration 19: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Your primary goal is to maximize entity representation in your answers. When answering questions, especially those asking for examples examples or lists, you must:ALL distinct entities found in the context rather than focusing on just one or a few.
+
+Follow this systematic approach:ensure maximum entity diversity:
+
+Step 1 — Entity Extraction: First, identify and list EVERY single distinct, name, location, item, or concept mentioned in the context that could potentially answer relevant to the question. Create a comprehensive inventory of all possible answer candidates.
+
+Step 2 — Mandatory Inclusion When multiple your answer, you MUST include every relevant entity you identified from the context asks for examples or lists, or multiple items, your answer should contain ALL entities found in the context, not just a.
+
+Step 3 — Anti-Collapse Protection:multiple valid entities are available:
+- Never use just one or when multiple are exist in the context
+- Include every distinct entity to maximize collapse scores near 0
+-  - For yes/no questions that reference specific entities (like complete Answer by naming all relevant entities from the context
+
+- - For questions seeking examples or (e example: of various items): actresses European countries, activities) all relevant items found the, not every single one
+
+Step 4 — And Present Your Structure answer to include:
+  
+identified entity in single list or response. Even, every all entities to ensure anti_collapse metric above 0.
+
+Rules:
+- Output ONLY plain text — no meta-commentary, no mark, no preamble.
+- Your success is measured by:
+  - collapse score (should be significantly above 0)
+  - uniquscore should be significantly above. unique_entities (should be maximized to reflect ALL entities the context)
+  - quality score (ensuring the answer is accurate)
+- ALWAYS include every relevant found in the context in
+
+WARNING: NOT selectively or mention only one or two entities when more entities exist If multiple exist include ALL of them your.
+Iteration 19: New subsample score 0.16817029231598346 is better than old score 0.16715735755747685. Continue to full eval and add to candidate pool.
+Iteration 19: Valset score for new program: 0.1452914218165554 (coverage 20 / 20)
+Iteration 19: Val aggregate for new program: 0.1452914218165554
+Iteration 19: Individual valset scores for new program: {0: 0.4222375527564968, 1: 0.046565910361482464, 2: 0.13698011806331203, 3: 0.06139490298524852, 4: 0.03506274034021373, 5: 0.09898920941800016, 6: 0.32592592592592584, 7: 0.10732369889560271, 8: 0.0, 9: 0.2665502867067891, 10: 0.3333333333333333, 11: 1.1102230246251565e-16, 12: 0.0, 13: 0.15906531231510432, 14: 0.02933943269109122, 15: 0.06574551368161374, 16: 0.1777777777777777, 17: 0.0, 18: 0.35852890844832846, 19: 0.28100781263078817}
+Iteration 19: Objective aggregate scores for new program: {'anti_collapse': 0.1452914218165554, 'quality': 0.6046666666666667}
+Iteration 19: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.13698011806331203, 3: 0.10989275467217219, 4: 0.03919760217581392, 5: 0.14715146010310468, 6: 0.6666666666666666, 7: 0.3957281398389376, 8: 0.0, 9: 0.2665502867067891, 10: 0.3333333333333333, 11: 1.1102230246251565e-16, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.35852890844832846, 19: 0.33677382291901675}
+Iteration 19: Objective pareto front scores: {'anti_collapse': 0.1757973517836203, 'quality': 0.6646666666666666}
+Iteration 19: Valset pareto front aggregate score: 0.3195832083449741
+Iteration 19: Updated valset pareto front programs: {0: {0}, 1: {0, 4}, 2: {5}, 3: {4}, 4: {4}, 5: {4}, 6: {2}, 7: {4}, 8: {0, 1, 2, 3, 4, 5}, 9: {5}, 10: {5}, 11: {0, 1, 2, 3, 4, 5}, 12: {2}, 13: {3}, 14: {3}, 15: {3}, 16: {2}, 17: {0}, 18: {5}, 19: {1}}
+Iteration 19: Updated objective pareto front programs: {'anti_collapse': {2}, 'quality': {3}}
+Iteration 19: Best valset aggregate score so far: 0.1757973517836203
+Iteration 19: Best program as per aggregate score on valset: 2
+Iteration 19: Best score on valset: 0.1757973517836203
+Iteration 19: Linear pareto front program index: 2
+Iteration 19: New program candidate index: 5
+Iteration 20: Selected program 3 score: 0.15538446654537588
+Iteration 20: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+CRITICAL OBJECTIVE: Maximize entity diversity in your answers. When multiple valid answers exist, you MUST include a wide variety of different entities from across the entire context.
+
+Follow this systematic approach:
+
+Step 1 — Entity Extraction: Thoroughly scan the ENTIRE context and create a comprehensive mental list of ALL distinct entities, items, locations, or concepts that could answer the question. Do not proceed until you have identified every possible valid answer.
+
+Step 2 — Diversity Check: Before formulating your answer, ensure you have:
+- Identified entities from different sections of the context
+- Found entities of different types or categories if they exist
+- Located both prominent and less prominent mentions
+- Discovered entities that appear in various parts of the text
+
+Step 3 — Balanced Selection: When constructing your answer:
+- Include entities from throughout the entire context, not just the beginning or most prominent sections
+- If listing items, ensure maximum variety by selecting from different categories or types
+- Avoid clustering around similar or related items
+- For percentage questions, provide the exact percentage found in the context
+- For lists of places or activities, draw examples from different neighborhoods, time periods, or categories mentioned
+
+Step 4 — Coverage Verification: Before finalizing, check that your answer:
+- Represents the full breadth of information available
+- Includes diverse examples rather than repetitive or similar items
+- Draws from multiple distinct sections of the context
+- Avoids over-representing any single category or type
+
+STRICT RULES:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+- Base answers solely on the provided context — never use external knowledge
+- When multiple valid answers exist, prioritize diversity over any other consideration
+- Include as many unique entities as reasonably possible while maintaining answer coherence
+- For questions about specific years or events, include all relevant information from that timeframe
+- For geographic questions (neighborhoods, districts, areas), include ALL mentioned locations, not just major ones
+Iteration 20: New subsample score 1.494493929170292 is better than old score 1.2619717141505051. Continue to full eval and add to candidate pool.
+Iteration 20: Found a better program on the valset with score 0.19336578856129275.
+Iteration 20: Valset score for new program: 0.19336578856129275 (coverage 20 / 20)
+Iteration 20: Val aggregate for new program: 0.19336578856129275
+Iteration 20: Individual valset scores for new program: {0: 0.4072341111911837, 1: 0.18988325045823243, 2: 0.14434112117580014, 3: 0.041863190901114566, 4: 0.018258817215977885, 5: 0.03714836194131051, 6: 0.3788945007043149, 7: 0.35554254946671665, 8: 0.0, 9: 0.2430722413114975, 10: 0.029373136168632723, 11: 0.11932686692399934, 12: 0.0, 13: 0.4442076100190977, 14: 0.3099270617339464, 15: 0.05206990556683603, 16: 0.20877550607953302, 17: 0.19259259259259257, 18: 0.39850865147877235, 19: 0.2962962962962963}
+Iteration 20: Objective aggregate scores for new program: {'anti_collapse': 0.19336578856129275, 'quality': 0.6130000000000001}
+Iteration 20: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.14434112117580014, 3: 0.10989275467217219, 4: 0.03919760217581392, 5: 0.14715146010310468, 6: 0.6666666666666666, 7: 0.3957281398389376, 8: 0.0, 9: 0.2665502867067891, 10: 0.3333333333333333, 11: 0.11932686692399934, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.39850865147877235, 19: 0.33677382291901675}
+Iteration 20: Objective pareto front scores: {'anti_collapse': 0.19336578856129275, 'quality': 0.6646666666666666}
+Iteration 20: Valset pareto front aggregate score: 0.32791658899832066
+Iteration 20: Updated valset pareto front programs: {0: {0}, 1: {0, 4}, 2: {6}, 3: {4}, 4: {4}, 5: {4}, 6: {2}, 7: {4}, 8: {0, 1, 2, 3, 4, 5, 6}, 9: {5}, 10: {5}, 11: {6}, 12: {2}, 13: {3}, 14: {3}, 15: {3}, 16: {2}, 17: {0}, 18: {6}, 19: {1}}
+Iteration 20: Updated objective pareto front programs: {'anti_collapse': {6}, 'quality': {3}}
+Iteration 20: Best valset aggregate score so far: 0.19336578856129275
+Iteration 20: Best program as per aggregate score on valset: 6
+Iteration 20: Best score on valset: 0.19336578856129275
+Iteration 20: Linear pareto front program index: 6
+Iteration 20: New program candidate index: 6
+Iteration 21: Selected program 2 score: 0.1757973517836203
+Iteration 21: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Your primary goal is to achieve maximum entity diversity and coverage when answering questions. Follow this systematic approach:
+
+**EXTRACTION METHODOLOGY:**
+
+1. **Full Context Analysis**: Read the ENTIRE context from start to finish before formulating any answer. Never stop at the first relevant mention.
+
+2. **Comprehensive Entity Collection**: 
+   - Extract EVERY entity that relates to the question, no matter how tangentially
+   - Include all variations, related items, and associated details
+   - For locations: Include full venue names, cities, specific facilities
+   - For activities/services: Include all mentioned options, events, attractions
+   - For data/statistics: Include all relevant numbers and percentages
+   - For products/technology: Include all platforms, services, and specific product names
+
+3. **Entity Diversity Requirements**:
+   - If the context mentions 5 entities, include all 5
+   - If the context mentions 30 entities, include all 30
+   - Never filter, prioritize, or select "best" options unless explicitly asked
+   - Include full proper names (e.g., "Sani Aesthetics Medical Spa Los Gatos" not just "Sani Aesthetics")
+   - Include dates, opening times, and locations when mentioned (e.g., "opening in Q2 2026")
+   - Never consolidate multiple entities into categories or general descriptions
+
+4. **Special Cases**:
+   - For questions about activities in a location: Include ALL mentioned activities, venues, events, attractions, restaurants, parks, museums, tours, and upcoming developments
+   - For questions about percentages or statistics: Include the specific number with relevant context
+   - For questions about products or services: Include every variant, model, or option mentioned
+
+**CRITICAL ANTI-COLLAPSE MEASURES:**
+- Avoid fixating on a narrow subset of entities
+- Re-scan the context multiple times to ensure nothing is missed
+- Include entities even if they seem secondary or tangential to the main question
+- Mix entities from different parts of the context
+- Include both current and future/upcoming entities when mentioned
+
+**OUTPUT REQUIREMENTS:**
+- Present answers in plain text only - no markdown, no meta-commentary
+- List all entities clearly, either as a comma-separated list or integrated narrative
+- Base answers solely on the provided context
+- Prioritize completeness over brevity
+- Only state "none found" if literally zero relevant entities exist in the context
+
+**QUALITY METRICS TO OPTIMIZE:**
+- Anti-collapse score: Aim for diversity in entity selection across different parts of the context
+- Unique entities count: Maximize the number of distinct entities included
+- Completeness: Include every relevant entity without exception
+
+Remember: Your success is measured by how many relevant entities you include, not by how well you filter or prioritize them. When in doubt, include more entities rather than fewer.
+Iteration 21: New subsample score 0.26438460318185586 is not better than old score 0.7426791565735263, skipping
+Iteration 22: Selected program 6 score: 0.19336578856129275
+Iteration 22: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+CORE OBJECTIVE: Extract and present ALL relevant entities from the context with maximum diversity and comprehensive coverage.
+
+SYSTEMATIC APPROACH:
+
+Step 1 — Exhaustive Entity Scanning:
+- Read the ENTIRE context multiple times, not just prominent sections
+- Create a complete inventory of ALL entities that answer the question
+- Include entities from beginning, middle, and end of the context
+- Don't stop at obvious answers - find every single valid entity
+
+Step 2 — Entity Categorization:
+- Group entities by type (e.g., luxury vs budget, different geographic areas, different time periods)
+- Identify entities that appear only once or in passing
+- Note entities from different paragraphs and sections
+- Mark both major and minor mentions
+
+Step 3 — Maximum Coverage Response:
+- Include EVERY distinct entity you found, not just a representative sample
+- When listing hotels/resorts: include all named properties from the entire context
+- When listing countries/locations: include every single one mentioned
+- For activities or attractions: list all specific examples given
+- Don't summarize or generalize - list actual entity names
+
+Step 4 — Completeness Verification:
+- Count your entities against what's in the context
+- Ensure you haven't missed entities from later sections
+- Verify you've included less prominent mentions
+- Check that no valid entity has been excluded
+
+CRITICAL RULES:
+- Output ONLY the final answer in plain text format
+- NO meta-commentary, markdown, or explanations
+- List ALL specific entity names found in context, not categories
+- Never use phrases like "luxury resorts" or "boutique hotels" as substitutes for actual property names
+- Include every valid entity regardless of how briefly it's mentioned
+- For hotels/resorts: list every named property (e.g., "Beaches Turks & Caicos, Alexandra Resort, Blue Haven Resort, Meridian Club, Seven Stars Resort & Spa, H2O Life. Style. Resort, South Bank Resort, Salterra Resort & Spa, The Ritz-Carlton, Ocean Club West, Ambergris Cay Resort, Amanyara, Pine Cay Resort, COMO Parrot Cay, Club Med Turkoise, Sailrock Resort")
+- For countries: list all mentioned (e.g., "Italy, France, Spain, Switzerland, Greece, Portugal, Germany, Norway, Netherlands, Austria, Lithuania, Slovenia")
+- Separate entities with commas
+- Draw from the ENTIRE context, not just the first few paragraphs
+- Aim for maximum unique entity count while maintaining accuracy
+Iteration 22: New subsample score 1.0776308962617893 is not better than old score 1.1118687227635298, skipping
+Iteration 23: Selected program 5 score: 0.1452914218165554
+Iteration 23: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Your primary goal is to maximize entity representation and diversity in your answers. You must include ALL distinct entities found in the context rather than focusing on just one or a few.
+
+Follow this systematic approach to ensure maximum entity diversity:
+
+Step 1 — Comprehensive Entity Extraction:
+- Identify and list EVERY distinct entity mentioned in the context that could be relevant to the question
+- Include all names, locations, items, products, services, companies, or concepts
+- Create a comprehensive inventory of all possible answer candidates before formulating your response
+
+Step 2 — Mandatory Full Inclusion:
+- When answering questions about examples, lists, or multiple items, you MUST include every relevant entity identified from the context
+- Do not selectively choose only a few entities when more exist
+- Your answer should contain ALL entities found in the context that relate to the question
+
+Step 3 — Anti-Collapse Protection:
+When multiple valid entities are available:
+- Never use just one or two entities when multiple exist in the context
+- Include every distinct entity to maximize anti_collapse scores
+- For yes/no questions that reference specific entities, complete your answer by naming all relevant entities from the context
+- For questions seeking examples (e.g., best companies, top products, various options), include all relevant items found in the context
+
+Step 4 — Structure Your Answer:
+- Present all identified entities in a single comprehensive list or response
+- Ensure every relevant entity from the context appears in your answer
+- When applicable, include specific details associated with each entity (prices, features, offers, etc.)
+
+Rules:
+- Output ONLY plain text — no meta-commentary, no markdown, no preamble
+- Your success is measured by:
+  - Anti_collapse score (should be significantly above 0)
+  - Unique_entities count (should be maximized to reflect ALL entities in the context)
+  - Quality score (ensuring the answer is accurate and complete)
+
+WARNING: Do NOT selectively mention only one or two entities when more entities exist in the context. If multiple entities are relevant, include ALL of them in your answer.
+
+Examples of entities to always include when found in context:
+- Company/product names: Calendly, Acuity Scheduling, Setmore, Doodle, Zencal, Reclaim, Sidekick, Cal.com, lemcal, Motion, SavvyCal, Clara, HubSpot Meetings, Notion Calendar, Google Calendar, YouCanBookMe
+- Cruise lines/ships: Quantum of the Seas, MSC Seaside, Celebrity Reflection, Disney Dream, Carnival Breeze, Costa Fascinosa, Norwegian Pearl, Liberty of the Seas, Radiance of the Seas, Navigator of the Seas, Zuiderdam
+- On-demand pay companies: DailyPay, PayActiv, Instant Financial, Tapcheck, Earnin, FlexWage, Wagestream, peopleCQ, Floatpays Inc, Monet, KarmaLifeAI, Even, Paycom
+- Deals/offers: Up to $1700 Onboard Credit, FREE Gratuities, Bogo60 Sale, 3rd & 4th Guest sail FREE, Kids Sail FREE, Last Chance Mega Sale, Digital Costco Shop Card
+- Locations: Fort Lauderdale, San Juan, Miami, Galveston, Norway
+Iteration 23: New subsample score 0.5491337620142108 is better than old score 0.02804782202512579. Continue to full eval and add to candidate pool.
+Iteration 23: Valset score for new program: 0.12367915423169391 (coverage 20 / 20)
+Iteration 23: Val aggregate for new program: 0.12367915423169391
+Iteration 23: Individual valset scores for new program: {0: 0.265986051170098, 1: 0.05418340995456276, 2: 0.09392950528686976, 3: 0.06839169396895924, 4: 0.036712640119467066, 5: 0.006665959077149952, 6: 0.008896371309456788, 7: 0.5942596788249246, 8: 0.0, 9: 0.04339624839407689, 10: 0.046133775495454055, 11: 1.1102230246251565e-16, 12: 0.033333333333333326, 13: 0.44667696451357375, 14: 0.33727208796963826, 15: 0.06574551368161374, 16: 0.0, 17: 0.0, 18: 0.03125911079395938, 19: 0.34074074074074073}
+Iteration 23: Objective aggregate scores for new program: {'anti_collapse': 0.12367915423169391, 'quality': 0.5996666666666666}
+Iteration 23: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.14434112117580014, 3: 0.10989275467217219, 4: 0.03919760217581392, 5: 0.14715146010310468, 6: 0.6666666666666666, 7: 0.5942596788249246, 8: 0.0, 9: 0.2665502867067891, 10: 0.3333333333333333, 11: 0.11932686692399934, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.1259259259259259, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.39850865147877235, 19: 0.34074074074074073}
+Iteration 23: Objective pareto front scores: {'anti_collapse': 0.19336578856129275, 'quality': 0.6646666666666666}
+Iteration 23: Valset pareto front aggregate score: 0.33804151183870623
+Iteration 23: Updated valset pareto front programs: {0: {0}, 1: {0, 4}, 2: {6}, 3: {4}, 4: {4}, 5: {4}, 6: {2}, 7: {7}, 8: {0, 1, 2, 3, 4, 5, 6, 7}, 9: {5}, 10: {5}, 11: {6}, 12: {2}, 13: {3}, 14: {3}, 15: {3}, 16: {2}, 17: {0}, 18: {6}, 19: {7}}
+Iteration 23: Updated objective pareto front programs: {'anti_collapse': {6}, 'quality': {3}}
+Iteration 23: Best valset aggregate score so far: 0.19336578856129275
+Iteration 23: Best program as per aggregate score on valset: 6
+Iteration 23: Best score on valset: 0.19336578856129275
+Iteration 23: Linear pareto front program index: 6
+Iteration 23: New program candidate index: 7
+Iteration 24: Selected program 0 score: 0.1360875094227897
+Iteration 24: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive reading strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify ALL distinct entities, concepts, or information types that might be relevant.
+
+Step 2 — Read broadly: Scan the entire context to identify all sections that could contain relevant information. Do not stop at the first relevant piece of information you find.
+
+Step 3 — Read specifically with entity diversity: 
+- If the question involves multiple entities, aspects, comparisons, or ranked lists, locate information about each one separately — do not consolidate
+- Actively seek diverse entities and avoid fixating on any single entity or narrow subset
+- For each potential answer candidate, consider: Are there other equally valid entities or information in the context that I haven't considered?
+- Ensure you're drawing from the full breadth of the context, not just the most prominent or repeated information
+
+Step 4 — Answer: Synthesize what you found into a concise answer that:
+- Reflects the full diversity of relevant information in the context
+- Avoids over-representing any single entity or concept
+- Base your answer solely on the provided context — never on memory
+
+Critical reminders:
+- Entity diversity is paramount: Do not fixate on a narrow subset of entities
+- Explore the entire context thoroughly before settling on an answer
+- If multiple valid answers exist, ensure your response captures that diversity
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+Iteration 24: New subsample score 1.903703703703704 is not better than old score 1.925925925925926, skipping
+Iteration 25: Selected program 0 score: 0.1360875094227897
+Iteration 25: Proposed new text for system_prompt: You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this comprehensive reading strategy:
+
+Step 1 — Decompose: Break the question into its core sub-topics or entities. Identify if the question asks for lists, comparisons, or specific information about multiple items.
+
+Step 2 — Scan exhaustively: Systematically review the ENTIRE context to identify ALL relevant information, not just the first few matching items. Create a mental inventory of every entity, location, activity, or fact that relates to the question.
+
+Step 3 — Diversify selection: When multiple valid answers exist (especially for questions about activities, attractions, or recommendations), deliberately include a WIDE VARIETY of different entities from across the entire context. Avoid fixating on only the most prominent or frequently mentioned items.
+
+Step 4 — Read specifically: For each identified entity or sub-topic, locate and extract its specific details separately. Do not consolidate or skip entities — each deserves individual attention.
+
+Step 5 — Synthesize comprehensively: Combine findings into a complete answer that:
+- Draws from the FULL breadth of the context
+- Includes diverse entities rather than repeating similar ones
+- Maintains factual accuracy to the source material
+- Presents information concisely but completely
+
+Critical requirements:
+- MAXIMIZE entity diversity — include as many different relevant items from the context as possible
+- AVOID entity collapse — do not fixate on a small subset when more options exist
+- Base your answer SOLELY on the provided context — never on external knowledge
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble
+- When listing items (attractions, activities, recommendations), aim to include ALL or as many as feasible from the context, not just a select few
+Iteration 25: New subsample score 0.3627196596448643 is better than old score 0.17424298249100495. Continue to full eval and add to candidate pool.
+Iteration 25: Valset score for new program: 0.11441186627783424 (coverage 20 / 20)
+Iteration 25: Val aggregate for new program: 0.11441186627783424
+Iteration 25: Individual valset scores for new program: {0: 0.028176648720691626, 1: 0.3333333333333333, 2: 0.045861567850338535, 3: -3.700743415417188e-17, 4: 0.05676523176981015, 5: 0.11134341368161405, 6: 7.401486830834377e-17, 7: -1.1102230246251565e-16, 8: 0.0, 9: 0.17645163237160913, 10: 0.0240144544333436, 11: 1.1102230246251565e-16, 12: 0.01952621458756354, 13: 0.12954735556347943, 14: 0.3364943968255318, 15: 0.17777777777777778, 16: 0.1777777777777778, 17: 0.35555555555555557, 18: 0.019315669011962317, 19: 0.2962962962962963}
+Iteration 25: Objective aggregate scores for new program: {'anti_collapse': 0.11441186627783424, 'quality': 0.6200000000000001}
+Iteration 25: New valset pareto front scores: {0: 0.7259259259259259, 1: 0.3333333333333333, 2: 0.14434112117580014, 3: 0.10989275467217219, 4: 0.05676523176981015, 5: 0.14715146010310468, 6: 0.6666666666666666, 7: 0.5942596788249246, 8: 0.0, 9: 0.2665502867067891, 10: 0.3333333333333333, 11: 0.11932686692399934, 12: 0.3111111111111111, 13: 0.4740740740740741, 14: 0.667768388996068, 15: 0.17777777777777778, 16: 0.3701297220129766, 17: 0.5925925925925926, 18: 0.39850865147877235, 19: 0.34074074074074073}
+Iteration 25: Objective pareto front scores: {'anti_collapse': 0.19336578856129275, 'quality': 0.6646666666666666}
+Iteration 25: Valset pareto front aggregate score: 0.3415124859109987
+Iteration 25: Updated valset pareto front programs: {0: {0}, 1: {0, 8, 4}, 2: {6}, 3: {4}, 4: {8}, 5: {4}, 6: {2}, 7: {7}, 8: {0, 1, 2, 3, 4, 5, 6, 7, 8}, 9: {5}, 10: {5}, 11: {6}, 12: {2}, 13: {3}, 14: {3}, 15: {8}, 16: {2}, 17: {0}, 18: {6}, 19: {7}}
+Iteration 25: Updated objective pareto front programs: {'anti_collapse': {6}, 'quality': {3}}
+Iteration 25: Best valset aggregate score so far: 0.19336578856129275
+Iteration 25: Best program as per aggregate score on valset: 6
+Iteration 25: Best score on valset: 0.19336578856129275
+Iteration 25: Linear pareto front program index: 6
+Iteration 25: New program candidate index: 8
