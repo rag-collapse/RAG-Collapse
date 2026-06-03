@@ -1,12 +1,12 @@
 #!/bin/bash
 # --- SLURM (tuned for 14B model on 2 GPUs) ---
-#SBATCH --job-name=pipeline
+#SBATCH --job-name=pipeline-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/pipeline_%A.out
 #SBATCH --error=logs/pipeline_%A.err
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=vram40|vram48|vram80
+#SBATCH --constraint=vram48|vram80
 #SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
@@ -20,15 +20,17 @@ fi
 module load conda/latest
 conda activate ragenv
 
-# module load cuda/12.6
+module load cuda/12.6
 
-# nvidia-smi
+nvidia-smi
 
 # Ensure a valid cache dir for vLLM/HF (avoids FileNotFoundError in weight_utils.get_lock)
 CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
+export VLLM_API_BASE=""
+export DOC_VLLM_API_BASE=""
 
 if [[ -z "$VLLM_API_BASE" ]]; then
   echo "ERROR: VLLM_API_BASE is not set. Start the vLLM server first, then:"
@@ -40,7 +42,7 @@ echo "Using VLLM_API_BASE=$VLLM_API_BASE"
 
 # --- Config ---
 DATASET="datasets/umass_data.entity.chatgpt.400.jsonl"
-MODEL="Qwen/Qwen2.5-14B-Instruct"
+MODEL="mistralai/Mistral-7B-Instruct-v0.3"
 OUTDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL"
 
 COMMON="--dataset-path $DATASET --chars-per-doc 400 --num-runs 10"
@@ -78,6 +80,9 @@ run_server() {
 #
 # run_server --pipeline-variant search --num-iterations 2 --max-questions 1 \
 #   --output-path experiment_outputs/smoke_test/search.json
+#
+# run_server --pipeline-variant agentic_rag --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/agentic_rag.json
 
 # --- Production runs ---
 # I would suggest running each pipeline variant separately to ensure clear logs, and if one fails it won't compromise the others. You can comment/uncomment the blocks below as needed.
@@ -87,6 +92,8 @@ run_server() {
 #run_server --pipeline-variant replace_one --num-iterations 20 --output-path "$OUTDIR/local_replace_one.json"
 
 #run_server --pipeline-variant search --num-iterations 30 --output-path "$OUTDIR/local_search.json"
+
+run_server --pipeline-variant agentic_rag --num-iterations 30 --output-path "$OUTDIR/local_agentic_rag.json"
 
 
 # --- Local mode: in-process vLLM (needs GPU allocation in this job) ---
@@ -105,3 +112,15 @@ run_server() {
 # run_api --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --output-path "$OUTDIR/api_hybrid_replace_all.json"
 # run_api --pipeline-variant hybrid --num-synth-docs 1 --num-db-docs 3 --output-path "$OUTDIR/api_hybrid_replace_one.json"
 # run_api --pipeline-variant search --output-path "$OUTDIR/api_search.json"
+
+# --- API agentic_rag smoke test (1 question, 2 iterations) ---
+# Requires API_KEY set in .env and MODEL_API pointing to an OpenAI-compatible model.
+# MODEL_API="openai/gpt4o"
+# run_api() { python -u pipeline.py --model-mode api --model-name "openai/gpt-4o" $COMMON "$@"; }
+# mkdir -p experiment_outputs/smoke_test
+# run_api --pipeline-variant agentic_rag --num-iterations 2 --max-questions 1 \
+#   --output-path experiment_outputs/smoke_test/api_agentic_rag.json
+
+# --- API agentic_rag production run ---
+# run_api --pipeline-variant agentic_rag --num-iterations 30 --max-questions 400 \
+#   --output-path "$OUTDIR/api_agentic_rag.json"

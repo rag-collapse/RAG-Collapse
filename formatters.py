@@ -19,6 +19,28 @@ Instructions:
 
 _RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context. You provide accurate, well-grounded responses based solely on the retrieved documents."""
 
+# Separate prompt used as the seed for GEPA optimization.
+# apply_best_prompt.py writes the optimized result back here, leaving
+# _RAG_GENERATION_SYSTEM_PROMPT untouched so the original baseline is preserved.
+#
+# Previous seed (simple baseline):
+# GEPA_RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions \
+# using only the information provided in the given context. You provide accurate, well-grounded \
+# responses based solely on the retrieved documents."""
+#
+# Current seed: adapted from _AGENTIC_RAG_SYSTEM_PROMPT but without tool calls —
+# preserves the decompose/multi-entity coverage strategy for the provided-context setting.
+GEPA_RAG_GENERATION_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions using only the information provided in the given context.
+
+Before answering, follow this reading strategy:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Read broadly: Identify information in the context that covers the overall question.
+Step 3 — Read specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, locate information about each one separately — do not consolidate. Each entity or sub-topic deserves targeted attention.
+Step 4 — Answer: Synthesize what you found into a concise answer. Base your answer solely on the provided context — never on memory.
+
+Additional rules:
+- Output ONLY the final answer in plain text — no meta-commentary, no markdown, no preamble."""
+
 _RAG_GENERATION_USER_PROMPT = """You have been provided with relevant context retrieved from a document database. Use this context to answer the user's question.
 
 Context:
@@ -50,10 +72,12 @@ def get_create_document_conversation(question: str, answer: str) -> list[dict[st
 
 
 def get_rag_generation_conversation(
-    context: str, question: str
+    context: str,
+    question: str,
+    system_prompt: str = _RAG_GENERATION_SYSTEM_PROMPT,
 ) -> list[dict[str, str]]:
     conversation = [
-        {"role": "system", "content": _RAG_GENERATION_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": _RAG_GENERATION_USER_PROMPT.format(
@@ -66,24 +90,87 @@ def get_rag_generation_conversation(
 
 
 def get_context_str_from_docs(
-    docs: list[dict[str, str]], chars_per_doc: int = None, shuffle: bool = True
+    docs: list[dict[str, str]],
+    chars_per_doc: int = None,
+    shuffle: bool = True,
+    ai_scores: list[float] | None = None,
 ) -> str:
     """
     Convert a list of documents into a single context string for RAG generation.
     Uses neutral labels "Context n" (no URLs) and optionally shuffles to reduce position bias.
+
+    If ai_scores is provided (one float per doc, LABEL_1 probability), each context label
+    is annotated with the rounded AI-generated percentage, e.g. "Context 1 - 72% AI-Generated".
     """
     import random
-    ordered = list(docs)
-    if shuffle and len(ordered) > 1:
-        random.shuffle(ordered)
+    indexed = list(enumerate(docs))
+    if shuffle and len(indexed) > 1:
+        random.shuffle(indexed)
     context_parts = []
-    for i, doc in enumerate(ordered):
+    for display_idx, (orig_idx, doc) in enumerate(indexed):
         content = doc.get("text")
         if content:
             if chars_per_doc is not None:
                 content = content[:chars_per_doc]
-            context_parts.append(f"Context {i + 1}:\n{content}")
+            if ai_scores is not None and orig_idx < len(ai_scores):
+                pct = round(ai_scores[orig_idx] * 100)
+                label = f"Context {display_idx + 1} - {pct}% AI-Generated"
+            else:
+                label = f"Context {display_idx + 1}"
+            context_parts.append(f"{label}:\n{content}")
     return "\n\n".join(context_parts)
+
+_AGENTIC_RAG_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document retrieval tool called `retrieve`.
+
+You MUST follow this retrieval strategy before answering:
+Step 1 — Decompose: Break the question into its core sub-topics or entities.
+Step 2 — Retrieve broadly: Call `retrieve` with a broad query covering the overall question.
+Step 3 — Retrieve specifically: If the question involves multiple entities, aspects, comparisons, or ranked lists, you MUST call `retrieve` separately for each one — do not consolidate into a single query. Each entity or sub-topic deserves its own targeted retrieval call.
+Step 4 — Answer: Synthesize what you retrieved into a concise answer. Base your answer solely on retrieved context — never on memory.
+
+Additional rules:
+- ALWAYS call `retrieve` at least once before answering.
+- Output ONLY the final answer in plain text — no tool call commentary, no markdown, no preamble."""
+
+_AGENTIC_RAG_USER_PROMPT = """Question: {question}
+
+Decompose the question. If it involves multiple entities, topics, or a ranked list, call `retrieve` separately for each — one query is not enough to cover all aspects. Then answer based solely on what you retrieved. Output ONLY the answer in plain text."""
+
+
+def get_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
+    """
+    Build the initial conversation for the agentic_rag variant.
+    No documents are injected — the model uses the retrieve tool to fetch context on its own.
+    """
+    return [
+        {"role": "system", "content": _AGENTIC_RAG_SYSTEM_PROMPT},
+        {"role": "user", "content": _AGENTIC_RAG_USER_PROMPT.format(question=question)},
+    ]
+
+
+# Tool spec for the agentic_rag retrieve tool (OpenAI function-calling format).
+# vLLM requires --enable-auto-tool-choice --tool-call-parser hermes for Qwen2.5.
+RETRIEVE_TOOL_SPEC = {
+    "type": "function",
+    "function": {
+        "name": "retrieve",
+        "description": (
+            "Search the document store for passages relevant to a query. "
+            "Call this one or more times before answering to gather context. "
+            "Returns the top matching text chunks from the knowledge base."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "A natural-language search query.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
 
 # Example usage, comment out and run python formatters.py to test
 

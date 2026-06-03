@@ -1,5 +1,5 @@
 # Unity
-logs/
+# logs/
 *.err
 *.out
 
@@ -214,3 +214,4 @@ __marimo__/
 # claude
 .claude
 .claude/
+**/llm_calls.jsonl

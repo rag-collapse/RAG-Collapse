@@ -1,6 +1,6 @@
 #!/bin/bash
 # --- SLURM ---
-#SBATCH --job-name=evaluation
+#SBATCH --job-name=evaluation-mistral-7bv0.3-agentic-rag
 #SBATCH --output=logs/evaluation_%A.out
 #SBATCH --error=logs/evaluation_%A.err
 #SBATCH --time=48:00:00
@@ -35,7 +35,7 @@ export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
 # Model subdir used for evaluation outputs and judge model name, e.g. Qwen/Qwen2.5-14B-Instruct.
-MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"
+MODEL_SUBDIR="${MODEL_SUBDIR:-mistralai/Mistral-7B-Instruct-v0.3}"
 # Input/output on shared file storage (experiment_outputs read from here, evaluation_outputs written here).
 
 # To evaluate hotpot stuff, use the below
@@ -50,15 +50,11 @@ mkdir -p logs "$OUT_DIR"
 
 EXPERIMENT_DIR="$INDIR"
 
-# Use the current generator model as the same-answer judge model by default.
-export SAME_ANSWER_MODEL_NAME="$MODEL_SUBDIR"
+export SAME_ANSWER_MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
-# for hotpot, use below
-# hotpot_search hotpot_replace_one hotpot_replace_all
-
-# for rerank only needs: hotpot_rerank_lambda0.1
-
-# for regular: replace_all replace_one search
+# Hotpot variants: hotpot_search hotpot_replace_one hotpot_replace_all
+# Rerank variants: hotpot_rerank_lambda0.1 hotpot_rerank_lambda1.0
+# Regular variants: local_search local_replace_one local_replace_all local_agentic_rag
 
 for base in hotpot_rerank_lambda1.0; do
   in_file="$EXPERIMENT_DIR/${base}.json"

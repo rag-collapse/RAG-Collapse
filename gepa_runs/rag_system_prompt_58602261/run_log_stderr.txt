@@ -1,0 +1,609 @@
+GEPA Optimization:   0%|          | 0/300 [00:00<?, ?rollouts/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][A
+Loading weights:  55%|#####5    | 57/103 [00:00<00:00, 525.27it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 557.01it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4583.50it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4282.45it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4320.61it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4798.18it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4709.05it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4582.43it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4483.00it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4501.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4369.20it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4851.68it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4603.23it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4476.17it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4511.46it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4763.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4992.99it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4497.66it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4532.96it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4662.75it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4331.22it/s]
+GEPA Optimization:   7%|6         | 20/300 [1:01:30<14:21:08, 184.53s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4462.53it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4606.13it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4479.24it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5152.95it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4480.30it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4580.34it/s]
+GEPA Optimization:   9%|8         | 26/300 [1:13:11<12:29:48, 164.19s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4426.64it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4469.97it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4554.41it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4627.24it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4497.33it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4380.76it/s]
+GEPA Optimization:  11%|#         | 32/300 [1:18:53<9:49:54, 132.07s/rollouts] 
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4615.18it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4638.97it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4753.30it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4759.53it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5126.42it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4767.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4569.49it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4222.80it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4345.77it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4526.07it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4595.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4708.28it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4690.24it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4478.77it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4681.55it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4632.70it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5018.74it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4535.00it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4458.71it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4480.77it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4998.59it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4359.06it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4816.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4569.88it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4675.87it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4704.54it/s]
+GEPA Optimization:  19%|#9        | 58/300 [2:36:04<10:53:21, 161.99s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4361.13it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4608.09it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4754.09it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4519.91it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4500.00it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4531.62it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4284.44it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4520.95it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4456.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4747.87it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4826.21it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4252.48it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4616.27it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4522.89it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4441.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4866.93it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4619.97it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4361.22it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4575.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4379.92it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4774.10it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4985.56it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4565.72it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4567.85it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4121.24it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4513.96it/s]
+GEPA Optimization:  28%|##8       | 84/300 [4:11:04<11:22:22, 189.55s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4490.13it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4838.48it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4551.96it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4519.54it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4893.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4486.45it/s]
+GEPA Optimization:  30%|###       | 90/300 [4:32:27<11:15:04, 192.88s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4271.27it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4626.25it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4666.08it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4713.16it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4550.57it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4808.70it/s]
+GEPA Optimization:  32%|###2      | 96/300 [5:05:40<12:13:20, 215.69s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4419.39it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4620.81it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4795.57it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4323.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4704.34it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4698.55it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4587.49it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4719.55it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4261.87it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4808.38it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4818.83it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4547.75it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4815.99it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4691.46it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4934.42it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4601.91it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4865.29it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4546.07it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4324.63it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4278.97it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4466.45it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4928.11it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4779.17it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4447.74it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4418.04it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4456.73it/s]
+GEPA Optimization:  41%|####      | 122/300 [6:30:35<10:10:23, 205.75s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4498.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4452.23it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4878.53it/s]
+GEPA Optimization:  42%|####1     | 125/300 [6:54:50<11:02:29, 227.14s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4182.93it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4860.20it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4947.02it/s]
+GEPA Optimization:  43%|####2     | 128/300 [7:08:31<11:04:18, 231.73s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4378.54it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4526.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4716.05it/s]
+GEPA Optimization:  44%|####3     | 131/300 [7:18:03<10:38:25, 226.66s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4253.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4554.56it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4230.07it/s]
+GEPA Optimization:  45%|####4     | 134/300 [7:25:00<9:50:47, 213.54s/rollouts] 
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4352.30it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4325.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4247.83it/s]
+GEPA Optimization:  46%|####5     | 137/300 [7:32:33<9:10:06, 202.50s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4451.86it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4681.95it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4363.15it/s]
+GEPA Optimization:  47%|####6     | 140/300 [7:41:37<8:48:40, 198.26s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4435.64it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5336.20it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5095.58it/s]
+GEPA Optimization:  48%|####7     | 143/300 [7:52:10<8:46:11, 201.09s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4010.26it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4659.78it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4648.80it/s]
+GEPA Optimization:  49%|####8     | 146/300 [8:00:55<8:19:49, 194.74s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4726.05it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4853.10it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5343.19it/s]
+GEPA Optimization:  50%|####9     | 149/300 [8:18:32<9:51:57, 235.22s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4739.01it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5020.32it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4547.46it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4384.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4470.75it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4794.08it/s]
+GEPA Optimization:  52%|#####1    | 155/300 [8:48:23<10:33:15, 262.04s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4399.32it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4741.67it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4766.41it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4531.58it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4738.81it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4565.39it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4411.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4657.17it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4432.18it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4718.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4420.25it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5517.76it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4562.64it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4714.09it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4189.87it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4982.85it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4581.46it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4928.85it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4652.11it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4525.83it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4733.25it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4829.12it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4669.66it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4552.83it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4433.18it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4658.83it/s]
+GEPA Optimization:  60%|######    | 181/300 [10:27:27<7:51:42, 237.84s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4605.69it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4313.28it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4957.75it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4829.93it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4627.05it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4557.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4291.81it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4802.66it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4414.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4789.29it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4532.34it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4477.05it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4557.58it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4898.61it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4571.42it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4708.54it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4860.09it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4293.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4442.02it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4426.28it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5205.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4425.78it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4520.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4759.17it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4658.23it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4853.97it/s]
+GEPA Optimization:  69%|######9   | 207/300 [11:48:07<5:27:54, 211.56s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4546.60it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4757.59it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4509.35it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4666.08it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4728.64it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4577.19it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4488.26it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4751.47it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4359.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4630.12it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4536.38it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4436.73it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4606.52it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4972.19it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4352.56it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4617.30it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4430.91it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4548.99it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4717.49it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4334.61it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4731.54it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4572.78it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4517.50it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4503.52it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5145.65it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4429.68it/s]
+GEPA Optimization:  78%|#######7  | 233/300 [13:19:59<3:56:26, 211.74s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 3493.33it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4760.42it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4611.83it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4398.96it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4110.26it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4773.89it/s]
+GEPA Optimization:  80%|#######9  | 239/300 [13:39:35<3:33:19, 209.83s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4321.47it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4584.96it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4646.00it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4624.57it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4877.26it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4625.31it/s]
+GEPA Optimization:  82%|########1 | 245/300 [14:06:57<3:21:01, 219.30s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5099.31it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4672.54it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4847.98it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4653.36it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4862.93it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4495.60it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4560.81it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5855.03it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4627.49it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4570.89it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4782.29it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4647.90it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4422.79it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4595.35it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4236.88it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4735.33it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4657.47it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4529.49it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4626.75it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4543.63it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4931.21it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4744.84it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4767.04it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4809.12it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4578.11it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4471.72it/s]
+GEPA Optimization:  90%|######### | 271/300 [15:52:16<1:51:29, 230.66s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4440.38it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4390.11it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4431.86it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4850.16it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4294.20it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4523.08it/s]
+GEPA Optimization:  92%|#########2| 277/300 [16:02:28<1:21:41, 213.12s/rollouts]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4418.58it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4714.91it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4547.80it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4790.99it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4687.85it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4577.04it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4624.17it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4391.94it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4456.00it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5127.88it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4872.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4936.62it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 5373.23it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4666.43it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4715.74it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4574.04it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4985.61it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4511.94it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4553.64it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4324.15it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4913.82it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 14371.22it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4686.12it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4599.46it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4439.92it/s]
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s][ALoading weights: 100%|##########| 103/103 [00:00<00:00, 4440.10it/s]
+GEPA Optimization:  92%|#########2| 277/300 [17:36:42<1:27:44, 228.89s/rollouts]

@@ -26,11 +26,12 @@
 #         ),
 #     }
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from formatters import (
     get_context_str_from_docs,
     get_rag_generation_conversation,
+    get_agentic_rag_conversation,
 )
 
 
@@ -39,19 +40,32 @@ def build_rag_conversation(
     docs: List[Dict[str, str]],
     chars_per_doc: int,
     shuffle_docs: bool = True,
+    ai_scores: Optional[List[float]] = None,
 ) -> list[dict[str, str]]:
     """
     Build a RAG-style conversation using existing formatter utilities.
     Docs are shown as "Context n" and shuffled each round to reduce position bias.
+
+    If ai_scores is provided (one float per doc, LABEL_1 probability), each context
+    label is annotated with the AI-generated percentage.
     """
 
     context = get_context_str_from_docs(
         docs=docs,
         chars_per_doc=chars_per_doc,
         shuffle=shuffle_docs,
+        ai_scores=ai_scores,
     )
 
     return get_rag_generation_conversation(
         context=context,
         question=question,
     )
+
+
+def build_agentic_rag_conversation(question: str) -> list[dict[str, str]]:
+    """
+    Build the initial conversation for the agentic_rag variant.
+    No documents are pre-injected; the model calls the retrieve tool autonomously.
+    """
+    return get_agentic_rag_conversation(question)

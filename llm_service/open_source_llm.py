@@ -1,4 +1,3 @@
-from vllm import LLM, SamplingParams
 import numpy as np
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer
@@ -17,6 +16,9 @@ class OpenSourceLLM(CommonLLM):
         cache_dir: str = None,
         **kwargs,
     ) -> None:
+        # Lazy import: keeps EmbeddingModel importable without a GPU / llguidance
+        from vllm import LLM, SamplingParams
+
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens

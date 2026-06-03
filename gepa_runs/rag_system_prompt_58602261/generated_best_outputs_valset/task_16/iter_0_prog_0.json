@@ -1,0 +1,1 @@
+"RAGOutput(avg_anti_collapse=-3.700743415417188e-17, avg_quality=0.8866666666666667, per_variant={'replace_all': {'anti_collapse': 1.1102230246251565e-16, 'unique_entities': 10, 'quality': 0.78}, 'replace_one': {'anti_collapse': -2.220446049250313e-16, 'unique_entities': 3, 'quality': 0.88}, 'search': {'anti_collapse': 0.0, 'unique_entities': 1, 'quality': 1.0}})"
