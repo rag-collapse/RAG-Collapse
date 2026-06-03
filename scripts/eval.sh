@@ -6,10 +6,10 @@
 #SBATCH --time=48:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --mem=32G
-#SBATCH -C "vram48|vram80"
-#SBATCH --cpus-per-task=2
-#SBATCH --mail-type=EBGIN,END,FAIL
+#SBATCH --constraint=vram48|vram80
+#SBATCH --mem=24G
+#SBATCH --cpus-per-task=4
+#SBATCH --mail-type=END,FAIL
 
 set -eo pipefail
 
@@ -29,24 +29,34 @@ module load cuda/12.6
 nvidia-smi
 
 # Use a local HF cache so compute nodes don't need internet.
-CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
+CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache_oz/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
-# --- Config (edit as needed) ---
 # Model subdir used for evaluation outputs and judge model name, e.g. Qwen/Qwen2.5-14B-Instruct.
 MODEL_SUBDIR="${MODEL_SUBDIR:-mistralai/Mistral-7B-Instruct-v0.3}"
 # Input/output on shared file storage (experiment_outputs read from here, evaluation_outputs written here).
-INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL_SUBDIR"
-OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_outputs/$MODEL_SUBDIR"
+
+# To evaluate hotpot stuff, use the below
+INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/hotpotqa/$MODEL_SUBDIR"
+OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_outputs/hotpotqa/$MODEL_SUBDIR"
+
+# For regular experiments, use the below
+# INDIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/experiment_outputs/$MODEL_SUBDIR"
+# OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_outputs/$MODEL_SUBDIR"
+
 mkdir -p logs "$OUT_DIR"
 
 EXPERIMENT_DIR="$INDIR"
 
 export SAME_ANSWER_MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
-for base in local_search local_replace_one local_replace_all local_agentic_rag; do
+# Hotpot variants: hotpot_search hotpot_replace_one hotpot_replace_all
+# Rerank variants: hotpot_rerank_lambda0.1 hotpot_rerank_lambda1.0
+# Regular variants: local_search local_replace_one local_replace_all local_agentic_rag
+
+for base in hotpot_rerank_lambda1.0; do
   in_file="$EXPERIMENT_DIR/${base}.json"
   out_file="$OUT_DIR/${base}_eval.json"
   if [[ -f "$in_file" ]]; then

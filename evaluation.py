@@ -11,9 +11,7 @@ import nltk
 nltk.download("punkt_tab")
 
 WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
-SAME_ANSWER_MODEL_NAME = os.getenv(
-    "SAME_ANSWER_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct"
-)
+SAME_ANSWER_MODEL_NAME = os.getenv("SAME_ANSWER_MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
 SAME_ANSWER_SAMPLE_PAIRS = 10
 SAME_ANSWER_SEED = 42
 
@@ -92,8 +90,6 @@ def calculate_pairwise_similarities(embeddings: np.ndarray) -> dict:
 
 
 def calculate_pairwise_TES(answers: list[str], embeding_model: EmbeddingModel) -> dict:
-    """Computes sentence level embedding similarity between answers"""
-
     n = len(answers)
     if n < 2:
         return {
@@ -101,21 +97,25 @@ def calculate_pairwise_TES(answers: list[str], embeding_model: EmbeddingModel) -
             "std_pairwise_tes": 0.0,
         }
 
-    # Keep the first min chunks in the batch
     chunked_answers = [nltk.sent_tokenize(answer) for answer in answers]
     min_chunks = min(len(chunks) for chunks in chunked_answers)
+
+    if min_chunks == 0:
+        return {
+            "avg_pairwise_tes": 0.0,
+            "std_pairwise_tes": 0.0,
+        }
+
     chunked_answers = [chunks[:min_chunks] for chunks in chunked_answers]
 
     scores = []
     answer_embeddings = [
-        embeding_model.embed_batch(chunks) for chunks in chunked_answers
+        np.atleast_2d(embeding_model.embed_batch(chunks)) for chunks in chunked_answers
     ]
     for i, j in combinations(range(n), 2):
-        chunks_i = np.atleast_2d(answer_embeddings[i])  # ensure (M, D) even if M=1
-        chunks_j = np.atleast_2d(answer_embeddings[j])  # ensure (M, D) even if M=1
-
-        # (M,)
-        chunk_level_scores = np.sum(chunks_i * chunks_j, axis=1)  # dot prod per row
+        chunks_i = answer_embeddings[i]
+        chunks_j = answer_embeddings[j]
+        chunk_level_scores = np.sum(chunks_i * chunks_j, axis=1)
         score = float(np.mean(chunk_level_scores))
         scores.append(score)
 
@@ -126,6 +126,8 @@ def calculate_pairwise_TES(answers: list[str], embeding_model: EmbeddingModel) -
 
 
 def calculate_pairwise_rouge(answers: list[str]) -> dict:
+    # Ensure no None values
+    answers = [a if a is not None else "" for a in answers]
     n = len(answers)
     if n < 2:
         return {
@@ -155,9 +157,11 @@ def calculate_pairwise_rouge(answers: list[str]) -> dict:
         "std_pairwise_rougeL": float(np.std(rougeL_scores)),
     }
 
+
 def calculate_ai_reference_percentage(references: list[dict]) -> float:
     ai_ref_count = sum(1 for doc in references if doc["doc_id"].startswith("gen"))
     return ai_ref_count / len(references)
+
 
 def calculate_unique_words(answers: list[str]) -> int:
     unique_words = set()
@@ -278,8 +282,7 @@ def evaluate_experiment(
 
         for iteration in question["iterations"]:
             # get all the answers for this iteration
-            answers = [run["answer"] for run in iteration["runs"]]
-
+            answers = [run.get("answer") or "No answer" for run in iteration["runs"]]
             # get references for the iteration
             references = iteration["documents"]
 
