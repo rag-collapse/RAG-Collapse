@@ -41,6 +41,7 @@ def build_rag_conversation(
     chars_per_doc: int,
     shuffle_docs: bool = True,
     ai_scores: Optional[List[float]] = None,
+    system_prompt: Optional[str] = None,
 ) -> list[dict[str, str]]:
     """
     Build a RAG-style conversation using existing formatter utilities.
@@ -48,6 +49,9 @@ def build_rag_conversation(
 
     If ai_scores is provided (one float per doc, LABEL_1 probability), each context
     label is annotated with the AI-generated percentage.
+
+    If system_prompt is provided it overrides the default _RAG_GENERATION_SYSTEM_PROMPT
+    (e.g. pass GEPA_RAG_GENERATION_SYSTEM_PROMPT for optimized-prompt runs).
     """
 
     context = get_context_str_from_docs(
@@ -57,9 +61,11 @@ def build_rag_conversation(
         ai_scores=ai_scores,
     )
 
+    kwargs = {} if system_prompt is None else {"system_prompt": system_prompt}
     return get_rag_generation_conversation(
         context=context,
         question=question,
+        **kwargs,
     )
 
 
