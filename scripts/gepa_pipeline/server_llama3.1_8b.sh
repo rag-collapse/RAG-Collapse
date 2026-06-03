@@ -11,7 +11,7 @@
 #SBATCH -e logs/slurm-%j-gepa-vllm-llama3.1-8b-error.out
 #SBATCH --mail-type=ALL
 
-model_cache_dir="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
+model_cache_dir="/scratch4/workspace/rsenapati_umass_edu-rag-collapse/hf_cache"
 
 module load conda/latest
 module load cuda/12.6
