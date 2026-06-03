@@ -6,7 +6,7 @@
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=vram48|vram80
-#SBATCH -t 4-00:00:00
+#SBATCH -t 48:00:00
 #SBATCH -o logs/slurm-%j-gepa-vllm-qwen2.5-14b.out
 #SBATCH -e logs/slurm-%j-gepa-vllm-qwen2.5-14b-error.out
 #SBATCH --mail-type=ALL

@@ -2,9 +2,8 @@
 #SBATCH --job-name=gepa-qwen14b
 #SBATCH --output=logs/gepa_qwen14b_%A.out
 #SBATCH --error=logs/gepa_qwen14b_%A.err
-#SBATCH --time=4-00:00:00
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:0          # CPU-only job: connects to a running vLLM server
+#SBATCH --time=48:00:00
+#SBATCH --partition=cpu
 #SBATCH --mem=8G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=END,FAIL
