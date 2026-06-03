@@ -2,7 +2,7 @@
 #SBATCH --job-name=gepa-llama3.1-8b
 #SBATCH --output=logs/gepa_llama3.1_8b_%A.out
 #SBATCH --error=logs/gepa_llama3.1_8b_%A.err
-#SBATCH --time=48:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:0          # CPU-only job: connects to a running vLLM server
 #SBATCH --mem=8G

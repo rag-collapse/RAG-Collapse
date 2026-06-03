@@ -6,7 +6,7 @@
 #SBATCH -p gpu,gpu-preempt
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=vram40|vram48|vram80
-#SBATCH -t 48:00:00
+#SBATCH -t 4-00:00:00
 #SBATCH -o logs/slurm-%j-gepa-vllm-deepseek-r1-7b.out
 #SBATCH -e logs/slurm-%j-gepa-vllm-deepseek-r1-7b-error.out
 #SBATCH --mail-type=ALL

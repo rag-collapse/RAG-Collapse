@@ -2,7 +2,7 @@
 #SBATCH --job-name=gepa-deepseek-r1-7b
 #SBATCH --output=logs/gepa_deepseek_r1_7b_%A.out
 #SBATCH --error=logs/gepa_deepseek_r1_7b_%A.err
-#SBATCH --time=48:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:0          # CPU-only job: connects to a running vLLM server
 #SBATCH --mem=8G
