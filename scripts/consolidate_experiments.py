@@ -48,6 +48,19 @@ KEEP_MODELS = {
 }
 # rsenapati's runs are dropped EXCEPT agentic_rag (his focus area).
 DROP_OWNER_NONAGENTIC = "rsenapati"
+# oyilmazel's GRAPHITE baselines are stale (superseded by ffatima/ratirastogi).
+# His HotpotQA data is the sole copy and must be kept.
+DROP_GRAPHITE_BASELINE_OWNERS = {"oyilmazel"}
+
+# Scratch dirs pulled in for RERANK data only (gap-fill — reranker eval/entity
+# for the non-Qwen models and the oracle/desklib/finetuned ablations live here,
+# not in /work). A scratch file is added only if its (dataset, model, filename)
+# isn't already covered by /work.
+SCRATCH_ROOT = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse"
+SCRATCH_RERANK_SOURCES = [
+    (os.path.join(SCRATCH_ROOT, "oyilmazel_umass_edu"), "oyilmazel"),
+    (os.path.join(SCRATCH_ROOT, "ffatima_umass_edu"), "ffatima"),
+]
 
 
 def kept_model(path: str):
@@ -115,6 +128,36 @@ def graphite_keep(path: str) -> bool:
     return True  # unknown schema -> keep
 
 
+def classify(src: str, root_dir: str, short: str):
+    """Map a source file to its destination tuple, or None if filtered out.
+    Layout-agnostic: the output tree may appear at any depth, and the dataset
+    dir ('hotpotqa') may sit before OR after it (/work uses <tree>/hotpotqa/...,
+    scratch uses hotpotqa/<tree>/...).
+    entry = (src, owner_short, dataset, method, cfg, tree, rel, dest_no_owner)"""
+    if kept_model(src) is None:
+        return None
+    relfull = os.path.relpath(src, root_dir)
+    parts = relfull.split(os.sep)
+    tree = next((p for p in parts if p in TREES), None)
+    if tree is None:
+        return None  # not an output-tree file
+    ti = parts.index(tree)
+    ds = "hotpotqa" if "hotpot" in relfull.lower() else "graphite"
+    # rel = everything except the tree component and any redundant 'hotpotqa' dir
+    rel_parts = [p for i, p in enumerate(parts) if i != ti and p != "hotpotqa"]
+    rel = os.path.join(*rel_parts)
+    method, cfg = METHOD_MAP[variant_of(os.path.basename(src))]
+    if short == DROP_OWNER_NONAGENTIC and method != "agentic_rag":
+        return None
+    if ds == "graphite" and method == "baseline" and short in DROP_GRAPHITE_BASELINE_OWNERS:
+        return None
+    if ds == "graphite" and not graphite_keep(src):
+        return None
+    dst_parts = [ds, method] + ([cfg] if cfg else []) + [tree]
+    dest_no_owner = os.path.join(DEST_ROOT, *dst_parts, rel)
+    return (src, short, ds, method, cfg, tree, rel, dest_no_owner)
+
+
 def main() -> int:
     if not os.path.isdir(WORK):
         print(f"ERROR: source root not found: {WORK}", file=sys.stderr)
@@ -124,38 +167,39 @@ def main() -> int:
     # ---- Pass 1: enumerate every file and its owner-less destination ----
     # entry = (src, owner_short, dataset, method, cfg, tree, rel, dest_no_owner)
     entries = []
+    seen_keys = set()  # (dataset, model, filename) — dedups /work vs scratch and scratch vs scratch
+
+    def walk_json(root_dir):
+        if not os.path.isdir(root_dir):
+            return
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            dirnames[:] = [d for d in dirnames if d != "hf_cache"]
+            for fn in filenames:
+                if fn.endswith(".json"):
+                    yield os.path.join(dirpath, fn)
+
+    # Pass 1a — /work (all methods)
     for owner in OWNERS:
         short = owner.replace("_umass_edu", "")
-        for tree in TREES:
-            src_root = os.path.join(WORK, owner, tree)
-            if not os.path.isdir(src_root):
+        root_dir = os.path.join(WORK, owner)
+        for src in walk_json(root_dir):
+            e = classify(src, root_dir, short)
+            if e is None:
                 continue
-            for dirpath, dirnames, filenames in os.walk(src_root):
-                dirnames[:] = [d for d in dirnames if d != "hf_cache"]
-                for fn in filenames:
-                    if not fn.endswith(".json"):
-                        continue
-                    src = os.path.join(dirpath, fn)
-                    # filter: keep only the 4 target models
-                    if kept_model(src) is None:
-                        continue
-                    rel = os.path.relpath(src, src_root)
-                    ds = dataset_of(rel)
-                    # drop a redundant leading 'hotpotqa/' (oyilmazel nests hotpot
-                    # under evaluation_outputs/hotpotqa/...) — dataset is already the top folder
-                    relparts = rel.split(os.sep)
-                    if ds == "hotpotqa" and len(relparts) > 1 and relparts[0] == "hotpotqa":
-                        rel = os.path.join(*relparts[1:])
-                    method, cfg = METHOD_MAP[variant_of(fn)]
-                    # filter: drop rsenapati's non-agentic runs
-                    if short == DROP_OWNER_NONAGENTIC and method != "agentic_rag":
-                        continue
-                    # filter: graphite must be the full 400-question benchmark
-                    if ds == "graphite" and not graphite_keep(src):
-                        continue
-                    parts = [ds, method] + ([cfg] if cfg else []) + [tree]
-                    dest_no_owner = os.path.join(DEST_ROOT, *parts, rel)
-                    entries.append((src, short, ds, method, cfg, tree, rel, dest_no_owner))
+            entries.append(e)
+            seen_keys.add((e[2], kept_model(src), e[5], os.path.basename(src)))
+
+    # Pass 1b — scratch (RERANK only, gap-fill: skip anything already covered)
+    for root_dir, short in SCRATCH_RERANK_SOURCES:
+        for src in walk_json(root_dir):
+            e = classify(src, root_dir, short)
+            if e is None or e[3] != "rerank":
+                continue
+            key = (e[2], kept_model(src), e[5], os.path.basename(src))
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            entries.append(e)
 
     # ---- group by owner-less dest: a collision means >1 owner ran it ----
     groups = defaultdict(list)

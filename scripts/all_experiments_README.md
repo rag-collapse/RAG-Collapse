@@ -1,8 +1,9 @@
 # all_experiments — consolidated RAG-collapse data
 
 Single copy of the experiment JSONs, gathered from the per-user output trees
-under `/work/pi_dagarwal_umass_edu/project_4/file_storage/`. Originals are
-untouched — these are **copies**.
+under `/work/pi_dagarwal_umass_edu/project_4/file_storage/`, plus **reranker-only
+gap-fill from scratch** (`/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/
+{oyilmazel,ffatima}_umass_edu`). Originals are untouched — these are **copies**.
 
 ## Scope (filtered)
 
@@ -11,6 +12,14 @@ untouched — these are **copies**.
   Qwen2.5-7B/1.5B, Qwen3-4B, Qwen3.5-9B and gpt-oss-20b are excluded.
 - **rsenapati's runs:** only `agentic_rag` is kept (his focus area); his
   baseline/search duplicates of other people's runs are dropped.
+- **Canonical baselines:** ffatima for Qwen-14B & Mistral; ratirastogi for
+  Llama & DeepSeek. oyilmazel's graphite baselines were stale and are dropped
+  (his HotpotQA data is the sole copy and is kept).
+- **Reranker:** the off-the-shelf λ-sweep lives in `/work` (Qwen-14B); the
+  oracle / desklib / finetuned ablations and the non-Qwen reranker eval/entity
+  live only in scratch and are pulled in as **reranker-only gap-fill** (a scratch
+  file is added only if its dataset+model+tree+filename isn't already in `/work`).
+  Coverage is intentionally partial — not every model has every eval/entity.
 - **Graphite = full 400-question benchmark only.** Files are filtered by actual
   question count, so the 50-question runs and stray smoke/debug runs are excluded.
   (HotpotQA keeps its own dataset size.)
@@ -45,15 +54,8 @@ Qwen/Mistral models; **ratirastogi** for DeepSeek/Llama. See
 
 - `MANIFEST.csv` — provenance: `src,dest,dataset,method,output_tree,owner,kind`
   for every copied file (`kind` = `dup` or `unique`).
-- `UNREADABLE.txt` — 24 source files that could **not** be copied because the
-  owner's umask left them non-group-readable. All are `ffatima` raw
-  `experiment_outputs/` + `.checkpoint.json` files for Qwen-14B and Mistral.
-  **No eval or entity files are affected**, so the full collapse-analysis set is
-  present. To recover them, ask Fabeha to run:
-  ```bash
-  chmod -R g+rX /work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/experiment_outputs
-  ```
-  then re-run the consolidation (idempotent — only the missing files are fetched).
+- `UNREADABLE.txt` — only written when some source files can't be read
+  (permissions). Currently absent → every in-scope file was copied successfully.
 
 ## Regenerating
 
