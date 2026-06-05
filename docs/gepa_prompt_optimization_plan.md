@@ -1,308 +1,207 @@
-# GEPA System Prompt Optimization Plan
+# GEPA System Prompt Optimization
 
 ## Overview
 
-This plan describes how to use [GEPA](https://gepa-ai.github.io/gepa/) (Generative Evolutionary Prompt Adaptation) to automatically optimize `_RAG_GENERATION_SYSTEM_PROMPT` in `formatters.py`.
+This subsystem uses [GEPA](https://gepa-ai.github.io/gepa/) (reflective prompt evolution) to optimize the RAG generation **system prompt** so that it resists answer collapse while staying faithful to the retrieved context.
 
-**Goal:** Evolve a model-agnostic system prompt that simultaneously:
-1. Minimizes answer collapse across repeated runs (anti-collapse)
-2. Maximizes answer quality relative to retrieved context (faithfulness + relevance)
+**Goal:** evolve a model-agnostic system prompt that simultaneously:
+1. Minimizes answer collapse across repeated self-refinement rounds (**anti-collapse**)
+2. Maximizes answer quality relative to the original context (**faithfulness + relevance**)
 
-GEPA treats the current hand-written system prompt as a seed and uses LLM-guided reflection to propose and evaluate mutations, selecting candidates on a Pareto frontier across both objectives.
+GEPA treats the current hand-written system prompt as a *seed* candidate and uses an LLM ("reflection model") to read structured failure reports and propose mutations, selecting candidates on a **Pareto frontier** across the two objectives.
+
+> **Code is the source of truth.** This doc reflects `gepa_optimization/` as committed. The mermaid diagrams in [`gepa_flowchart.md`](gepa_flowchart.md) are the visual companion.
 
 ---
 
-## What Is Being Optimized
+## What is being optimized
 
-**File:** `formatters.py`
-**Variable:** `_RAG_GENERATION_SYSTEM_PROMPT`
+- **File:** `formatters.py`
+- **Variable:** `GEPA_RAG_GENERATION_SYSTEM_PROMPT`  (NOT the baseline `_RAG_GENERATION_SYSTEM_PROMPT`)
 
-Current value:
-```
-You are a helpful AI assistant that answers questions using only the information provided
-in the given context. You provide accurate, well-grounded responses based solely on the
-retrieved documents.
-```
+The seed is a multi-step *decompose → read broadly → read specifically → answer* strategy prompt (adapted from the agentic-RAG system prompt, minus tool use). `apply_best_prompt.py` writes the optimized result back into `GEPA_RAG_GENERATION_SYSTEM_PROMPT`; the baseline one-liner `_RAG_GENERATION_SYSTEM_PROMPT` is left untouched so the two can be compared via the pipeline's `--use-gepa-prompt` flag.
 
-The user prompt template (`_RAG_GENERATION_USER_PROMPT`) is **not** in scope — only the system prompt.
-
-`seed_candidate` for GEPA:
 ```python
-seed_candidate = {
-    "system_prompt": _RAG_GENERATION_SYSTEM_PROMPT
-}
+seed_candidate = {"system_prompt": GEPA_RAG_GENERATION_SYSTEM_PROMPT}
 ```
 
 ---
 
-## Architecture
+## Dataset preparation (`gepa_optimization/prepare_dataset.py`)
 
-```
-datasets/umass_data.entity.chatgpt.400.jsonl  (50 questions)
-hotpot_qa distractor train split              (50 questions)
-        │
-        ▼
-  prepare_dataset.py
-  shuffle seed=42, split 60/20/20
-  → data/train.jsonl (60)
-  → data/val.jsonl   (20)
-  → data/test.jsonl  (20)
-        │
-        ▼
-  RAGSystemPromptAdapter (rag_adapter.py)
-  ┌──────────────────────────────────────────┐
-  │  For each (question, docs):              │
-  │    Simulate 3 collapse variants × 10 rds │  ← candidate system_prompt injected each round
-  │    replace_all | replace_one | search    │
-  │         │                                │
-  │    ┌────┴─────┐                          │
-  │    │ Score 1  │  Anti-collapse: 1 − mean_entity_similarity across rounds
-  │    │ Score 2  │  Quality: 0.6×faithfulness + 0.4×relevance vs original context
-  │    └──────────┘                          │
-  └──────────────────────────────────────────┘
-        │
-        ▼
-  gepa.optimize(
-    seed_candidate,
-    trainset, valset,
-    adapter=RAGSystemPromptAdapter,
-    reflection_lm=claude-opus-4-7,
-    candidate_selection_strategy="pareto",
-    max_metric_calls=100,
-  )
-        │
-        ▼
-  result.best_candidate["system_prompt"]
-  → apply_best_prompt.py → formatters.py
-```
+**Sources (100 questions total):**
+- 50 questions from `datasets/umass_data.entity.chatgpt.400.jsonl` (web-scraped reference docs already attached).
+- 50 questions from **HotpotQA**, whose context docs are **retrieved at prep time** by encoding the `mteb/hotpotqa` corpus with `intfloat/e5-small-v2` and building a **FAISS** index (full runs use `IndexIVFFlat`; `--smoke-test` uses a tiny `IndexFlatIP`). Top-`k` (default 10) passages are retrieved per question.
 
----
+Combined, shuffled with `SEED=42`, split **60 / 20 / 20** → `gepa_optimization/data/{train,val,test}.jsonl`.
 
-## Dataset Preparation
-
-**Sources:**
-- 50 questions from `datasets/umass_data.entity.chatgpt.400.jsonl` (web-scraped reference docs)
-- 50 questions from HotpotQA distractor split (2 gold + 8 distractor Wikipedia paragraphs)
-
-Both sources bundle each question with its retrieved context documents — no FAISS index or embedding model required at preparation time.
-
-**Split:** 100 combined questions, shuffled with seed=42
 | Split | Size | Purpose |
 |-------|------|---------|
-| train | 60 (60%) | Evaluated during each GEPA mutation round |
-| val   | 20 (20%) | Used by GEPA to rank candidates after each round |
-| test  | 20 (20%) | Held out; used once to report final numbers |
+| train | 60 | evaluated during each GEPA mutation round |
+| val   | 20 | used by GEPA to rank candidates (Pareto) |
+| test  | 20 | held out; for final unbiased reporting |
 
-Each JSONL line: `{"question": "...", "docs": [{<source fields>, "text": "..."}, ...]}`
-- UMass docs: `{"url": "https://...", "text": "..."}`
-- HotpotQA docs: `{"doc_id": "hotpot_X_Y", "url": "", "title": "...", "text": "..."}`
-
-`title` and `doc_id` are metadata only — `references_to_documents()` generates its own `doc_id` and only propagates `url` + `text` into the live pipeline.
-
+Each JSONL line is a `RAGDataInst`:
 ```python
 @dataclass
 class RAGDataInst:
     question: str
-    docs: list[dict]   # source-dependent fields; always includes "text"
+    docs: list[dict]   # each always has "text"; UMass docs add "url"; HotpotQA docs add "doc_id"="corpus_<id>", "title"
 ```
+`title`/`doc_id` are metadata only — `references_to_documents()` generates its own `doc_id` and propagates `url` + `text` into the pipeline.
+
+**Run it (GPU, one-time):**
+```bash
+sbatch scripts/gepa_prepare_dataset.sh
+# or directly:
+python gepa_optimization/prepare_dataset.py --cache-dir <hf_cache> --index-dir <faiss_dir>
+python gepa_optimization/prepare_dataset.py --smoke-test    # tiny, no GPU index build
+```
+The FAISS index is saved to `--index-dir` (scratch) and reused on later runs.
 
 ---
 
-## Scoring Metrics
+## Scoring (`gepa_optimization/scoring.py`)
 
-### Score 1 — Anti-Collapse (higher = more diverse = less collapse)
+Thresholds: `ANTI_COLLAPSE_THRESHOLD = 0.30`, `QUALITY_THRESHOLD = 0.50`.
 
-**Method:** Entity-based, matching `entity_extraction.py`.
+### Anti-collapse (higher = more diverse = less collapse)
+`anti_collapse_score(question, answers, judge_model, …) → (score, unique_entity_count)`
+1. Extract named entities from each round's answer via the judge LLM (temperature 0).
+2. Cluster surface mentions into canonical forms via the judge LLM.
+3. Build a binary entity-mention vector per answer.
+4. `mean_entity_similarity` = mean pairwise cosine over those vectors.
+5. `score = 1.0 − mean_entity_similarity`.
 
-```
-1. Extract named entities from each round's answer via judge LLM
-   (ENTITY_EXTRACTION_SYSTEM_PROMPT, temperature=0, one call per answer)
+Falls back to `(1.0, 0)` if fewer than 2 non-empty answers or no mentions. Range `[0,1]`; near 1 = diverse entity sets across rounds, near 0 = collapsed.
 
-2. Cluster all surface mentions into canonical forms via judge LLM
-   (ENTITY_CLUSTERING_SYSTEM_PROMPT, temperature=0, one call total)
-
-3. Build binary entity-mention vector per answer
-   vec[i] = 1.0 if canonical_entity_i appears in that answer's entity set
-
-4. Compute pairwise cosine similarity across all answer vectors
-   → mean_entity_similarity
-
-5. anti_collapse = 1 − mean_entity_similarity
-```
-
-- Range: [0, 1]. Score near 1.0 means entity sets are diverse across rounds (no collapse). Score near 0.0 means all rounds mention the same entities (collapsed).
-- Also returns `unique_entity_count` (total canonical entities across all rounds) — logged in the reflective dataset.
-- **Threshold for diagnosis:** `anti_collapse < 0.30` → flags "Entity sets collapsed across rounds"
-
-### Score 2 — Answer Quality (higher = better grounded)
-
-Judge LLM evaluates the **final round's answer** against the **original uncontaminated context** (round 0 docs):
-
+### Quality (higher = better grounded)
+`judge_quality_score(question, original_context, final_answer, …) → float`
+One judge call comparing the **final-round answer** against the **original (uncontaminated) round-0 context**:
 ```
 quality = 0.6 × faithfulness + 0.4 × relevance
 ```
-
-- **Faithfulness:** Are all claims in the final answer supported by the original retrieved context? (1.0 = fully grounded, 0.0 = hallucinated/drifted)
-- **Relevance:** Does the answer directly address the question? (1.0 = focused, 0.0 = off-topic)
-- Faithfulness weighted higher because grounding is the primary concern.
-- **Threshold for diagnosis:** `quality < 0.50` → flags "Final answer drifted from original context"
-- Falls back to 0.5 on any parse error.
-
-### Multi-Objective GEPA Return
-
-```python
-scores           = [avg_anti_collapse, ...]   # primary sort key
-objective_scores = [{"anti_collapse": ..., "quality": ...}, ...]  # Pareto axes
-```
-
-GEPA maintains a Pareto frontier over `anti_collapse` and `quality`, ensuring the optimized prompt improves both rather than sacrificing one for the other.
+Faithfulness is weighted higher because grounding is the primary concern. Falls back to `0.5` on parse error.
 
 ---
 
-## Adapter Implementation
+## Adapter (`gepa_optimization/rag_adapter.py`)
 
-**File:** `gepa_optimization/rag_adapter.py`
+`RAGSystemPromptAdapter(GEPAAdapter)` — constructed with `task_model, doc_gen_model, judge_model, api_base, api_key, n_rounds=10, embed_model, chars_per_doc=800, logger`.
 
-```
-class RAGSystemPromptAdapter(GEPAAdapter):
+`evaluate(batch, candidate, capture_traces)` for each `RAGDataInst`:
+1. Build `original_context` from `docs` (kept as ground truth for quality judging).
+2. Run the three collapse simulations (`pipeline_simulator.py`), injecting `candidate["system_prompt"]` each round: `simulate_replace_all`, `simulate_replace_one`, `simulate_search` (all `n_rounds=10`).
+3. Score each variant with `anti_collapse_score` + `judge_quality_score`.
+4. Average across the three variants.
+5. Return `EvaluationBatch(outputs, scores, trajectories, objective_scores)` where `scores = [avg_anti_collapse, …]` and `objective_scores = [{"anti_collapse":…, "quality":…}, …]` (multi-objective → Pareto).
 
-    __init__(task_model, doc_gen_model, judge_model, api_base, api_key,
-             n_rounds=10, embed_model="all-MiniLM-L6-v2", chars_per_doc=800)
-        - task_llm:    ProprietaryLLM — runs RAG generation (the model being evaluated)
-        - doc_gen_llm: ProprietaryLLM — generates AI contamination documents (separate)
-        - judge_model: litellm string — entity extraction, clustering, quality judging
-        - embed_model: local SentenceTransformer for simulate_search
-
-    evaluate(batch, candidate, capture_traces) → EvaluationBatch
-        For each RAGDataInst in batch:
-            1. Build original_context from docs (saved as ground truth for quality judging)
-            2. Run 3 collapse simulations (pipeline_simulator.py):
-               - simulate_replace_all(question, refs, n_rounds=10, system_prompt, llm=doc_gen_llm)
-               - simulate_replace_one(question, refs, n_rounds=10, system_prompt, llm=doc_gen_llm)
-               - simulate_search(question, refs, n_rounds=10, system_prompt, llm=doc_gen_llm,
-                                 embed_model=embed_model)
-            3. Score each variant:
-               - anti_collapse_score(question, answers, judge_model, ...) → (float, int)
-               - judge_quality_score(question, original_context, final_answer, ...) → float
-            4. Average anti_collapse and quality across 3 variants
-            5. Return EvaluationBatch with scores, objective_scores, trajectories
-
-    make_reflective_dataset(candidate, eval_batch, components_to_update)
-        For each question trace, build a structured record with:
-            - Inputs: question, context preview (600 chars), system prompt, n_rounds
-            - Generated Outputs: Round 1..N answers per variant
-            - Feedback: anti_collapse, unique_entities, quality, diagnosis per variant
-            - Scores: avg_anti_collapse, avg_quality, avg_unique_entities
-        This is what reflection_lm reads to propose better prompt mutations.
-```
+`make_reflective_dataset(candidate, eval_batch, components_to_update)` builds, per question, a record:
+- **`Inputs`**: `{"System Prompt": candidate["system_prompt"]}` — *only the system prompt* (the question, context, and per-round structure are deliberately withheld to prevent the reflection LM from reward-hacking the round structure).
+- **`Generated Outputs`**: per variant `{"answer": <final-round answer>}` — final answer only, not the round sequence.
+- **`Feedback`**: per variant `{anti_collapse, unique_entities, quality, diagnosis}`, where `diagnosis` concatenates any triggered flags:
+  - anti_collapse < 0.30 → *"The answer lacks entity diversity … the prompt may cause the model to fixate on a narrow subset of entities …"*
+  - quality < 0.50 → *"Final answer drifted from original context …"*
+- plus `scores`: `{avg_anti_collapse, avg_quality, avg_unique_entities}`.
 
 ---
 
-## Collapse Simulation Variants
+## Collapse simulators (`gepa_optimization/pipeline_simulator.py`)
 
-**File:** `gepa_optimization/pipeline_simulator.py`
+Reuse the real `pipeline/` context-building code; the LLM is `ProprietaryLLM` (LiteLLM → keymaker, no vLLM server). All run 10 rounds.
 
-Uses real `pipeline/` context-building code. Only the LLM call is swapped to `ProprietaryLLM` (litellm/keymaker, no vLLM server needed).
-
-| Variant | Context update rule | Collapse speed |
-|---|---|---|
-| `replace_all` | Entire context (10 docs) replaced by previous answer each round | Fastest |
-| `replace_one` | One slot replaced per round (`slot = iteration % len(docs)`), starts with original refs capped at 10 | Slow decay |
-| `search` | ChunkedRetrievalStore seeded with original refs; each round adds new answer and retrieves top-10 by cosine sim | Gradual contamination |
-
-All variants run 10 rounds. The `search` variant uses `make_embed_fn_local("all-MiniLM-L6-v2")` — same embedding model as the production pipeline.
+| Variant | Context update rule |
+|---|---|
+| `simulate_replace_all` | `HybridContextConfig(num_synth_docs=10, num_db_docs=0)`; round 0 = original refs, then the entire context becomes the previous answer |
+| `simulate_replace_one` | start with refs (capped at `MAX_CITATIONS_REPLACE`=10); one slot replaced per round (`slot = iteration % len(docs)`) |
+| `simulate_search` | `ChunkedRetrievalStore` seeded with refs, local `make_embed_fn_local(EMBED_MODEL)`, retrieves `SEARCH_TOP_K` each round; new answer added to the store |
 
 ---
 
-## GEPA Configuration
+## Running the optimization (`gepa_optimization/run_optimization.py`)
 
-**File:** `gepa_optimization/run_optimization.py`
+`run_optimization.py` takes **no CLI args** — it is configured entirely by environment variables.
 
 ```python
 result = gepa.optimize(
-    seed_candidate={"system_prompt": _RAG_GENERATION_SYSTEM_PROMPT},
-    trainset=trainset,    # 60 questions
-    valset=valset,        # 20 questions
+    seed_candidate={"system_prompt": GEPA_RAG_GENERATION_SYSTEM_PROMPT},
+    trainset=trainset, valset=valset,      # 60 / 20
     adapter=adapter,
-    reflection_lm=reflection_lm,          # claude-opus-4-7 via keymaker
-    max_metric_calls=MAX_METRIC_CALLS,     # default 100, set via MAX_METRIC_CALLS env var
+    reflection_lm=reflection_lm,            # callable → REFLECTION_MODEL, temp 1.0
+    max_metric_calls=MAX_METRIC_CALLS,      # default 300
     candidate_selection_strategy="pareto",
     display_progress_bar=True,
-    run_dir="./gepa_runs/rag_system_prompt",
+    run_dir=RUN_DIR,
 )
+best_score = result.val_aggregate_scores[result.best_idx]   # avg anti_collapse of best candidate
 ```
-
-| GEPA parameter | Value | Rationale |
-|---|---|---|
-| `candidate_selection_strategy` | `"pareto"` | Balances both objectives; prevents sacrificing quality for diversity |
-| `max_metric_calls` | 100 (default) | Budget; increase for more thorough optimization |
-| `run_dir` | `./gepa_runs/rag_system_prompt` | Checkpoints saved so job can resume if interrupted |
-
----
-
-## Model Roles
 
 | Env var | Default | Role |
 |---|---|---|
-| `TASK_MODEL` | `claude-haiku-4-5-20251001` | RAG generation in collapse simulations (the prompt being evaluated) |
-| `DOC_GEN_MODEL` | `claude-haiku-4-5-20251001` | Generates AI contamination documents (separate from task model) |
-| `JUDGE_MODEL` | `claude-haiku-4-5-20251001` | Entity extraction, entity clustering, quality judging |
-| `REFLECTION_MODEL` | `claude-opus-4-7` | Reads failure reports and proposes new system prompts |
-| `EMBED_MODEL` | `all-MiniLM-L6-v2` | Local SentenceTransformer for `simulate_search` |
-| `MAX_METRIC_CALLS` | `100` | GEPA evaluation budget |
-| `API_KEY` | *(required)* | UMass keymaker API key |
-| `LITELLM_API_BASE` | `https://thekeymaker.umass.edu/` | Proxy URL for all models |
+| `API_KEY` | *(required)* | keymaker API key |
+| `LITELLM_API_BASE` | `https://thekeymaker.umass.edu/` | proxy for all model calls |
+| `TASK_MODEL` | `openai/claude-haiku-4-5` | RAG generation under the candidate prompt |
+| `DOC_GEN_MODEL` | `openai/gemma-3-12b-it` | generates the AI "contamination" documents |
+| `JUDGE_MODEL` | `openai/gpt4o` | entity extraction, clustering, quality judging |
+| `REFLECTION_MODEL` | `openai/claude-opus-4-1` | reads failure reports, proposes new prompts |
+| `EMBED_MODEL` | `all-MiniLM-L6-v2` | local SentenceTransformer for `simulate_search` |
+| `MAX_METRIC_CALLS` | `300` | GEPA evaluation budget |
+| `GEPA_RUN_DIR` | `gepa_runs/rag_system_prompt_<timestamp>` | run output (logs, candidates, state — resumable) |
+
+**Run it (CPU — all generation is via the API):**
+```bash
+export API_KEY="your-keymaker-key"
+sbatch --export=ALL scripts/gepa_optimization.sh
+```
 
 ---
 
-## File Layout
+## Inspecting & applying the result
+
+```bash
+# Rank candidates from a run's logs by mean avg_anti_collapse then avg_quality
+python gepa_optimization/parse_results.py --run-dir gepa_runs/rag_system_prompt_<id> [--min-evals N]
+
+# Write the chosen prompt back into formatters.py (GEPA_RAG_GENERATION_SYSTEM_PROMPT)
+python gepa_optimization/apply_best_prompt.py --prompt '<optimized prompt>'   # or --stdin
+```
+
+Then verify on held-out data by running the **pipeline with the optimized prompt** and the standard metric scripts:
+```bash
+python pipeline.py … --use-gepa-prompt          # uses GEPA_RAG_GENERATION_SYSTEM_PROMPT
+python evaluation.py <experiment.json> <eval.json>
+python entity_extraction.py --experiment-files <experiment.json> …
+```
+Compare collapse/quality metrics against a baseline run (same flags, without `--use-gepa-prompt`).
+
+---
+
+## File layout
 
 ```
 gepa_optimization/
-├── prepare_dataset.py        # Combines UMass + HotpotQA, splits 60/20/20
-├── rag_adapter.py            # RAGSystemPromptAdapter (GEPAAdapter subclass)
-├── scoring.py                # anti_collapse_score(), judge_quality_score()
-├── pipeline_simulator.py     # simulate_replace_all/one/search
-├── run_optimization.py       # Main GEPA entry point
-├── apply_best_prompt.py      # Writes best_candidate back to formatters.py
-└── data/
-    ├── train.jsonl            # 60 questions
-    ├── val.jsonl              # 20 questions
-    └── test.jsonl             # 20 questions (held out)
+├── prepare_dataset.py     # UMass + HotpotQA (E5+FAISS retrieval) → data/{train,val,test}.jsonl
+├── rag_adapter.py         # RAGSystemPromptAdapter (GEPAAdapter)
+├── scoring.py             # anti_collapse_score(), judge_quality_score()
+├── pipeline_simulator.py  # simulate_replace_all / replace_one / search
+├── run_optimization.py    # entry point (env-var driven)
+├── parse_results.py       # rank candidates from a run's logs/
+├── apply_best_prompt.py   # write best prompt into formatters.py
+├── gepa_logger.py         # captures LLM calls + structured eval events
+├── smoke_test_gepa.py     # tiny end-to-end smoke test
+└── data/                  # train.jsonl / val.jsonl / test.jsonl
 
-gepa_runs/
-└── rag_system_prompt/        # GEPA checkpoints (auto-created, resumable)
+gepa_runs/rag_system_prompt_<id>/
+├── logs/{aggregates,evaluations,prompts,run_meta}.jsonl
+├── candidates.json, candidate_tree.html, gepa_state.bin   # resumable checkpoint
+└── run_log.{json,txt}
 ```
 
 ---
 
-## How to Use the Result
+## Results / caveats
 
-After `gepa.optimize` finishes:
-
-```python
-# Best candidate is automatically selected from Pareto frontier (highest anti_collapse)
-print(result.best_candidate["system_prompt"])
-print(f"Best val score (avg anti_collapse): {result.best_score:.4f}")
-
-# Apply to formatters.py
-python gepa_optimization/apply_best_prompt.py --prompt '<optimized prompt>'
-```
-
-Then re-run evaluation on the held-out test split to verify improvement on:
-- `unique_entities` (higher = more diverse content per round)
-- `avg_pairwise_tes` (lower = less entity overlap = less collapse)
-- `avg_ai_reference_percentage` (lower = less contamination)
-
-The test split (20 questions) was never seen during optimization so these numbers are unbiased.
-
----
-
-## Summary of Steps
-
-1. **Run** `gepa_optimization/prepare_dataset.py` to generate `data/{train,val,test}.jsonl`
-2. **Set** environment variables: `API_KEY`, and optionally `TASK_MODEL`, `DOC_GEN_MODEL`, `JUDGE_MODEL`, `REFLECTION_MODEL`, `MAX_METRIC_CALLS`
-3. **Run** `gepa_optimization/run_optimization.py`
-4. **Inspect** `gepa_runs/rag_system_prompt/` for checkpoints and Pareto frontier
-5. **Apply** the best prompt: `python gepa_optimization/apply_best_prompt.py --prompt '<prompt>'`
-6. **Evaluate** on the held-out test split using `evaluation.py`
+- **Outcome so far:** the optimization runs to date did **not** beat the seed — the decompose-strategy seed prompt was already near the Pareto frontier on (anti-collapse, quality). Frame any reported numbers as "no improvement over an already-strong seed," not as a win.
+- **Known code issues (not doc issues — flagged for fixing):**
+  1. `scripts/gepa_optimization.sh` contains `export API_KEY=""` just before the key check, which blanks a key passed via `--export=ALL`. Set the key *after* that line or remove it.
+  2. In `rag_adapter.py`, `evaluate()` runs the candidate prompt through `self._doc_gen_llm`; the `self._task_llm` built from `TASK_MODEL` is currently unused, so generation is effectively done by `DOC_GEN_MODEL`.

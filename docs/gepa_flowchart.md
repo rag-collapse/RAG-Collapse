@@ -4,13 +4,13 @@
 
 ```mermaid
 flowchart TD
-    A([Start: seed_candidate\n_RAG_GENERATION_SYSTEM_PROMPT]) --> B
+    A([Start: seed_candidate\nGEPA_RAG_GENERATION_SYSTEM_PROMPT]) --> B
 
     B[gepa.optimize\nmax_metric_calls budget\npareto selection strategy]
 
     B --> C[evaluate on trainset\n60 questions]
     C --> D[make_reflective_dataset\nbuild structured failure report]
-    D --> E[reflection_lm\nclaude-opus-4-7\nproposes new system_prompt]
+    D --> E[reflection_lm\nclaude-opus-4-1\nproposes new system_prompt]
     E --> F[evaluate on valset\n20 questions]
     F --> G{Pareto check\nnew candidate vs frontier\non anti_collapse × quality}
     G -->|not dominated| H[Add to Pareto frontier]
@@ -151,15 +151,15 @@ flowchart TD
         C2{quality < 0.50?}
     end
 
-    C1 -->|Yes| D1[Diagnosis: Entity sets collapsed\nacross rounds — the prompt may cause\nthe model to echo the same entities each round]
+    C1 -->|Yes| D1[Diagnosis: answer lacks entity diversity —\nthe prompt may cause the model to fixate\non a narrow subset of entities]
     C1 -->|No| D3[Scores acceptable]
     C2 -->|Yes| D2[Diagnosis: Final answer drifted\nfrom original context — the prompt\nmay not anchor the model to retrieved facts]
 
-    D1 --> REC[Build record per question\nInputs: question, context preview 600 chars, system prompt, n_rounds\nGenerated Outputs: Round 1 ... Round N per variant\nFeedback: scores + diagnosis per variant\nScores: avg_anti_collapse, avg_quality, avg_unique_entities]
+    D1 --> REC[Build record per question\nInputs: System Prompt only\nGenerated Outputs: final-round answer per variant\nFeedback: scores + diagnosis per variant\nScores: avg_anti_collapse, avg_quality, avg_unique_entities]
     D2 --> REC
     D3 --> REC
 
-    REC --> OUT3([dataset system_prompt → list of records\nFed to reflection_lm\nclaude-opus-4-7 reads failure patterns\nand proposes a revised system prompt])
+    REC --> OUT3([dataset system_prompt → list of records\nFed to reflection_lm\nclaude-opus-4-1 reads failure patterns\nand proposes a revised system prompt])
 ```
 
 ---
@@ -175,7 +175,7 @@ flowchart TD
     DOM -->|Yes — dominated| DISC[Discard candidate]
     DOM -->|No — not dominated| ADD[Add to Pareto frontier\nremove any frontier members\nnow dominated by new candidate]
 
-    ADD --> BEST[best_candidate = frontier member\nwith highest anti_collapse score\nreported as result.best_score]
+    ADD --> BEST[best_candidate = frontier member\nwith highest anti_collapse score\nresult.val_aggregate_scores at result.best_idx]
 
     style DISC fill:#ffcccc
     style ADD fill:#ccffcc
@@ -200,7 +200,7 @@ flowchart TD
 
 | Flag | Condition | Diagnosis text |
 |---|---|---|
-| Entity collapse | `anti_collapse < 0.30` | "Entity sets collapsed across rounds … the prompt may cause the model to echo the same entities each round." |
+| Entity collapse | `anti_collapse < 0.30` | "The answer lacks entity diversity … the prompt may cause the model to fixate on a narrow subset of entities …" |
 | Context drift | `quality < 0.50` | "Final answer drifted from original context … the prompt may not anchor the model to retrieved facts." |
 
 ---
@@ -209,8 +209,10 @@ flowchart TD
 
 | Model env var | Default | Role |
 |---|---|---|
-| `TASK_MODEL` | `claude-haiku-4-5` | Runs the RAG generation in collapse simulations (the model being optimized) |
-| `DOC_GEN_MODEL` | `claude-haiku-4-5` | Generates AI contamination documents (separate from the task model) |
-| `JUDGE_MODEL` | `claude-haiku-4-5` | Entity extraction, entity clustering, quality judging |
-| `REFLECTION_MODEL` | `claude-opus-4-7` | Reads failure reports and proposes a new system prompt |
+| `TASK_MODEL` | `openai/claude-haiku-4-5` | Intended to run the RAG generation under the candidate prompt (see note) |
+| `DOC_GEN_MODEL` | `openai/gemma-3-12b-it` | Generates AI contamination documents — and currently also runs generation (see note) |
+| `JUDGE_MODEL` | `openai/gpt4o` | Entity extraction, entity clustering, quality judging |
+| `REFLECTION_MODEL` | `openai/claude-opus-4-1` | Reads failure reports and proposes a new system prompt |
 | `EMBED_MODEL` | `all-MiniLM-L6-v2` | Local SentenceTransformer for `simulate_search` ChunkedRetrievalStore |
+
+> **Note:** `evaluate()` currently passes `doc_gen_llm` into all three simulators, so the candidate prompt is executed by `DOC_GEN_MODEL`; the `task_llm` built from `TASK_MODEL` is presently unused. See `gepa_prompt_optimization_plan.md` → *Results / caveats*.
