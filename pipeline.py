@@ -35,7 +35,12 @@ from pipeline.model_runner import build_llm
 from pipeline.feedback_loop import references_to_documents
 from pipeline.output_writer import write_experiments_output
 from pipeline.retrieval import ChunkedRetrievalStore, make_embed_fn_litellm, make_embed_fn_local
-from formatters import get_create_document_conversation, get_context_str_from_docs, RETRIEVE_TOOL_SPEC
+from formatters import (
+    get_create_document_conversation,
+    get_context_str_from_docs,
+    RETRIEVE_TOOL_SPEC,
+    GEPA_RAG_GENERATION_SYSTEM_PROMPT,
+)
 
 _WORD_RE = re.compile(r"[A-Za-z0-9']+")
 
@@ -417,6 +422,14 @@ def parse_args():
     # AI detection mitigation
     # -------------------------
     parser.add_argument(
+        "--use-gepa-prompt",
+        action="store_true",
+        help=(
+            "Use GEPA_RAG_GENERATION_SYSTEM_PROMPT (the GEPA-optimized system prompt) "
+            "instead of the default _RAG_GENERATION_SYSTEM_PROMPT baseline."
+        ),
+    )
+    parser.add_argument(
         "--enable-ai-detection-mitigation-prompt",
         action="store_true",
         help=(
@@ -452,6 +465,7 @@ def run_pipeline() -> None:
     paraphrase_reference_docs = bool(args.paraphrase_reference_docs)
     max_questions = args.max_questions
     variant = args.pipeline_variant
+    rag_system_prompt = GEPA_RAG_GENERATION_SYSTEM_PROMPT if args.use_gepa_prompt else None
     citations_enabled = bool(args.enable_citations)
     citation_max_docs = max(1, int(getattr(args, "citation_max_docs", 6)))
     citation_top_m = max(1, int(getattr(args, "citation_top_m", 4)))
@@ -702,6 +716,7 @@ def run_pipeline() -> None:
                     chars_per_doc=chars_per_doc,
                     shuffle_docs=not citations_enabled,
                     ai_scores=doc_ai_scores,
+                    system_prompt=rag_system_prompt,
                 )
                 prompt_docs_by_question.append(prompt_docs)
                 batch_conversations.extend([conversation] * num_runs)
@@ -802,6 +817,7 @@ def run_pipeline() -> None:
                         docs=docs_without,
                         chars_per_doc=chars_per_doc,
                         shuffle_docs=False,
+                        system_prompt=rag_system_prompt,
                     )
                     missing_keys.append(cache_key)
                     missing_conversations.append(loo_conversation)
