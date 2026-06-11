@@ -19,7 +19,10 @@
 #   export VLLM_API_BASE="http://<answer-host>:5150/v1"        # answer model (e.g. Qwen2.5-14B)
 #   export DOC_VLLM_API_BASE="http://<docgen-host>:5153/v1"    # doc generator (Qwen2.5-7B)
 #   export GT_FILE=/path/to/hotpot_dev_fullwiki_v1.json        # gold answers + (for hop) supporting_facts
-#   sbatch --export=ALL scripts/hotpot_misinfo.sh
+#   sbatch --export=ALL scripts/hotpot-misinfo/run_misinfo.sh
+#
+# This is the full pilot (default 50 questions x 3 arms). Validate the plumbing first with
+# scripts/hotpot-misinfo/smoke_test.sh — see scripts/hotpot-misinfo/RUNBOOK.md.
 
 set -eo pipefail
 if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
