@@ -71,6 +71,124 @@ def get_create_document_conversation(question: str, answer: str) -> list[dict[st
     return conversation
 
 
+# ── Misinformation document synthesis (error-compounding experiment) ──────────
+# These mirror the faithful create-document prompt with a SINGLE added instruction
+# so the only varied factor vs. the faithful control arm is factual correctness,
+# not synthesis fluency/length. See pipeline/misinfo.py.
+
+def _doc_user_prompt_with_extra(question: str, answer: str, extra_instruction: str) -> str:
+    """Faithful create-document user prompt + one extra instruction bullet."""
+    return (
+        _CREATE_DOCUMENT_USER_PROMPT.format(question=question, answer=answer)
+        + "\n- " + extra_instruction
+    )
+
+
+def get_create_document_conversation_freeform(question: str, answer: str) -> list[dict[str, str]]:
+    """Faithful synthesis + instruction to invent one plausible falsehood about the answer."""
+    extra = (
+        "IMPORTANT: Introduce exactly ONE plausible but factually INCORRECT claim about "
+        "the answer to the question. Keep all other content accurate. Do NOT flag, hedge, "
+        "or mention that anything is incorrect — present it naturally as fact."
+    )
+    return [
+        {"role": "system", "content": _CREATE_DOCUMENT_SYSTEM_PROMPT},
+        {"role": "user", "content": _doc_user_prompt_with_extra(question, answer, extra)},
+    ]
+
+
+def get_create_document_conversation_untargeted(question: str, answer: str) -> list[dict[str, str]]:
+    """Control: inject one false detail that is NOT about the answer (date/place/number)."""
+    extra = (
+        "IMPORTANT: Introduce exactly ONE plausible but factually INCORRECT detail that is "
+        "NOT about the answer to the question (e.g. a wrong date, location, or number "
+        "elsewhere in the article). Keep the answer itself fully accurate. Do NOT flag the error."
+    )
+    return [
+        {"role": "system", "content": _CREATE_DOCUMENT_SYSTEM_PROMPT},
+        {"role": "user", "content": _doc_user_prompt_with_extra(question, answer, extra)},
+    ]
+
+
+def get_create_document_conversation_hop(question: str, answer: str, false_claim: str) -> list[dict[str, str]]:
+    """Counterfactual hop corruption: write the article asserting a false premise."""
+    extra = (
+        "IMPORTANT: Write as if the following statement is true, stating it naturally as fact: "
+        f"\"{false_claim}\" Keep all other content accurate and do NOT mention any change."
+    )
+    return [
+        {"role": "system", "content": _CREATE_DOCUMENT_SYSTEM_PROMPT},
+        {"role": "user", "content": _doc_user_prompt_with_extra(question, answer, extra)},
+    ]
+
+
+_SUBSTITUTE_PROPOSAL_SYSTEM_PROMPT = (
+    "You propose alternative named entities of the same type as a target entity. "
+    "Output ONLY a JSON array of strings."
+)
+
+
+def get_substitute_proposal_conversation(question: str, entity: str, k: int = 5) -> list[dict[str, str]]:
+    """Ask for k same-type, plausible-but-incorrect alternatives to ``entity``."""
+    user = (
+        f"Question:\n{question}\n\n"
+        f"Target entity: {entity}\n\n"
+        f"List {k} DIFFERENT real-world entities of the SAME TYPE as the target that would be "
+        f"plausible but INCORRECT alternatives. Do not include the target itself, near-duplicates, "
+        f"or any entity already implied by the question. Return ONLY a JSON array of {k} entity "
+        f'name strings, e.g. ["Entity 1", "Entity 2"].'
+    )
+    return [
+        {"role": "system", "content": _SUBSTITUTE_PROPOSAL_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+_CLAIM_DISCOVERY_SYSTEM_PROMPT = (
+    "You are a strict fact-checking judge. You compare a document against the known correct "
+    "answer to a question and report any contradicting claim. Output ONLY JSON."
+)
+
+
+def get_claim_discovery_conversation(question: str, gold_answer: str, document: str) -> list[dict[str, str]]:
+    """Judge: did the document assert anything about the answer that contradicts the gold?"""
+    user = (
+        f"Question:\n{question}\n\n"
+        f"Correct answer: {gold_answer}\n\n"
+        f"Document:\n{document}\n\n"
+        "Does the document state or imply an answer to the question that CONTRADICTS the correct "
+        "answer? Return ONLY JSON of the form: "
+        '{"asserted_answer": <what the document claims the answer is, or null>, '
+        '"false_claims": [<short claim strings>], "contains_error": <true or false>}.'
+    )
+    return [
+        {"role": "system", "content": _CLAIM_DISCOVERY_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+_IMPLIED_ANSWER_SYSTEM_PROMPT = (
+    "You are a careful multi-hop reasoning assistant. Output ONLY JSON."
+)
+
+
+def get_implied_answer_conversation(
+    question: str, gold_answer: str, bridge_entity: str, substitute: str
+) -> list[dict[str, str]]:
+    """Derive the wrong answer implied by corrupting the bridge entity (hop target)."""
+    user = (
+        f"Question:\n{question}\n\n"
+        f"The correct answer is: {gold_answer}\n\n"
+        f"Suppose, counterfactually, that \"{bridge_entity}\" were actually \"{substitute}\". "
+        "Under that single false premise, what would the answer to the question become? "
+        'Return ONLY JSON of the form: {"implied_answer": <entity string>}.'
+    )
+    return [
+        {"role": "system", "content": _IMPLIED_ANSWER_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
 def get_rag_generation_conversation(
     context: str,
     question: str,

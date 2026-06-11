@@ -27,6 +27,7 @@ from datasets import load_from_disk
 from transformers import AutoModel, AutoTokenizer
 
 from formatters import get_create_document_conversation
+from pipeline.misinfo import MisinfoController, MODE_FAITHFUL, MODES, TARGETS
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
 from pipeline.prompt_builder import build_rag_conversation
@@ -195,11 +196,47 @@ def parse_args():
     p.add_argument("--index-dir", default=INDEX_DIR)
     p.add_argument("--cache-dir", default=CACHE_DIR)
 
+    # --- Misinformation injection (error-compounding experiment; all default-off) ---
+    p.add_argument("--doc-synthesis-mode", choices=list(MODES), default=MODE_FAITHFUL,
+        help="faithful (baseline), counterfactual (entity substitution), or freeform "
+             "(synthesizer invents one false claim). Non-faithful requires --gt-file.")
+    p.add_argument("--target-mode", choices=list(TARGETS), default="final_answer",
+        help="What to corrupt: the final answer entity, an intermediate bridge entity "
+             "(requires --native-hotpot-file), or an answer-irrelevant detail (untargeted control).")
+    p.add_argument("--inject-round", type=int, default=1,
+        help="Iteration index whose synthesized document is corrupted; that doc enters "
+             "the context/corpus at iteration inject_round+1.")
+    p.add_argument("--inject-every-round", action="store_true",
+        help="Stress arm: corrupt the synthesized document every round (not just --inject-round).")
+    p.add_argument("--seed", type=int, default=None,
+        help="Global seed (random, numpy). Substitute selection uses a separate per-question "
+             "RNG so control/treatment arms select identical answers under the same seed.")
+    p.add_argument("--gt-file", default=None,
+        help="HotpotQA ground-truth JSON (native list of {_id, answer,...} or flat {id: answer}). "
+             "Required when --doc-synthesis-mode != faithful.")
+    p.add_argument("--native-hotpot-file", default=None,
+        help="Native HotpotQA JSON with supporting_facts/context/type. Required for "
+             "--target-mode intermediate_hop.")
+
     return p.parse_args()
 
 
 def run_pipeline() -> None:
     args = parse_args()
+
+    # Reproducibility: seed the global RNGs (answer selection, doc shuffling).
+    # Substitute selection in MisinfoController uses a SEPARATE per-question RNG so
+    # the global sequence — and hence the answers selected — is identical across arms.
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        print(f"[seed] global RNG seeded with {args.seed}")
+
+    inject_enabled = args.doc_synthesis_mode != MODE_FAITHFUL
+    if inject_enabled and not args.gt_file:
+        raise SystemExit("--gt-file is required when --doc-synthesis-mode != faithful")
+    if args.target_mode == "intermediate_hop" and not args.native_hotpot_file:
+        raise SystemExit("--native-hotpot-file is required when --target-mode intermediate_hop")
 
     variant = args.pipeline_variant
     num_iterations = args.num_iterations or DEFAULT_ROUNDS[variant]
@@ -325,6 +362,24 @@ def run_pipeline() -> None:
     )
     print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
 
+    controller = None
+    if inject_enabled:
+        controller = MisinfoController(
+            mode=args.doc_synthesis_mode,
+            target_mode=args.target_mode,
+            inject_round=args.inject_round,
+            inject_every_round=args.inject_every_round,
+            gt_file=args.gt_file,
+            doc_llm=doc_llm,
+            seed=args.seed,
+            native_file=args.native_hotpot_file,
+        )
+        print(f"[misinfo] mode={args.doc_synthesis_mode} target={args.target_mode} "
+              f"inject_round={args.inject_round} every={args.inject_every_round}", flush=True)
+        controller.prepare(states)
+        n_elig = sum(1 for s in states if controller.records[s.query_id].eligible)
+        print(f"[misinfo] prepared {len(states)} questions; {n_elig} eligible for injection.", flush=True)
+
     meta: Dict[str, Any] = {
         "model": resolved_model_name,
         "doc_model": doc_model_name,
@@ -341,6 +396,10 @@ def run_pipeline() -> None:
         meta["num_db_docs"] = args.num_db_docs
         meta["db_doc_selection"] = args.db_doc_selection
         meta["synth_doc_selection"] = args.synth_doc_selection
+    if controller is not None:
+        meta.update(controller.metadata())
+        meta["gt_file"] = args.gt_file
+        meta["native_hotpot_file"] = args.native_hotpot_file
 
     experiments: Dict[str, Any] = {"experiment_metadata": meta, "questions": []}
 
@@ -398,9 +457,12 @@ def run_pipeline() -> None:
             else:
                 ans_for_docs = [random.choice(answers)]
             for a in ans_for_docs:
-                doc_batch.append(get_create_document_conversation(
-                    question=s.question_text, answer=a,
-                ))
+                if controller is not None:
+                    doc_batch.append(controller.make_doc_conversation(s, a, it))
+                else:
+                    doc_batch.append(get_create_document_conversation(
+                        question=s.question_text, answer=a,
+                    ))
             docs_per_q.append(len(ans_for_docs))
 
         print(f"[Iter {it}/{num_iterations}] Creating {len(doc_batch)} documents...", flush=True)
@@ -409,10 +471,14 @@ def run_pipeline() -> None:
 
         # --- Step 4: update docs for next round ---
         offset = 0
+        synth_records: List[Tuple[Any, List[str], List[str]]] = []
         for i, s in enumerate(states):
             n = docs_per_q[i]
             doc_texts = all_doc_texts[offset:offset + n]
             offset += n
+            synth_records.append(
+                (s, doc_texts, [f"gen_{it + 1}_{j}" for j in range(n)])
+            )
 
             if is_search:
                 new_doc = _answers_to_docs([doc_texts[0]], iteration=it + 1)[0]
@@ -435,6 +501,12 @@ def run_pipeline() -> None:
                     synth_selection=args.synth_doc_selection,
                     db_selection=args.db_doc_selection,
                 )
+
+        if controller is not None:
+            controller.record_injection(synth_records, it)
+
+    if controller is not None:
+        controller.attach(states)
 
     for s in states:
         experiments["questions"].append(s.question_obj)
