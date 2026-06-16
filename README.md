@@ -28,6 +28,7 @@ experiment_outputs/    evaluation_outputs/        entity_extraction_output/
 | [`scripts/all_experiments_README.md`](scripts/all_experiments_README.md) | The consolidated `all_experiments/` data tree (layout + scope) |
 | [`docs/entity_extraction_comparison.md`](docs/entity_extraction_comparison.md) | Entity-extraction code vs the `collapse-randomness-research` repo |
 | [`docs/pipeline_comparison.md`](docs/pipeline_comparison.md) | Full pipeline (baselines + metrics) vs `collapse-randomness-research` |
+| [`docs/misinfo_error_compounding.md`](docs/misinfo_error_compounding.md) | Misinformation error-compounding experiment (HotpotQA) + `scripts/hotpot-misinfo/` |
 | [`visualization_outputs/README.md`](visualization_outputs/README.md) | Plots and how to regenerate them |
 
 ## Setup

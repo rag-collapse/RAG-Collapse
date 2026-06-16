@@ -119,4 +119,5 @@ Agentic RAG. See `docs/data_locations.md` and `scripts/all_experiments_README.md
 - `docs/gepa_prompt_optimization_plan.md`, `docs/gepa_flowchart.md` — GEPA subsystem
 - `docs/data_locations.md`, `scripts/all_experiments_README.md` — where raw/consolidated data lives
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md` — comparison vs `collapse-randomness-research`
+- `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`
 - `visualization_outputs/README.md` — plots
