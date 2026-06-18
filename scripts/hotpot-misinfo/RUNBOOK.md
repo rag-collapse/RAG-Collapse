@@ -4,6 +4,14 @@ Goal: validate the error-compounding experiment **end-to-end with real vLLM serv
 the full pilot. The smoke runs all three arms (faithful / counterfactual / freeform) on 5
 questions × 3 rounds and self-checks the output.
 
+> **Quick path (recommended):** `sbatch --export=ALL,MAX_Q=20 scripts/hotpot-misinfo/smoke_all_in_one.sh`
+> is a single self-contained GPU job — it starts one Qwen2.5-7B vLLM server (used for both the
+> answer and doc-gen/judge roles), waits for it, runs the smoke client + eval + checks against
+> `localhost`, and tears the server down on exit. No two-server URL coordination, ~8 min wall,
+> 2 h time limit. Use `MAX_Q=20` — a weak 7B answerer needs ~20 questions to reliably land at
+> least one realized (`status=ok`) counterfactual injection (5 can all be yes/no or
+> model-already-wrong). The two-server flow below is for the representative 14B-answer setup.
+
 ## Topology
 
 ```

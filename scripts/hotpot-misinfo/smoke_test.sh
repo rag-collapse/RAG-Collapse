@@ -43,7 +43,7 @@ mkdir -p "$OUT"
 COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
         --doc-vllm-api-base "$DOC_VLLM_API_BASE" --doc-model-name "$DOC_MODEL"
         --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
-        --pipeline-variant "$VARIANT" --max-questions 5 --num-iterations 3
+        --pipeline-variant "$VARIANT" --max-questions ${MAX_Q:-5} --num-iterations ${ITERS:-3}
         --num-runs 4 --seed 42)
 
 echo "########## arm: faithful (parity) ##########"
