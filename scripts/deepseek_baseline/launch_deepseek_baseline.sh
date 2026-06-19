@@ -18,7 +18,8 @@
 # Outputs land in the consolidated all_experiments tree, matching the other baselines:
 #   <ALL_EXP_BASE>/graphite/baseline/<variant>/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_<variant>.json
 # Env overrides: VARIANTS, ALL_EXP_BASE, MAX_Q, NUM_RUNS, CHARS_PER_DOC, MAX_TOKENS, DOC_MAX_TOKENS,
-#                DATASET, SERVER_TIME, CLIENT_TIME.
+#                DATASET, SERVER_TIME, CLIENT_TIME, ANSWER_MAX_NUM_SEQS (lower from 128 if the
+#                answer server hits KV-cache preemption with long reasoning traces on a vram48 GPU).
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1     # repo root
 
@@ -32,7 +33,7 @@ mkdir -p logs
 
 echo "### submitting shared servers (DeepSeek answer + Qwen2.5-7B doc), time limit $SERVER_TIME ###"
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-deepseek-r1-7b" \
-        --export="ALL,MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,SERVED_MODEL_NAME=deepseek-r1-distill-qwen-7b,EXTRA_VLLM_ARGS=--reasoning-parser deepseek_r1,MAX_NUM_SEQS=128" \
+        --export="ALL,MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,SERVED_MODEL_NAME=deepseek-r1-distill-qwen-7b,EXTRA_VLLM_ARGS=--reasoning-parser deepseek_r1,MAX_NUM_SEQS=${ANSWER_MAX_NUM_SEQS:-128}" \
         scripts/hotpot-misinfo/server_answer.sh)
 D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" \
         --export="ALL,SERVED_MODEL_NAME=qwen2.5-7b-doc" \
