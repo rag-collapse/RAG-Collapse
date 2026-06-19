@@ -11,6 +11,8 @@ export ANSWER_MODEL_ID="mistralai/Mistral-7B-Instruct-v0.3"
 export ANSWER_SERVED="mistral-7b"
 export ANSWER_EXTRA_ARGS="--tokenizer-mode mistral"   # Mistral tokenizer needs this (no HF chat_template)
 export ANSWER_MAX_NUM_SEQS=128                        # 7B model -> matches start_llm_server_mistral7b.sh
+export ANSWER_PORT="${ANSWER_PORT:-5166}"   # distinct from baseline (5154) + other model launchers
+export DOCGEN_PORT="${DOCGEN_PORT:-5165}"
 export OUTDIR="$BASE/$ANSWER_SERVED"
 
 exec bash scripts/hotpot-misinfo/launch_all_variants.sh

@@ -37,10 +37,10 @@ echo "### submitting shared servers (DeepSeek answer + Qwen2.5-7B doc), time lim
 # byte-decodes it and strips any <think> block. Special tokens are already skipped, so the
 # parser buys nothing here and only added corruption risk.
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-deepseek-r1-7b" \
-        --export="ALL,MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,SERVED_MODEL_NAME=deepseek-r1-distill-qwen-7b,MAX_NUM_SEQS=${ANSWER_MAX_NUM_SEQS:-128}" \
+        --export="ALL,MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,SERVED_MODEL_NAME=deepseek-r1-distill-qwen-7b,MAX_NUM_SEQS=${ANSWER_MAX_NUM_SEQS:-128},PORT=$ANSWER_PORT" \
         scripts/hotpot-misinfo/server_answer.sh)
 D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" \
-        --export="ALL,SERVED_MODEL_NAME=qwen2.5-7b-doc" \
+        --export="ALL,SERVED_MODEL_NAME=qwen2.5-7b-doc,PORT=$DOCGEN_PORT" \
         scripts/hotpot-misinfo/server_docgen.sh)
 echo "  answer server job: $A_JID (DeepSeek-R1-Distill-Qwen-7B)   doc server job: $D_JID (Qwen2.5-7B as qwen2.5-7b-doc)"
 

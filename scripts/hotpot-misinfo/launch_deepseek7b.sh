@@ -18,6 +18,8 @@ export ANSWER_SERVED="deepseek-r1-distill-qwen-7b"
 export ANSWER_EXTRA_ARGS=""                 # no reasoning parser (see note above); <think> stripped in server_llm.py
 export ANSWER_MAX_NUM_SEQS=128              # 7B model -> matches start_llm_server_deepseek_r1_distill_qwen7b.sh
 export MAX_TOKENS="${MAX_TOKENS:-4096}"     # answer headroom for the reasoning trace; docs stay 512
+export ANSWER_PORT="${ANSWER_PORT:-5170}"   # distinct from baseline (5154) + other model launchers
+export DOCGEN_PORT="${DOCGEN_PORT:-5169}"
 export OUTDIR="$BASE/$ANSWER_SERVED"
 
 exec bash scripts/hotpot-misinfo/launch_all_variants.sh

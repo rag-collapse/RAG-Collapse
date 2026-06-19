@@ -36,9 +36,9 @@ mkdir -p logs
 
 echo "### submitting shared servers for answer model '$ANSWER_SERVED' (time limit $SERVER_TIME) ###"
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED" \
-        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS" \
+        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS,PORT=$ANSWER_PORT" \
         scripts/hotpot-misinfo/server_answer.sh)
-D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" --export=ALL \
+D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" --export="ALL,PORT=$DOCGEN_PORT" \
         scripts/hotpot-misinfo/server_docgen.sh)   # no MODEL_NAME exported -> keeps its Qwen2.5-7B default
 echo "  answer server job: $A_JID ($ANSWER_MODEL_ID)   doc-gen server job: $D_JID (Qwen2.5-7B)"
 

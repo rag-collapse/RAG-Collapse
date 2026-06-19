@@ -10,6 +10,8 @@ BASE="${OUTPUT_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapat
 export ANSWER_MODEL_ID="Qwen/Qwen2.5-14B-Instruct"
 export ANSWER_SERVED="qwen2.5-14b"
 export ANSWER_EXTRA_ARGS=""
+export ANSWER_PORT="${ANSWER_PORT:-5164}"   # distinct from baseline (5154) + other model launchers
+export DOCGEN_PORT="${DOCGEN_PORT:-5163}"
 export OUTDIR="$BASE/$ANSWER_SERVED"
 
 exec bash scripts/hotpot-misinfo/launch_all_variants.sh
