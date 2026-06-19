@@ -14,6 +14,25 @@ import time
 from .common_llm import CommonLLM
 
 
+def _strip_reasoning(text: "str | None") -> "str | None":
+    """Remove a DeepSeek-R1-style ``<think>...</think>`` reasoning block from a response.
+
+    Reasoning models (e.g. DeepSeek-R1-Distill) are served here WITHOUT vLLM's
+    ``--reasoning-parser`` because that parser corrupts ``message.content`` into
+    byte-level BPE artifacts (``Ġ``/``Ċ``) on current vLLM. Served without it, the model
+    emits ``<think> ... </think>`` followed by the final answer as ordinary, cleanly
+    decoded text — so we keep only the text after the last ``</think>``.
+
+    No-op for non-reasoning models (no ``</think>`` present) and for content already
+    cleaned by a working reasoning parser.
+    """
+    if not text:
+        return text
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[-1]
+    return text.lstrip()
+
+
 class ServerLLM(CommonLLM):
     """
     Connects to a vLLM OpenAI-compatible server instead of loading
@@ -82,7 +101,7 @@ class ServerLLM(CommonLLM):
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
             )
-            return response.choices[0].text
+            return _strip_reasoning(response.choices[0].text)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_complete, prompts))
@@ -108,7 +127,7 @@ class ServerLLM(CommonLLM):
                 top_p=self.top_p,
                 extra_body=self._extra_body or None,
             )
-            return response.choices[0].message.content
+            return _strip_reasoning(response.choices[0].message.content)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_chat_complete, conversations))
@@ -192,7 +211,7 @@ class ServerLLM(CommonLLM):
 
             if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
                 # Model produced a final answer
-                return choice.message.content or "", tool_calls_used
+                return _strip_reasoning(choice.message.content or ""), tool_calls_used
 
             tool_calls_used += 1
 
@@ -235,7 +254,7 @@ class ServerLLM(CommonLLM):
             top_p=self.top_p,
             tool_choice="none",
         )
-        return response.choices[0].message.content or "", tool_calls_used
+        return _strip_reasoning(response.choices[0].message.content or ""), tool_calls_used
 
     def inference_agentic_batch(
         self,

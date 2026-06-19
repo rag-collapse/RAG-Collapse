@@ -5,7 +5,9 @@
 #   bash scripts/hotpot-misinfo/launch_deepseek7b.sh
 #
 # DeepSeek-R1 is a reasoning model:
-#   --reasoning-parser deepseek_r1 keeps the <think> trace OUT of message.content (else F1 is junk).
+#   NO --reasoning-parser: vLLM's deepseek_r1 parser corrupts message.content into byte-level
+#   BPE artifacts (Ġ/Ċ) on current vLLM. Instead the server returns the raw <think>...</think>
+#   + answer, and server_llm.py (_strip_reasoning) drops the think block client-side.
 #   MAX_TOKENS=4096 gives the trace room (512 would truncate it and can leave content empty).
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1
@@ -13,7 +15,7 @@ BASE="${OUTPUT_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapat
 
 export ANSWER_MODEL_ID="deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
 export ANSWER_SERVED="deepseek-r1-distill-qwen-7b"
-export ANSWER_EXTRA_ARGS="--reasoning-parser deepseek_r1"
+export ANSWER_EXTRA_ARGS=""                 # no reasoning parser (see note above); <think> stripped in server_llm.py
 export ANSWER_MAX_NUM_SEQS=128              # 7B model -> matches start_llm_server_deepseek_r1_distill_qwen7b.sh
 export MAX_TOKENS="${MAX_TOKENS:-4096}"     # answer headroom for the reasoning trace; docs stay 512
 export OUTDIR="$BASE/$ANSWER_SERVED"
