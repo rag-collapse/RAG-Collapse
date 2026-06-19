@@ -70,9 +70,54 @@ GPUs on ports 5154/5153; let it finish or run new work on the per-model ports ab
 
 ---
 
+## 1b. NEW — `base_hotpotqa_distractors/` standalone experiment (built, reviewed; `bfc660d`)
+
+A clean, self-contained package for the user's goal — **base HotpotQA recursive-RAG + round-0 diverse
+distractors**, decoupled from the misinfo synthesis/injection story. It is a **thin interface over the
+validated `hotpot_pipeline.py` + `pipeline/misinfo.py::DistractorController`** — it does NOT reimplement
+retrieval or the loop (no divergence risk). Runs ONLY faithful synthesis + distractors + a matched
+baseline (no `counterfactual`/`freeform` arms). Reviewed twice (find-docs + web) + my spot-check; **26
+tests pass**; committed (push pending my final review).
+
+Files (`base_hotpotqa_distractors/`):
+- `launch.sh` — login-node orchestrator; shared answer+doc servers on **dedicated ports 5180/5181**
+  (coexist with the graphite baseline 5154/5153 and misinfo launchers 5164–5170) → sweep client → reaper.
+- `run_sweep.sh` — CPU client; runs `hotpot_pipeline.py --doc-synthesis-mode faithful` for each fraction
+  incl. **0 = matched baseline**, non-overwriting filenames `base_<variant>_f<frac>.json`, then analysis.
+- `smoke.sh` — fast smoke (hybrid/10-round, 20 q, num_runs 2, fractions {0,0.5}, short servers, throwaway).
+- `compare_sweep.py` — matched-cohort comparison: per-round `gold_match` / `distractor_adoption` /
+  `offtarget` / `distinct_answers` for every fraction + a dose-response summary JSON.
+- `test_base_distractors.py` — pure-Python tests for the Q1 fix; `README.md`.
+
+Run (Unity, after pull; `GT_FILE` defaulted, no exports needed):
+```bash
+bash base_hotpotqa_distractors/smoke.sh                              # fast validation
+bash base_hotpotqa_distractors/launch.sh                             # full sweep {0,0.3,0.5,0.7} + baseline
+# override via env: MODEL launcher choice, MAX_Q, VARIANTS, FRACTIONS, SERVER_TIME/CLIENT_TIME, OUTPUT_BASE
+```
+Headline read: does `gold_match` drop and `distinct_answers`/`offtarget` rise as the distractor fraction
+increases, vs the fraction-0 baseline.
+
+Two caveats (from review): (1) the matched cohort = union of the distractor arms applied to all arms incl.
+baseline — sound/apples-to-apples, with a mild **conservative** dilution for low fractions (never
+inflates). (2) `run_sweep.sh` runs fractions **sequentially in one client job** — for full `search` (30
+rounds) × large `MAX_Q` × 4 fractions this can approach the 47h wall; split fractions across jobs for the
+full run.
+
+---
+
 ## 2. THE TWO OPEN QUESTIONS (resolve these first)
 
-### Q1 — How to fix the rewrite distractor's effectiveness? (see §4 for the data)
+### Q1 — How to fix the rewrite distractor's effectiveness? — ✅ RESOLVED (option (a), in `bfc660d`)
+**Done in shared `pipeline/misinfo.py::_apply_rewrite`** (benefits both the misinfo distractor arm and the
+new `base_hotpotqa_distractors/` experiment): (i) **gold-leak exclusion** — a discovered entity that
+normalizes to the gold is dropped; `status=ok` now requires a non-empty, non-gold entity; (ii)
+**substitution fallback** — any doc whose rewrite yields no usable wrong answer gets a *distinct*
+substituted entity, so every corrupted doc becomes a real, diverse distractor. Reviewed twice + 26 tests
+pass; `--distractor-fraction 0` still byte-identical. **TODO: re-smoke on Unity to confirm the
+effectiveness numbers improve** (the §4 smoke predates this fix). Original analysis + the rejected
+options, for context:
+
 The qwen2.5-14b smoke showed the `rewrite` distractor is only ~⅓ effective per doc and **leaks the
 gold answer** into the seeded set (13/75 "distractors" asserted the *correct* answer, which also
 inflates `distractor_adoption_rate`). Options:
