@@ -114,6 +114,38 @@ sbatch --export=ALL scripts/hotpot-misinfo/run_misinfo.sh   # 50 q × {faithful,
 
 ---
 
+## All 3 variants in parallel, sharing ONE server pair (recommended for the real runs)
+
+The answer and doc-gen servers are **stateless** — a single pair serves all three variant
+clients at once (vLLM queues concurrent requests). So you need **2 GPUs for servers, not 6**.
+One command does everything:
+
+```bash
+export GT_FILE=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json
+bash scripts/hotpot-misinfo/launch_all_variants.sh      # run on a LOGIN node
+```
+
+It submits the 2 GPU servers, waits until both serve (parses each server log for its URL +
+curls `/models`), fans out one **CPU** client per variant (`search` / `replace_one` /
+`hybrid`, each running all 3 arms) pointed at the shared URLs, and submits a **reaper**
+(`--dependency=afterany` on the clients) that `scancel`s the servers when every variant
+finishes. Total footprint: **2 GPUs + 3 CPU jobs**.
+
+Time limits respect a **2-day job cap**: servers request 48h (`SERVER_TIME`) but the reaper
+kills them early; clients request **47h** (`CLIENT_TIME`) so the servers — which start
+~10-15 min earlier — always outlive them. Each arm's output is written before the next arm
+starts, so a wall-clock kill only loses the in-flight arm.
+
+Useful overrides (env): `VARIANTS="search replace_one"`, `MAX_Q`, `SEED`, `TARGET`,
+`ARMS="counterfactual freeform"`, `CLIENT_TIME`, `SERVER_TIME`. If one variant's 3-arm run
+ever risks the 47h wall at your scale, split it: launch per-arm jobs with `ARMS=<one arm>`
+(all still share the same server pair).
+
+Monitor with `squeue --me` and `tail -f logs/hotpot_misinfo_cli_*.out`; cancel everything
+with the `scancel` line the launcher prints.
+
+---
+
 ## Troubleshooting
 
 - **Server "model not found" / name mismatch** — the client passes `--model-name qwen2.5-14b`
