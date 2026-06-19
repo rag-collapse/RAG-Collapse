@@ -1,8 +1,11 @@
 # Misinformation Document Synthesis — Error-Compounding Experiment
 
-> **Interactive walkthrough:** [`docs/distractor_experiment.html`](distractor_experiment.html) — a
-> self-contained interactive page explaining the baseline loop, the 3 synthesis modes, the 3
-> distractor targets, injection timing, and the metrics. Open it in a browser.
+> **Interactive walkthroughs (self-contained HTML; open in a browser):**
+> - [`docs/hotpotqa_experiments.html`](hotpotqa_experiments.html) — the **full suite**: base recursive-RAG
+>   loop, error-compounding (3 synthesis modes + 3 targets + injection timing), the round-0 diverse
+>   distractor experiment, the qwen2.5-14b smoke metrics, and sources.
+> - [`docs/distractor_experiment.html`](distractor_experiment.html) — the original page focused on the
+>   3 synthesis modes, 3 targets, injection timing, and metrics.
 
 Tests whether **factual errors compound across recursive RAG rounds** on HotpotQA — the
 inference-time, retrieval-mediated analog of hallucination snowballing. The existing pipeline
