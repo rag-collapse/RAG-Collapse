@@ -3,7 +3,7 @@
 # sharing ONE pair of vLLM servers. Run this on a LOGIN node (it only submits jobs and
 # polls — no heavy compute):
 #
-#   export GT_FILE=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json
+#   (GT_FILE defaults to the native HotpotQA JSON; override via env only if it moves)
 #   bash scripts/hotpot-misinfo/launch_all_variants.sh
 #
 # What it does:
@@ -18,7 +18,8 @@
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1     # repo root
 
-: "${GT_FILE:?set GT_FILE to the native HotpotQA JSON (gold answers)}"
+# GT_FILE defaults to the native HotpotQA JSON on Unity; override via env if it moves.
+GT_FILE="${GT_FILE:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json}"
 VARIANTS="${VARIANTS:-search replace_one hybrid}"
 SERVER_TIME="${SERVER_TIME:-48:00:00}"   # reaper kills servers early; this is just the ceiling
 CLIENT_TIME="${CLIENT_TIME:-47:00:00}"   # < server time so servers always outlive clients

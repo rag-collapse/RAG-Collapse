@@ -1,7 +1,7 @@
 #!/bin/bash
 # Misinfo experiment (3 variants x 3 arms) with Llama-3.1-8B-Instruct as the ANSWER model.
 # Doc-gen is fixed Qwen2.5-7B. Run on a LOGIN node:
-#   export GT_FILE=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json
+#   (GT_FILE defaults to the native HotpotQA JSON; override via env only if it moves)
 #   bash scripts/hotpot-misinfo/launch_llama8b.sh
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1
