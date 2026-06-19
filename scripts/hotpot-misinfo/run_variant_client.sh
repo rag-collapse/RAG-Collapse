@@ -55,15 +55,26 @@ DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 NUM_RUNS="${NUM_RUNS:-10}"
 CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 ARMS="${ARMS:-faithful counterfactual freeform}"
+# Round-0 initial-doc distractors (default off). When >0, each arm also seeds DIVERSE
+# wrong-answer distractors into the round-0 retrieved docs (needs --gt-file; native_noise
+# also needs the native file). Independent of the synthesis arm.
+DISTRACTOR_FRACTION="${DISTRACTOR_FRACTION:-0}"
+DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
 OUTDIR="${OUTDIR:-hotpot_misinfo_outputs}"
 mkdir -p "$OUTDIR"
 
 NATIVE_ARG=""
-if [[ "$TARGET" == "intermediate_hop" ]]; then
+if [[ "$TARGET" == "intermediate_hop" || "$DISTRACTOR_MODE" == "native_noise" ]]; then
   NATIVE_ARG="--native-hotpot-file ${NATIVE_FILE:-$GT_FILE}"
 fi
+
+DISTRACTOR_ARG=""
+case "$DISTRACTOR_FRACTION" in
+  0|0.0|"") ;;
+  *) DISTRACTOR_ARG="--distractor-fraction $DISTRACTOR_FRACTION --distractor-mode $DISTRACTOR_MODE" ;;
+esac
 
 run_arm () {
   local mode="$1"; local extra="$2"
@@ -77,17 +88,17 @@ run_arm () {
     --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC" \
     --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS" \
     --doc-synthesis-mode "$mode" --target-mode "$TARGET" --inject-round "$INJECT_ROUND" \
-    --output-path "$out" $extra
+    --output-path "$out" $extra $DISTRACTOR_ARG
   python -u hotpot_evaluation.py "$out" "${out%.json}_eval.json" \
     --gt-file "$GT_FILE" --summary-json "${out%.json}_summary.json" \
     --plot-file "${out%.json}_f1.png"
 }
 
 for arm in $ARMS; do
-  if [[ "$arm" == "faithful" ]]; then
-    run_arm faithful ""
+  if [[ "$arm" == "faithful" && -z "$DISTRACTOR_ARG" ]]; then
+    run_arm faithful ""                              # byte-identical baseline (no gt-file)
   else
-    run_arm "$arm" "--gt-file $GT_FILE $NATIVE_ARG"
+    run_arm "$arm" "--gt-file $GT_FILE $NATIVE_ARG"  # gt-file needed for injection and/or distractors
   fi
 done
 

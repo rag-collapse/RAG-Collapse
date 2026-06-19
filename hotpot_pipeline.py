@@ -27,7 +27,10 @@ from datasets import load_from_disk
 from transformers import AutoModel, AutoTokenizer
 
 from formatters import get_create_document_conversation
-from pipeline.misinfo import MisinfoController, MODE_FAITHFUL, MODES, TARGETS
+from pipeline.misinfo import (
+    MisinfoController, MODE_FAITHFUL, MODES, TARGETS,
+    DistractorController, DISTRACTOR_MODES,
+)
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
 from pipeline.prompt_builder import build_rag_conversation
@@ -218,6 +221,18 @@ def parse_args():
         help="Native HotpotQA JSON with supporting_facts/context/type. Required for "
              "--target-mode intermediate_hop.")
 
+    # --- Round-0 initial-document distractors (widen the starting distribution; default-off) ---
+    # Independent of --doc-synthesis-mode: corrupts a fraction of each question's round-0
+    # retrieved docs into wrong-answer distractors, each carrying its OWN distinct falsehood
+    # (DIVERSE) to simulate the spread of independently-hallucinated AI documents.
+    p.add_argument("--distractor-fraction", type=float, default=0.0,
+        help="Fraction of round-0 retrieved docs to turn into wrong-answer distractors "
+             "(0 = off). Requires --gt-file.")
+    p.add_argument("--distractor-mode", choices=list(DISTRACTOR_MODES), default="rewrite",
+        help="How to build each distractor: rewrite (doc-LLM invents a distinct wrong answer "
+             "per doc), substitution (distinct same-type wrong entity per doc), or native_noise "
+             "(real non-answer HotpotQA paragraphs; requires --native-hotpot-file).")
+
     return p.parse_args()
 
 
@@ -237,6 +252,12 @@ def run_pipeline() -> None:
         raise SystemExit("--gt-file is required when --doc-synthesis-mode != faithful")
     if args.target_mode == "intermediate_hop" and not args.native_hotpot_file:
         raise SystemExit("--native-hotpot-file is required when --target-mode intermediate_hop")
+
+    distractor_enabled = args.distractor_fraction and args.distractor_fraction > 0
+    if distractor_enabled and not args.gt_file:
+        raise SystemExit("--gt-file is required when --distractor-fraction > 0")
+    if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
+        raise SystemExit("--native-hotpot-file is required when --distractor-mode native_noise")
 
     variant = args.pipeline_variant
     num_iterations = args.num_iterations or DEFAULT_ROUNDS[variant]
@@ -380,6 +401,24 @@ def run_pipeline() -> None:
         n_elig = sum(1 for s in states if controller.records[s.query_id].eligible)
         print(f"[misinfo] prepared {len(states)} questions; {n_elig} eligible for injection.", flush=True)
 
+    # Round-0 distractors: corrupt a fraction of each question's initial docs IN PLACE,
+    # before the loop reads them. Independent of (and composable with) the controller above.
+    distractor_controller = None
+    if distractor_enabled:
+        distractor_controller = DistractorController(
+            mode=args.distractor_mode,
+            fraction=args.distractor_fraction,
+            gt_file=args.gt_file,
+            doc_llm=doc_llm,
+            seed=args.seed,
+            native_file=args.native_hotpot_file,
+        )
+        print(f"[distractor] mode={args.distractor_mode} fraction={args.distractor_fraction}", flush=True)
+        distractor_controller.prepare_and_apply(states)
+        d_elig = sum(1 for s in states if distractor_controller.records[s.query_id].eligible)
+        d_docs = sum(distractor_controller.records[s.query_id].n_corrupted for s in states)
+        print(f"[distractor] {d_elig}/{len(states)} questions corrupted; {d_docs} distractor docs.", flush=True)
+
     meta: Dict[str, Any] = {
         "model": resolved_model_name,
         "doc_model": doc_model_name,
@@ -400,6 +439,9 @@ def run_pipeline() -> None:
         meta.update(controller.metadata())
         meta["gt_file"] = args.gt_file
         meta["native_hotpot_file"] = args.native_hotpot_file
+    if distractor_controller is not None:
+        meta.update(distractor_controller.metadata())
+        meta["gt_file"] = args.gt_file
 
     experiments: Dict[str, Any] = {"experiment_metadata": meta, "questions": []}
 
@@ -507,6 +549,8 @@ def run_pipeline() -> None:
 
     if controller is not None:
         controller.attach(states)
+    if distractor_controller is not None:
+        distractor_controller.attach(states)
 
     for s in states:
         experiments["questions"].append(s.question_obj)

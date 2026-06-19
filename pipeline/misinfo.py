@@ -48,6 +48,7 @@ from formatters import (
     get_substitute_proposal_conversation,
     get_claim_discovery_conversation,
     get_implied_answer_conversation,
+    get_rewrite_distractor_conversation,
 )
 
 # ── modes / targets ──────────────────────────────────────────────────────────
@@ -60,6 +61,12 @@ TARGET_FINAL = "final_answer"
 TARGET_HOP = "intermediate_hop"
 TARGET_UNTARGETED = "untargeted"
 TARGETS = (TARGET_FINAL, TARGET_HOP, TARGET_UNTARGETED)
+
+# Initial-document distractor modes (round-0 corpus corruption; independent of the modes above).
+DISTRACTOR_REWRITE = "rewrite"
+DISTRACTOR_SUBSTITUTION = "substitution"
+DISTRACTOR_NATIVE_NOISE = "native_noise"
+DISTRACTOR_MODES = (DISTRACTOR_REWRITE, DISTRACTOR_SUBSTITUTION, DISTRACTOR_NATIVE_NOISE)
 
 _ARTICLES = re.compile(r"\b(a|an|the)\b")
 _PUNCT = str.maketrans("", "", string.punctuation)
@@ -189,6 +196,59 @@ def choose_substitute(
         if validate_substitute(cand, gold, question, context_text):
             return cand
     return None
+
+
+def choose_distinct_substitutes(
+    candidates: List[str],
+    gold: str,
+    question: str,
+    n: int,
+    context_text: str = "",
+) -> List[str]:
+    """Up to ``n`` DISTINCT valid substitutes (proposal order preserved). Used by the
+    DIVERSE initial-doc distractor: each corrupted doc gets its own wrong entity."""
+    out: List[str] = []
+    seen: set = set()
+    for cand in candidates:
+        if not validate_substitute(cand, gold, question, context_text):
+            continue
+        nc = normalize(cand)
+        if nc in seen:
+            continue
+        seen.add(nc)
+        out.append(cand)
+        if len(out) >= n:
+            break
+    return out
+
+
+# ── initial-doc distractor helpers ───────────────────────────────────────────
+def n_to_corrupt(fraction: float, k: int) -> int:
+    """How many of ``k`` round-0 docs to turn into distractors = round(fraction*k),
+    clamped to [0, k]."""
+    if k <= 0 or fraction <= 0:
+        return 0
+    return max(0, min(k, int(round(fraction * k))))
+
+
+def select_distractor_indices(
+    docs: List[Dict[str, Any]],
+    gold: str,
+    n: int,
+    rng: random.Random,
+) -> List[int]:
+    """Pick ``n`` doc indices to corrupt, PREFERRING docs that already contain the gold
+    entity (so the corruption is a meaningful answer-relevant flip) before falling back to
+    others. Deterministic given ``rng``. Returns sorted indices."""
+    if n <= 0 or not docs:
+        return []
+    gold_bearing = [i for i, d in enumerate(docs) if gold and contains_entity(d.get("text", ""), gold)]
+    gb_set = set(gold_bearing)
+    others = [i for i in range(len(docs)) if i not in gb_set]
+    rng.shuffle(gold_bearing)
+    rng.shuffle(others)
+    chosen = (gold_bearing + others)[:n]
+    return sorted(chosen)
 
 
 def realized_status(doc_text: str, gold: str, substitute: str) -> str:
@@ -476,3 +536,229 @@ class MisinfoController:
             rec = self.records.get(s.query_id)
             if rec is not None:
                 s.question_obj["injection"] = rec.to_dict()
+
+
+# ── initial-document distractors (round-0 corpus corruption) ─────────────────
+@dataclass
+class DistractorRecord:
+    """Ground-truth log of the round-0 distractor documents seeded for one question.
+    Serialized into the experiment JSON under ``question_obj['initial_distractor']``.
+
+    ``distractors`` is a LIST (one entry per corrupted doc) because the DIVERSE design
+    gives each corrupted doc its OWN distinct falsehood."""
+    fraction: float
+    mode: str
+    gold_answer: str
+    eligible: bool
+    n_docs: int = 0
+    n_corrupted: int = 0
+    status: str = "pending"          # ok | skipped_no_gold | skipped_yes_no | skipped_zero | no_docs | no_valid_substitute | no_native_noise | no_error_produced | not_realized
+    distractors: List[Dict[str, Any]] = field(default_factory=list)  # [{doc_id, injected_entity, status}]
+    substitute_candidates: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+class DistractorController:
+    """Turns a fraction of each question's round-0 *initial retrieved* documents into
+    wrong-answer "distractor" docs, widening the starting answer distribution. DIVERSE:
+    each corrupted doc carries its OWN distinct falsehood (to simulate the spread of
+    independently-hallucinated AI documents). Independent of, and composable with, the
+    generated-stream injection done by :class:`MisinfoController`.
+
+    Mutates the doc dicts IN PLACE (text replaced, ``distractor=True`` set). Because the
+    pipeline's ``initial_corpus_docs`` / ``current_docs`` / search ``corpus_candidates``
+    all reference the same dict objects, the corruption persists across rounds in every
+    variant. For the search variant the doc keeps its original embedding (we change text,
+    not the vector), so a corrupted doc stays retrievable rather than dropping out.
+    """
+
+    def __init__(
+        self,
+        *,
+        mode: str,
+        fraction: float,
+        gt_file: str,
+        doc_llm: Any,
+        seed: Optional[int],
+        native_file: Optional[str] = None,
+        k_substitutes: int = 8,
+    ):
+        if mode not in DISTRACTOR_MODES:
+            raise ValueError(f"Unknown distractor mode {mode!r}; expected one of {DISTRACTOR_MODES}")
+        if not (0.0 < fraction <= 1.0):
+            raise ValueError(f"distractor fraction must be in (0, 1], got {fraction}")
+        self.mode = mode
+        self.fraction = fraction
+        self.doc_llm = doc_llm
+        self.seed = seed
+        self.k_substitutes = k_substitutes
+        self.gt = load_ground_truth(gt_file)
+        self.native = load_native_records(native_file) if (
+            mode == DISTRACTOR_NATIVE_NOISE and native_file
+        ) else {}
+        if mode == DISTRACTOR_NATIVE_NOISE and not self.native:
+            raise ValueError("distractor mode=native_noise requires --native-hotpot-file")
+        self.records: Dict[str, DistractorRecord] = {}
+
+    def _rng(self, query_id: str, salt: str = "") -> random.Random:
+        return random.Random(f"distractor:{self.seed}:{query_id}:{salt}")
+
+    def metadata(self) -> Dict[str, Any]:
+        return {
+            "distractor_fraction": self.fraction,
+            "distractor_mode": self.mode,
+            "distractor_seed": self.seed,
+        }
+
+    # ---- main entry: choose docs, generate distractors, mutate in place ----
+    def prepare_and_apply(self, states: List[Any]) -> None:
+        plans: List[tuple] = []   # (state, [doc_indices], gold)
+        for s in states:
+            gold = self.gt.get(s.query_id)
+            docs = list(getattr(s, "current_docs", []) or [])
+            rec = DistractorRecord(
+                fraction=self.fraction, mode=self.mode,
+                gold_answer=gold or "", eligible=False, n_docs=len(docs),
+            )
+            self.records[s.query_id] = rec
+            if gold is None:
+                rec.status = "skipped_no_gold"
+                continue
+            if normalize(gold) in ("yes", "no"):
+                rec.status = "skipped_yes_no"
+                continue
+            n = n_to_corrupt(self.fraction, len(docs))
+            if n <= 0:
+                rec.status = "skipped_zero"
+                continue
+            idxs = select_distractor_indices(docs, gold, n, self._rng(s.query_id))
+            if not idxs:
+                rec.status = "no_docs"
+                continue
+            rec.eligible = True
+            plans.append((s, idxs, gold))
+
+        if not plans:
+            return
+        if self.mode == DISTRACTOR_SUBSTITUTION:
+            self._apply_substitution(plans)
+        elif self.mode == DISTRACTOR_NATIVE_NOISE:
+            self._apply_native_noise(plans)
+        else:
+            self._apply_rewrite(plans)
+
+    # ---- substitution: distinct wrong entity per corrupted doc ----
+    def _apply_substitution(self, plans: List[tuple]) -> None:
+        convos = [
+            get_substitute_proposal_conversation(
+                question=s.question_text, entity=gold, k=max(self.k_substitutes, len(idxs)))
+            for (s, idxs, gold) in plans
+        ]
+        outs = self.doc_llm.inference_batch(convos) if convos else []
+        for (s, idxs, gold), out in zip(plans, outs):
+            rec = self.records[s.query_id]
+            parsed = parse_json(out)
+            cands = [str(c).strip() for c in parsed if str(c).strip()] if isinstance(parsed, list) else []
+            rec.substitute_candidates = cands
+            subs = choose_distinct_substitutes(cands, gold, s.question_text, len(idxs))
+            if not subs:
+                rec.eligible = False
+                rec.status = "no_valid_substitute"
+                continue
+            applied = 0
+            for j, doc_idx in enumerate(idxs):
+                sub = subs[j % len(subs)]              # cycle if fewer distinct subs than docs
+                doc = s.current_docs[doc_idx]
+                new_text, ncount = substitute_in_text(doc.get("text", ""), gold, sub)
+                if ncount == 0:
+                    new_text = (doc.get("text", "") + f" In fact, the answer is {sub}.").strip()
+                    status = "appended"
+                else:
+                    status = "ok"
+                doc["text"] = new_text
+                doc["distractor"] = True
+                rec.distractors.append({"doc_id": doc.get("doc_id"), "injected_entity": sub, "status": status})
+                applied += 1
+            rec.n_corrupted = applied
+            rec.status = "ok" if applied else "not_realized"
+
+    # ---- rewrite: doc-LLM invents an independent wrong answer per doc ----
+    def _apply_rewrite(self, plans: List[tuple]) -> None:
+        jobs: List[tuple] = []   # (state, doc_idx, gold)
+        convos = []
+        for (s, idxs, gold) in plans:
+            for doc_idx in idxs:
+                doc = s.current_docs[doc_idx]
+                convos.append(get_rewrite_distractor_conversation(
+                    question=s.question_text, gold_answer=gold, passage=doc.get("text", "")))
+                jobs.append((s, doc_idx, gold))
+        outs = self.doc_llm.inference_batch(convos) if convos else []
+        # mutate docs with the rewritten (distractor) text
+        for (s, doc_idx, gold), new_text in zip(jobs, outs):
+            doc = s.current_docs[doc_idx]
+            if new_text and new_text.strip():
+                doc["text"] = new_text.strip()
+            doc["distractor"] = True
+        # discovery judge: extract what wrong answer each rewritten doc now asserts
+        disc_convos = [
+            get_claim_discovery_conversation(
+                question=s.question_text, gold_answer=gold,
+                document=s.current_docs[doc_idx].get("text", ""))
+            for (s, doc_idx, gold) in jobs
+        ]
+        disc = self.doc_llm.inference_batch(disc_convos) if disc_convos else []
+        for (s, doc_idx, gold), out in zip(jobs, disc):
+            rec = self.records[s.query_id]
+            doc = s.current_docs[doc_idx]
+            parsed = parse_json(out)
+            asserted, contains_err = "", False
+            if isinstance(parsed, dict):
+                asserted = str(parsed.get("asserted_answer") or "").strip()
+                contains_err = bool(parsed.get("contains_error"))
+            rec.distractors.append({
+                "doc_id": doc.get("doc_id"),
+                "injected_entity": asserted,
+                "status": "ok" if contains_err else "no_error_produced",
+            })
+        for (s, idxs, gold) in plans:
+            rec = self.records[s.query_id]
+            rec.n_corrupted = len(rec.distractors)
+            rec.status = "ok" if any(d["status"] == "ok" for d in rec.distractors) else "no_error_produced"
+
+    # ---- native_noise: real non-answer paragraphs (control; no asserted wrong entity) ----
+    def _apply_native_noise(self, plans: List[tuple]) -> None:
+        for (s, idxs, gold) in plans:
+            rec = self.records[s.query_id]
+            native = self.native.get(s.query_id)
+            noise_paras: List[str] = []
+            if native:
+                support = {sf[0] for sf in native.get("supporting_facts", []) if sf}
+                for title, sents in native.get("context", []):
+                    if title not in support:
+                        noise_paras.append(" ".join(sents))
+            if not noise_paras:
+                rec.eligible = False
+                rec.status = "no_native_noise"
+                continue
+            rng = self._rng(s.query_id, salt="noise")
+            rng.shuffle(noise_paras)
+            applied = 0
+            for j, doc_idx in enumerate(idxs):
+                para = noise_paras[j % len(noise_paras)]
+                doc = s.current_docs[doc_idx]
+                doc["text"] = para
+                doc["distractor"] = True
+                rec.distractors.append({"doc_id": doc.get("doc_id"), "injected_entity": "", "status": "native"})
+                applied += 1
+            rec.n_corrupted = applied
+            rec.status = "ok"
+
+    # ---- attach records to output ----
+    def attach(self, states: List[Any]) -> None:
+        for s in states:
+            rec = self.records.get(s.query_id)
+            if rec is not None:
+                s.question_obj["initial_distractor"] = rec.to_dict()

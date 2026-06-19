@@ -210,6 +210,146 @@ def test_controller_hop_requires_native(tmp_path):
         )
 
 
+# ── initial-doc distractor helpers ────────────────────────────────────────────
+def test_n_to_corrupt():
+    assert M.n_to_corrupt(0.5, 10) == 5
+    assert M.n_to_corrupt(0.0, 10) == 0
+    assert M.n_to_corrupt(0.5, 0) == 0
+    assert M.n_to_corrupt(1.0, 4) == 4
+    assert M.n_to_corrupt(0.3, 10) == 3
+    assert M.n_to_corrupt(2.0, 4) == 4          # clamped to k
+
+
+def test_select_distractor_indices_prefers_gold_bearing():
+    import random as _r
+    docs = [
+        {"doc_id": "c1", "text": "The seat is Newport."},
+        {"doc_id": "c2", "text": "Unrelated geography text."},
+        {"doc_id": "c3", "text": "Newport history and trivia."},
+        {"doc_id": "c4", "text": "Nothing relevant here."},
+    ]
+    idxs = M.select_distractor_indices(docs, "Newport", 2, _r.Random(0))
+    # both chosen docs must be the gold-bearing ones (indices 0 and 2)
+    assert set(idxs) == {0, 2}
+    assert M.select_distractor_indices(docs, "Newport", 0, _r.Random(0)) == []
+
+
+def test_choose_distinct_substitutes():
+    cands = ["Newport", "Claremont", "Claremont", "Lebanon", "Newport News"]
+    out = M.choose_distinct_substitutes(cands, "Newport", "q", 2)
+    assert out == ["Claremont", "Lebanon"]      # skips equal/dup/substring-overlap, distinct
+    assert M.choose_distinct_substitutes(["Newport"], "Newport", "q", 3) == []
+
+
+def test_distractor_record_roundtrip():
+    rec = M.DistractorRecord(fraction=0.5, mode="substitution", gold_answer="Newport", eligible=True)
+    d = rec.to_dict()
+    assert d["mode"] == "substitution" and d["eligible"] is True
+    assert d["distractors"] == [] and d["status"] == "pending"
+
+
+def test_distractor_controller_substitution_diverse(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport is the county seat of the area."},
+        {"doc_id": "corpus_3", "text": "Unrelated text about mountains."},
+        {"doc_id": "corpus_4", "text": "More about Newport and its history."},
+    ]
+    ctrl = M.DistractorController(
+        mode="substitution", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=42)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok"
+    assert rec.n_corrupted == 2                          # round(0.5*4)
+    ents = [d["injected_entity"] for d in rec.distractors]
+    assert len(ents) == 2 and len(set(ents)) == 2        # DIVERSE: distinct wrong entities
+    # corrupted docs were mutated in place + flagged; gold replaced by the wrong entity
+    corrupted = [d for d in s.current_docs if d.get("distractor")]
+    assert len(corrupted) == 2
+    for d in corrupted:
+        assert not M.contains_entity(d["text"], "Newport")
+        assert any(M.contains_entity(d["text"], e) for e in ents)
+    # only gold-bearing docs (1,2,4) were chosen, never the unrelated corpus_3
+    assert all(d["doc_id"] in {"corpus_1", "corpus_2", "corpus_4"} for d in rec.distractors)
+
+
+def test_distractor_controller_off_by_default_yesno(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "yes"})
+    s = _make_state("q1", "Are both directors American?")
+    s.current_docs = [{"doc_id": "corpus_1", "text": "Some doc."}]
+    ctrl = M.DistractorController(
+        mode="substitution", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=1)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert not rec.eligible and rec.status == "skipped_yes_no"
+    assert not any(d.get("distractor") for d in s.current_docs)   # untouched
+
+
+def test_distractor_controller_native_noise(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    native_p = tmp_path / "native.json"
+    native_p.write_text(json.dumps([{
+        "_id": "q1", "answer": "Newport", "type": "bridge",
+        "supporting_facts": [["Sullivan County", 0]],
+        "context": [
+            ["Sullivan County", ["Its county seat is Newport."]],
+            ["Decoy A", ["Some unrelated paragraph about rivers."]],
+            ["Decoy B", ["Another unrelated paragraph about mountains."]],
+        ],
+    }]))
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport history."},
+    ]
+    ctrl = M.DistractorController(
+        mode="native_noise", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=3,
+        native_file=str(native_p))
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.n_corrupted == 1
+    corrupted = [d for d in s.current_docs if d.get("distractor")]
+    assert len(corrupted) == 1
+    # swapped in a real non-supporting paragraph (no asserted wrong entity)
+    assert "unrelated paragraph" in corrupted[0]["text"]
+    assert rec.distractors[0]["injected_entity"] == ""
+
+
+def test_distractor_native_noise_requires_native_file(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    with pytest.raises(ValueError):
+        M.DistractorController(
+            mode="native_noise", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=0,
+            native_file=None)
+
+
+def test_distractor_eval_metrics():
+    from hotpot_evaluation import _distractor_metrics_for_iteration
+    dist = {
+        "eligible": True, "gold_answer": "Newport",
+        "distractors": [
+            {"doc_id": "corpus_1", "injected_entity": "Claremont"},
+            {"doc_id": "corpus_2", "injected_entity": "Lebanon"},
+        ],
+    }
+    iteration = {
+        "documents": [
+            {"doc_id": "corpus_1", "text": "...", "distractor": True},
+            {"doc_id": "corpus_9", "text": "x"},
+        ],
+        "runs": [],
+    }
+    preds = ["It is Claremont", "Lebanon", "The seat is Newport", "Keene"]
+    m = _distractor_metrics_for_iteration(dist, iteration, preds)
+    assert m["distractor_retrieval_condition"] == 1.0
+    assert abs(m["distractor_adoption_rate"] - 2 / 4) < 1e-9   # Claremont, Lebanon
+    assert abs(m["gold_match_rate"] - 1 / 4) < 1e-9            # Newport
+    assert m["distinct_answers"] == 4
+    assert abs(m["offtarget_rate"] - 1 / 4) < 1e-9             # Keene only
+
+
 # ── eval-side metric helper ───────────────────────────────────────────────────
 def test_eval_injection_metrics():
     from hotpot_evaluation import _injection_metrics_for_iteration

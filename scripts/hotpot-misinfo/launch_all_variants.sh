@@ -71,7 +71,7 @@ echo "### both servers up — fanning out variants for '$ANSWER_SERVED': $VARIAN
 CLIENT_JIDS=()
 for v in $VARIANTS; do
   jid=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-$v" \
-        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,GT_FILE=$GT_FILE,VARIANT=$v,MAX_Q=${MAX_Q:-50},SEED=${SEED:-42},TARGET=${TARGET:-final_answer},MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},ARMS=${ARMS:-faithful counterfactual freeform},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=$OUTDIR" \
+        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,GT_FILE=$GT_FILE,VARIANT=$v,MAX_Q=${MAX_Q:-50},SEED=${SEED:-42},TARGET=${TARGET:-final_answer},MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},ARMS=${ARMS:-faithful counterfactual freeform},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},DISTRACTOR_FRACTION=${DISTRACTOR_FRACTION:-0},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},OUTDIR=$OUTDIR" \
         scripts/hotpot-misinfo/run_variant_client.sh)
   echo "  variant $v -> client job $jid"
   CLIENT_JIDS+=("$jid")

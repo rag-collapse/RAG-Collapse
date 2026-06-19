@@ -90,16 +90,49 @@ Per round, for eligible injected questions (matching uses the same normalizer as
 Aggregates: per-round ASR / gold / retrieval / propagation curves, **adoption rate**,
 **mean time-to-adoption**, **mean persistence**, **recovery rate**, and an ASR-vs-gold plot.
 
+## Round-0 initial-document distractors (`--distractor-fraction`)
+
+A separate, composable knob that corrupts a fraction of each question's **round-0 *initial
+retrieved* documents** into wrong-answer "distractor" docs (leaving the rest correct), so the
+**starting** answer distribution is wider and partly-wrong instead of a narrow spike on gold.
+This is independent of `--inject-round` (which corrupts the *generated* docs later); the two can
+be combined. Motivation: the faithful pipeline seeds round 0 with correct-answer docs, so the
+loop starts on the gold attractor and can't drift — distractors move the start off-gold.
+
+**DIVERSE by design:** each corrupted doc gets its **own distinct falsehood** (not one shared
+wrong entity), to simulate the spread of independently-hallucinated AI documents and the answer
+diversity that produces.
+
+| Flag | Meaning |
+|---|---|
+| `--distractor-fraction FLOAT` | fraction of round-0 docs to corrupt (0 = off, default). Requires `--gt-file`. |
+| `--distractor-mode {rewrite,substitution,native_noise}` | `rewrite` *(default)*: doc-LLM rewrites each passage to imply its own invented wrong answer (most naturalistic). `substitution`: a distinct same-type wrong entity per doc (exact ground truth; reuses the substitute judge). `native_noise`: real non-answer HotpotQA paragraphs (control, no asserted wrong answer; needs `--native-hotpot-file`). |
+
+Docs are corrupted **in place** before the loop and tagged `distractor=true`; because the
+pipeline's `initial_corpus_docs` / `current_docs` / search `corpus_candidates` share the same dict
+objects, the corruption persists across rounds in every variant (search keeps each doc's original
+embedding, so a distractor stays retrievable rather than dropping out). Docs that contain the gold
+entity are preferred for corruption so the flip is answer-relevant. Per-question, schema-additive
+`initial_distractor` record: `{fraction, mode, gold_answer, eligible, n_docs, n_corrupted, status,
+distractors:[{doc_id, injected_entity, status}], ...}` — a **list**, one entry per corrupted doc.
+
+**Diverse-aware metrics** (`hotpot_evaluation.py`, in `distractor_aggregates`; no-op without
+`initial_distractor` records): per round — `gold_match_rate` (accuracy/recovery — should drop if
+distractors mislead), `distractor_adoption_rate` (fraction adopting *any* seeded wrong entity),
+`distinct_answers` (answer diversity — the headline signal), `offtarget_rate` (answers off-gold
+*and* off-every-seeded-entity), and `distractor_retrieval_condition`. A round-0 point is included
+so the shift from a wider start is visible.
+
 ## Files
 
 | File | Role |
 |---|---|
-| `pipeline/misinfo.py` | `MisinfoController` + pure helpers (substitution, validation, realized-status, claim discovery, bridge/implied-answer) + `InjectionRecord` |
-| `formatters.py` | freeform / untargeted / hop create-document prompts (single-line deltas from the faithful prompt) + substitute-proposal / claim-discovery / implied-answer judge prompts |
-| `hotpot_pipeline.py` | flag wiring, seeding, controller lifecycle (prepare → make_doc_conversation → record_injection → attach) |
-| `hotpot_evaluation.py` | injection-aware metrics + aggregates + plot |
-| `scripts/hotpot-misinfo/` | `run_misinfo.sh` (pilot), `smoke_test.sh`, `server_answer.sh`, `server_docgen.sh`, `RUNBOOK.md` |
-| `tests/test_misinfo.py` | 15 pure-Python tests (no GPU), incl. a fake-LLM controller end-to-end |
+| `pipeline/misinfo.py` | `MisinfoController` (generated-stream injection) + `DistractorController` (round-0 distractors) + pure helpers (substitution, validation, realized-status, claim discovery, bridge/implied-answer, `n_to_corrupt`, `select_distractor_indices`, `choose_distinct_substitutes`) + `InjectionRecord` / `DistractorRecord` |
+| `formatters.py` | freeform / untargeted / hop create-document prompts + substitute-proposal / claim-discovery / implied-answer judge prompts + `get_rewrite_distractor_conversation` (distractor rewrite) |
+| `hotpot_pipeline.py` | flag wiring, seeding, both controller lifecycles (injection: prepare→make_doc_conversation→record_injection→attach; distractor: prepare_and_apply→attach) |
+| `hotpot_evaluation.py` | injection-aware + distractor-aware metrics + aggregates + plot |
+| `scripts/hotpot-misinfo/` | `run_misinfo.sh` (pilot), `smoke_test.sh` (now also a distractor arm), `run_variant_client.sh` / `launch_*.sh` (thread `DISTRACTOR_FRACTION`/`DISTRACTOR_MODE`), `server_answer.sh`, `server_docgen.sh`, `RUNBOOK.md` |
+| `tests/test_misinfo.py` | 24 pure-Python tests (no GPU), incl. fake-LLM controller end-to-ends for both injection and distractors |
 
 ## How to run
 

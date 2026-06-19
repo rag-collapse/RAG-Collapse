@@ -189,6 +189,35 @@ def get_implied_answer_conversation(
     ]
 
 
+_REWRITE_DISTRACTOR_SYSTEM_PROMPT = (
+    "You are an editor who subtly rewrites encyclopedia/web passages. You output ONLY the "
+    "rewritten passage as plain text — no commentary, no markdown."
+)
+
+
+def get_rewrite_distractor_conversation(question: str, gold_answer: str, passage: str) -> list[dict[str, str]]:
+    """Rewrite ONE retrieved passage so it plausibly implies a WRONG answer to the question.
+
+    Used to build round-0 "distractor" documents. Each call independently invents its own
+    coherent wrong answer, so corrupting several passages this way yields DIVERSE
+    misinformation (mimicking the spread of independently-hallucinated AI documents).
+    """
+    user = (
+        f"Question this passage may be used to answer:\n{question}\n\n"
+        f"The CORRECT answer is: {gold_answer}\n\n"
+        f"Original passage:\n{passage}\n\n"
+        "Rewrite the passage so it reads naturally and stays on-topic, but plausibly implies a "
+        "DIFFERENT, INCORRECT answer to the question instead of the correct one. Invent a single "
+        "coherent wrong answer and make the passage support it. Keep a similar length and style. "
+        "Do NOT mention the correct answer, and do NOT hedge, flag, or note that anything was "
+        "changed. Output ONLY the rewritten passage."
+    )
+    return [
+        {"role": "system", "content": _REWRITE_DISTRACTOR_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
 def get_rag_generation_conversation(
     context: str,
     question: str,

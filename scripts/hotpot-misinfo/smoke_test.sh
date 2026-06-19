@@ -60,10 +60,21 @@ python -u hotpot_pipeline.py "${COMMON[@]}" \
   --doc-synthesis-mode freeform --target-mode final_answer --inject-round 1 \
   --gt-file "$GT_FILE" --output-path "$OUT/freeform.json"
 
+echo "########## arm: distractor (faithful synthesis + round-0 DIVERSE distractors) ##########"
+python -u hotpot_pipeline.py "${COMMON[@]}" \
+  --doc-synthesis-mode faithful \
+  --distractor-fraction "${DISTRACTOR_FRACTION:-0.5}" --distractor-mode "${DISTRACTOR_MODE:-rewrite}" \
+  --gt-file "$GT_FILE" --output-path "$OUT/distractor.json"
+
 echo "########## eval (counterfactual) ##########"
 python -u hotpot_evaluation.py "$OUT/counterfactual.json" "$OUT/counterfactual_eval.json" \
   --gt-file "$GT_FILE" --summary-json "$OUT/counterfactual_summary.json" \
   --plot-file "$OUT/counterfactual_f1.png"
+
+echo "########## eval (distractor) ##########"
+python -u hotpot_evaluation.py "$OUT/distractor.json" "$OUT/distractor_eval.json" \
+  --gt-file "$GT_FILE" --summary-json "$OUT/distractor_summary.json" \
+  --plot-file "$OUT/distractor_f1.png"
 
 echo "########## checks ##########"
 python - "$OUT" <<'PY'
@@ -106,5 +117,20 @@ assert agg and agg["n_eligible"] >= 1, "eval missing injection_aggregates"
 print(f"PASS eval: injection_aggregates present "
       f"(n_eligible={agg['n_eligible']}, adoption_rate={agg['adoption_rate']:.3f}); "
       f"asr_by_iteration={agg['asr_by_iteration']}")
+
+# 5. distractor: round-0 distractors recorded + parity (no injection records) + eval aggregates
+dd = load(f"{out}/distractor.json")
+drecs = [q["initial_distractor"] for q in dd["questions"] if "initial_distractor" in q]
+assert drecs, "distractor arm produced no initial_distractor records"
+delig = [r for r in drecs if r["eligible"]]
+assert delig, "no eligible distractors (try more --max-questions)"
+# DIVERSE: at least one question seeded >1 distinct wrong entity across its corrupted docs
+diverse = [r for r in delig if len({d.get("injected_entity") for d in r["distractors"] if d.get("injected_entity")}) > 1]
+assert all("injection" not in q for q in dd["questions"]), "distractor arm must not carry injection records (faithful synthesis)"
+dev = load(f"{out}/distractor_eval.json")
+dagg = dev.get("distractor_aggregates")
+assert dagg and dagg["n_eligible"] >= 1, "eval missing distractor_aggregates"
+print(f"PASS distractor: {len(delig)} eligible; {len(diverse)} with >1 distinct wrong entity; "
+      f"gold_match_by_iteration={dagg['gold_match_by_iteration']}")
 print("\nALL SMOKE CHECKS PASSED")
 PY

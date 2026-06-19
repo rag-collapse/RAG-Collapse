@@ -173,6 +173,58 @@ def _summarize_injection(per_q_traces: List[dict], inject_round: int) -> dict:
     }
 
 
+def _distractor_entities(dist: dict) -> List[str]:
+    """The distinct wrong entities seeded across this question's round-0 distractor docs."""
+    out = []
+    for d in dist.get("distractors", []) or []:
+        e = (d.get("injected_entity") or "").strip()
+        if e and e not in out:
+            out.append(e)
+    return out
+
+
+def _distractor_metrics_for_iteration(dist: dict, iteration: dict, predictions: List[str]) -> dict:
+    """Per-round metrics for the DIVERSE initial-doc distractor arm. The headline signal is
+    answer *diversity* + accuracy shift, not a single-entity ASR.
+
+    - gold_match_rate            : fraction of runs still matching gold (accuracy / recovery)
+    - distractor_adoption_rate   : fraction adopting ANY seeded distractor entity
+    - distinct_answers           : count of distinct normalized answers this round (diversity)
+    - offtarget_rate             : fraction off-gold AND off-every-seeded-entity (wandered)
+    - distractor_retrieval_condition : a distractor doc is present in this round's context
+    """
+    n = len(predictions) or 1
+    gold = dist.get("gold_answer") or ""
+    ents = _distractor_entities(dist)
+
+    docs = iteration.get("documents", []) or []
+    dist_ids = {d.get("doc_id") for d in dist.get("distractors", []) or []}
+    doc_ids = {d.get("doc_id") for d in docs}
+    flagged = any(d.get("distractor") for d in docs)
+    retrieval_condition = 1.0 if ((dist_ids & doc_ids) or flagged) else 0.0
+
+    gold_match = sum(contains_entity(p, gold) for p in predictions) / n if gold else None
+    adoption = (
+        sum(1 for p in predictions if any(contains_entity(p, e) for e in ents)) / n
+        if ents else None
+    )
+    norm = [_normalize_answer(p) for p in predictions if _normalize_answer(p)]
+    distinct_answers = len(set(norm))
+    known = ([gold] if gold else []) + ents
+    offtarget = (
+        sum(1 for p in predictions
+            if _normalize_answer(p) and not any(contains_entity(p, k) for k in known)) / n
+        if known else None
+    )
+    return {
+        "distractor_retrieval_condition": retrieval_condition,
+        "gold_match_rate": gold_match,
+        "distractor_adoption_rate": adoption,
+        "distinct_answers": distinct_answers,
+        "offtarget_rate": offtarget,
+    }
+
+
 def evaluate_experiment(
     experiment_file: str,
     output_file: str,
@@ -201,6 +253,13 @@ def evaluate_experiment(
     inj_status_counts: defaultdict = defaultdict(int)
     inj_inject_round = None
 
+    # distractor accumulators (round-0 initial-doc distractor arm)
+    dist_acc = {k: defaultdict(list) for k in (
+        "gold_match_rate", "distractor_adoption_rate", "distinct_answers",
+        "offtarget_rate", "distractor_retrieval_condition")}
+    dist_status_counts: defaultdict = defaultdict(int)
+    dist_n_eligible = 0
+
     for question in experiment_data["questions"]:
         question_id = f"q{question['question_id']}"
         query_id = question.get("query_id", "")
@@ -211,6 +270,10 @@ def evaluate_experiment(
             inj_status_counts[inj.get("status", "unknown")] += 1
             if inj_inject_round is None and inj.get("inject_round") is not None:
                 inj_inject_round = inj.get("inject_round")
+
+        dist = question.get("initial_distractor")
+        if dist:
+            dist_status_counts[dist.get("status", "unknown")] += 1
 
         if answer_gt is None:
             skipped += 1
@@ -228,6 +291,9 @@ def evaluate_experiment(
         inj_eligible = bool(inj and inj.get("eligible"))
         inj_injected_seq: List = []
         inj_gold_seq: List = []
+        dist_eligible = bool(dist and dist.get("eligible"))
+        if dist_eligible:
+            dist_n_eligible += 1
         for iteration in question["iterations"]:
             it_num = iteration["iteration_number"]
             predictions = [run.get("answer") or "" for run in iteration["runs"]]
@@ -254,6 +320,13 @@ def evaluate_experiment(
                     inj_acc[k][it_num].append(inj_m[k])
                 inj_injected_seq.append((it_num, inj_m["injected_match_rate"]))
                 inj_gold_seq.append((it_num, inj_m["gold_match_rate"]))
+
+            if dist_eligible:
+                dist_m = _distractor_metrics_for_iteration(dist, iteration, predictions)
+                metrics["distractor"] = dist_m
+                for k in dist_acc:
+                    if dist_m[k] is not None:
+                        dist_acc[k][it_num].append(dist_m[k])
 
             iterations_results.append(
                 {
@@ -326,6 +399,29 @@ def evaluate_experiment(
               f"adoption_rate={inj_agg['adoption_rate']:.3f} "
               f"recovery_rate={inj_agg['recovery_rate']:.3f} "
               f"statuses={dict(inj_status_counts)}")
+
+    if dist_n_eligible:
+        def _meanopt(lst):
+            vals = [x for x in lst if x is not None]
+            return float(sum(vals) / len(vals)) if vals else None
+
+        dist_iters = sorted({i for k in dist_acc for i in dist_acc[k].keys()})
+        dist_agg = {
+            "n_eligible": dist_n_eligible,
+            "gold_match_by_iteration": {str(i): _meanopt(dist_acc["gold_match_rate"][i]) for i in dist_iters},
+            "distractor_adoption_by_iteration": {str(i): _meanopt(dist_acc["distractor_adoption_rate"][i]) for i in dist_iters},
+            "distinct_answers_by_iteration": {str(i): _meanopt(dist_acc["distinct_answers"][i]) for i in dist_iters},
+            "offtarget_by_iteration": {str(i): _meanopt(dist_acc["offtarget_rate"][i]) for i in dist_iters},
+            "retrieval_condition_by_iteration": {str(i): _meanopt(dist_acc["distractor_retrieval_condition"][i]) for i in dist_iters},
+            "status_counts": dict(dist_status_counts),
+        }
+        results["distractor_aggregates"] = dist_agg
+        results["measurement_metadata"]["distractor_evaluated"] = True
+        g = dist_agg["gold_match_by_iteration"]
+        first_gold = g.get(str(dist_iters[0])) if dist_iters else None
+        last_gold = g.get(str(dist_iters[-1])) if dist_iters else None
+        print(f"[distractor] {dist_n_eligible} eligible | "
+              f"gold_match {first_gold}->{last_gold} | statuses={dict(dist_status_counts)}")
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
