@@ -1,0 +1,681 @@
+<title>HotpotQA Misinformation Experiment</title>
+<style>
+  :root {
+    --ground: #0E1719;
+    --panel: #16242A;
+    --panel-2: #1B2E34;
+    --line: #253B42;
+    --text: #E6EDEC;
+    --dim: #88A0A0;
+    --accent: #34D6AE;   /* truth / gold-match — cool */
+    --accent-2: #FF6A4D; /* injected error / contaminant — warm */
+    --accent-2-dim: #7a3a30;
+    --font-display: ui-monospace, "Cascadia Code", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --maxw: 1080px;
+  }
+
+  * { box-sizing: border-box; }
+
+  .dx-root {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(52,214,174,0.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(255,106,77,0.05), transparent 55%),
+      var(--ground);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  .dx-root ::selection { background: rgba(52,214,174,0.3); }
+
+  .dx-wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- type ---------- */
+  .dx-eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .dx-eyebrow::before {
+    content: ""; width: 26px; height: 1px; background: var(--accent); display: inline-block;
+  }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.08; }
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.2rem); margin: 0 0 16px; }
+  h3 { font-size: 1.05rem; letter-spacing: -0.01em; margin: 0 0 8px; }
+  p { margin: 0 0 16px; }
+  .dx-lede { font-size: 1.05rem; color: #C6D3D2; max-width: 64ch; }
+  code, .dx-mono { font-family: var(--font-display); }
+  code {
+    background: var(--panel-2); border: 1px solid var(--line);
+    padding: 0.08em 0.42em; border-radius: 5px; font-size: 0.86em; color: #BFEFE2;
+    white-space: nowrap;
+  }
+  a { color: var(--accent); }
+
+  /* ---------- hero ---------- */
+  .dx-hero { padding: 72px 0 36px; }
+  .dx-hero h1 { font-size: clamp(2.1rem, 6vw, 4rem); margin: 0 0 22px; }
+  .dx-hero .truth { color: var(--accent); }
+  .dx-hero .err { color: var(--accent-2); }
+  .dx-canvas-shell {
+    margin-top: 40px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.18));
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .dx-canvas-shell canvas { width: 100%; height: 320px; display: block; }
+  .dx-canvas-cap {
+    font-family: var(--font-display); font-size: 0.72rem; color: var(--dim);
+    letter-spacing: 0.04em; margin-top: 10px; display:flex; gap:18px; flex-wrap: wrap;
+  }
+  .dx-key { display:inline-flex; align-items:center; gap:7px; }
+  .dx-dot { width:9px;height:9px;border-radius:50%; display:inline-block; }
+
+  /* ---------- sections ---------- */
+  section { padding: 54px 0; border-top: 1px solid var(--line); }
+  .dx-secnum {
+    font-family: var(--font-display); font-size: 0.72rem; color: var(--dim);
+    letter-spacing: 0.2em; margin-bottom: 6px;
+  }
+
+  /* regime cards */
+  .dx-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 26px; }
+  .dx-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; position: relative;
+  }
+  .dx-card .rounds {
+    font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--accent);
+    line-height: 1; margin-bottom: 2px;
+  }
+  .dx-card .rounds span { font-size: 0.7rem; color: var(--dim); letter-spacing: 0.12em; }
+  .dx-card .rname { font-family: var(--font-display); font-size: 0.95rem; margin-bottom: 8px; }
+  .dx-card p { font-size: 0.9rem; color: #B7C6C5; margin: 0; }
+
+  /* confound callout */
+  .dx-callout {
+    margin-top: 26px; border-left: 3px solid var(--accent-2);
+    background: rgba(255,106,77,0.07); border-radius: 0 10px 10px 0;
+    padding: 16px 20px; font-size: 0.95rem; color: #E7D3CD;
+  }
+  .dx-callout strong { color: var(--accent-2); }
+
+  /* ---------- tab selectors ---------- */
+  .dx-tabs { display: flex; gap: 8px; margin: 24px 0 0; flex-wrap: wrap; }
+  .dx-tab {
+    font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.02em;
+    background: var(--panel); color: var(--dim);
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px 15px;
+    cursor: pointer; transition: border-color .18s, color .18s, background .18s;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .dx-tab:hover { color: var(--text); }
+  .dx-tab .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .dx-tab[aria-selected="true"] { color: var(--text); border-color: var(--accent); background: var(--panel-2); }
+  .dx-tab[aria-selected="true"] .pip { background: var(--accent); }
+  .dx-tab.warn[aria-selected="true"] { border-color: var(--accent-2); }
+  .dx-tab.warn[aria-selected="true"] .pip { background: var(--accent-2); }
+
+  .dx-panel {
+    margin-top: 16px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 24px; min-height: 220px;
+  }
+  .dx-panel-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .dx-panel-head .tag {
+    font-family: var(--font-display); font-size: 0.68rem; letter-spacing: 0.14em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    border: 1px solid var(--line); color: var(--dim);
+  }
+  .dx-panel-head .tag.is-control { color: var(--accent); border-color: rgba(52,214,174,0.5); }
+  .dx-panel-head .tag.is-treat { color: var(--accent-2); border-color: rgba(255,106,77,0.5); }
+  .dx-gt { font-size: 0.9rem; color: var(--dim); margin-bottom: 18px; }
+  .dx-gt b { color: var(--text); font-weight: 600; }
+
+  /* example doc render */
+  .dx-doc {
+    font-family: var(--font-display); font-size: 0.86rem; line-height: 1.7;
+    background: #0c1416; border: 1px solid var(--line); border-radius: 9px;
+    padding: 16px 18px; color: #AFC2C0; position: relative;
+  }
+  .dx-doc .lbl {
+    position:absolute; top:-9px; left:14px; background: var(--ground);
+    font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim);
+    padding: 0 8px;
+  }
+  .dx-gold { color: var(--accent); font-weight: 700; }
+  .dx-bad  { color: var(--accent-2); font-weight: 700; }
+  .dx-strike { color: var(--dim); text-decoration: line-through; text-decoration-color: var(--accent-2); }
+
+  /* ---------- round timeline ---------- */
+  .dx-timeline-ctrl { display:flex; align-items:center; gap:14px; flex-wrap: wrap; margin: 22px 0 6px; }
+  .dx-timeline-ctrl span { font-family: var(--font-display); font-size: 0.8rem; color: var(--dim); }
+  .dx-injbtns { display:flex; gap:6px; }
+  .dx-injbtn {
+    font-family: var(--font-display); font-size: 0.8rem; width: 38px; height: 34px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+    border-radius: 8px; cursor: pointer;
+  }
+  .dx-injbtn[aria-pressed="true"] { color: var(--ground); background: var(--accent-2); border-color: var(--accent-2); font-weight: 700; }
+  .dx-rounds-row { display:flex; gap:6px; overflow-x:auto; padding: 16px 2px 8px; }
+  .dx-round {
+    flex: 1 0 64px; min-width: 64px; text-align:center;
+    border: 1px solid var(--line); border-radius: 9px; padding: 10px 6px;
+    background: var(--panel); transition: all .2s;
+  }
+  .dx-round .rn { font-family: var(--font-display); font-size: 0.72rem; color: var(--dim); }
+  .dx-round .ic { font-size: 1.2rem; line-height: 1.4; }
+  .dx-round .st { font-size: 0.6rem; letter-spacing: 0.04em; color: var(--dim); margin-top: 2px; min-height: 1.4em; }
+  .dx-round.clean { border-color: rgba(52,214,174,0.4); }
+  .dx-round.clean .ic { color: var(--accent); }
+  .dx-round.inject { border-color: var(--accent-2); background: rgba(255,106,77,0.12); box-shadow: 0 0 0 1px var(--accent-2) inset; }
+  .dx-round.inject .ic, .dx-round.inject .st { color: var(--accent-2); }
+  .dx-round.contam { border-color: var(--accent-2-dim); background: rgba(255,106,77,0.06); }
+  .dx-round.contam .ic { color: var(--accent-2); }
+  .dx-round.contam .st { color: #c98a7d; }
+  .dx-timeline-note { font-size: 0.9rem; color: #B7C6C5; margin-top: 12px; }
+  .dx-timeline-note b { color: var(--text); }
+
+  /* ---------- collapsibles ---------- */
+  details.dx-acc {
+    border: 1px solid var(--line); border-radius: 11px; background: var(--panel);
+    margin-top: 14px; overflow: hidden;
+  }
+  details.dx-acc > summary {
+    cursor: pointer; list-style: none; padding: 16px 20px;
+    font-family: var(--font-display); font-size: 0.92rem; color: var(--text);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  details.dx-acc > summary::-webkit-details-marker { display: none; }
+  details.dx-acc > summary .chev { color: var(--accent); transition: transform .2s; font-size: 0.8rem; }
+  details.dx-acc[open] > summary .chev { transform: rotate(90deg); }
+  details.dx-acc .dx-acc-body { padding: 4px 20px 20px; }
+
+  /* tables */
+  .dx-tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-display); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+  td.dx-default::after { content: " default"; font-family: var(--font-display); font-size: 0.6rem; color: var(--accent); letter-spacing: 0.1em; }
+
+  /* status pills */
+  .dx-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top: 8px; }
+  .dx-spill { font-family: var(--font-display); font-size: 0.74rem; padding: 5px 10px; border-radius: 7px; border:1px solid var(--line); color: var(--dim); }
+  .dx-spill.ok { color: var(--accent); border-color: rgba(52,214,174,0.45); }
+  .dx-spill.skip { opacity: 0.8; }
+
+  /* json block */
+  pre.dx-json {
+    font-family: var(--font-display); font-size: 0.8rem; line-height: 1.65; color: #AFC2C0;
+    background: #0c1416; border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px; overflow-x: auto; margin: 14px 0 0;
+  }
+  pre.dx-json .k { color: #9fd0ff; }
+  pre.dx-json .s { color: var(--accent); }
+  pre.dx-json .e { color: var(--accent-2); }
+  pre.dx-json .c { color: var(--dim); }
+
+  .dx-foot { padding: 40px 0 70px; color: var(--dim); font-family: var(--font-display); font-size: 0.76rem; letter-spacing: 0.04em; }
+
+  @media (max-width: 720px) {
+    .dx-grid3 { grid-template-columns: 1fr; }
+    .dx-hero { padding: 48px 0 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="dx-root">
+  <div class="dx-wrap">
+
+    <!-- ===================== HERO ===================== -->
+    <header class="dx-hero">
+      <p class="dx-eyebrow">HotpotQA · recursive RAG · error compounding</p>
+      <h1>One wrong fact,<br>fed back to itself.</h1>
+      <p class="dx-lede">A recursive RAG loop turns its own answers into documents and re-reads them. This
+      experiment plants a single plausible falsehood in one synthesized document and watches whether the
+      model converges on the <span class="truth">gold answer</span> or drifts toward the
+      <span class="err">injected error</span> — round after round.</p>
+
+      <div class="dx-canvas-shell">
+        <canvas id="dxLoop" aria-label="Animated diagram of the recursive retrieve-answer-synthesize-recontext loop with a contaminant entering at the injection round."></canvas>
+        <div class="dx-canvas-cap">
+          <span class="dx-key"><span class="dx-dot" style="background:var(--accent)"></span> faithful answer / gold</span>
+          <span class="dx-key"><span class="dx-dot" style="background:var(--accent-2)"></span> injected misinformation</span>
+          <span class="dx-key" style="color:var(--dim)">the loop laundered the error into a retrievable doc</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===================== 01 LOOP ===================== -->
+    <section id="loop">
+      <p class="dx-secnum">01 / THE BASELINE LOOP</p>
+      <h2>The original HotpotQA recursive-RAG loop</h2>
+      <p class="dx-lede">Every round runs the same four steps. Nothing is corrupted here — this is the
+      machinery the experiment is built on.</p>
+
+      <div class="dx-tablewrap" style="margin-top:22px;border:none;overflow-x:auto;">
+        <div class="dx-mono" style="display:flex;gap:10px;align-items:center;min-width:560px;font-size:0.82rem;color:#B7C6C5;padding:6px 0;">
+          <span style="color:var(--accent)">retrieve top-k=10</span><span style="color:var(--dim)">→</span>
+          <span>model answers from context</span><span style="color:var(--dim)">→</span>
+          <span>answer condensed into a doc</span><span style="color:var(--dim)">→</span>
+          <span style="color:var(--accent)">doc re-enters context</span><span style="color:var(--dim)">↺</span>
+        </div>
+      </div>
+
+      <div class="dx-grid3">
+        <div class="dx-card">
+          <div class="rounds">30 <span>ROUNDS</span></div>
+          <div class="rname">search</div>
+          <p>A growing vector store. Each round retrieves the top-k again, so synthetic docs compete with the
+          corpus for retrieval.</p>
+        </div>
+        <div class="dx-card">
+          <div class="rounds">20 <span>ROUNDS</span></div>
+          <div class="rname">replace_one</div>
+          <p>One document slot is swapped for a freshly synthesized doc each round; the rest of the context
+          carries over.</p>
+        </div>
+        <div class="dx-card">
+          <div class="rounds">10 <span>ROUNDS</span></div>
+          <div class="rname">hybrid <span style="color:var(--dim);font-size:0.7rem">/ replace_all</span></div>
+          <p>The entire context is replaced by documents synthesized from the prior round's answers.</p>
+        </div>
+      </div>
+
+      <div class="dx-callout">
+        <strong>The confound this fixes.</strong> By default the synthesizer writes a <em>faithful</em>
+        condensation of the <em>correct</em> answer. That hands later rounds the answer pre-assembled —
+        making questions easier and masking degradation (noted in the paper's Limitations). The overlay
+        below replaces that faithful step with a controllable falsehood.
+      </div>
+    </section>
+
+    <!-- ===================== 02 OVERLAY ===================== -->
+    <section id="overlay">
+      <p class="dx-secnum">02 / THE OVERLAY</p>
+      <h2>Injecting misinformation into the synthesis step</h2>
+      <p class="dx-lede">Instead of always condensing the correct answer, the synthesizer can plant one
+      plausible false claim in the document it writes. Once that doc is re-retrieved, the experiment tracks
+      whether the seeded error <span class="err">propagates</span>, <span class="err">amplifies</span>, or is
+      <span class="truth">corrected</span>.</p>
+      <div class="dx-callout" style="border-left-color:var(--accent);background:rgba(52,214,174,0.06);color:#CDE7E0;">
+        <strong style="color:var(--accent)">Not the same as collapse.</strong> This is a distinct construct
+        from the project's diversity "collapse." It measures convergence toward a <em>wrong attractor</em> —
+        the spread of a falsehood — not loss of lexical variety. Keep the two stories separate.
+      </div>
+    </section>
+
+    <!-- ===================== 03 SYNTHESIS MODES ===================== -->
+    <section id="modes">
+      <p class="dx-secnum">03 / SYNTHESIS MODES</p>
+      <h2>How the document gets corrupted</h2>
+      <p class="dx-lede">Set by <code>--doc-synthesis-mode</code>. The faithful arm is a byte-identical
+      control; the two treatments differ only in factual correctness.</p>
+
+      <div class="dx-tabs" role="tablist" aria-label="Synthesis modes">
+        <button class="dx-tab" role="tab" id="mtab-faithful" aria-selected="true" data-mode="faithful"><span class="pip"></span>faithful</button>
+        <button class="dx-tab warn" role="tab" id="mtab-counterfactual" aria-selected="false" data-mode="counterfactual"><span class="pip"></span>counterfactual</button>
+        <button class="dx-tab warn" role="tab" id="mtab-freeform" aria-selected="false" data-mode="freeform"><span class="pip"></span>freeform</button>
+      </div>
+      <div class="dx-panel" id="modePanel" role="tabpanel" aria-live="polite"></div>
+      <p style="font-size:0.85rem;color:var(--dim);margin-top:14px;">Running example —
+        <span class="dx-mono">"What is the capital of the state where Brown University is located?"</span>
+        &nbsp;gold = <span class="dx-gold">Providence</span>, bridge = <span class="dx-mono">Rhode Island</span>.</p>
+    </section>
+
+    <!-- ===================== 04 TARGETS ===================== -->
+    <section id="targets">
+      <p class="dx-secnum">04 / DISTRACTOR TARGETS</p>
+      <h2>What part of the chain gets hit</h2>
+      <p class="dx-lede">Set by <code>--target-mode</code>. Picks <em>where</em> the falsehood lands in a
+      multi-hop question.</p>
+
+      <div class="dx-tabs" role="tablist" aria-label="Distractor targets">
+        <button class="dx-tab warn" role="tab" id="ttab-final_answer" aria-selected="true" data-target="final_answer"><span class="pip"></span>final_answer</button>
+        <button class="dx-tab warn" role="tab" id="ttab-intermediate_hop" aria-selected="false" data-target="intermediate_hop"><span class="pip"></span>intermediate_hop</button>
+        <button class="dx-tab" role="tab" id="ttab-untargeted" aria-selected="false" data-target="untargeted"><span class="pip"></span>untargeted</button>
+      </div>
+      <div class="dx-panel" id="targetPanel" role="tabpanel" aria-live="polite"></div>
+    </section>
+
+    <!-- ===================== 05 TIMING ===================== -->
+    <section id="timing">
+      <p class="dx-secnum">05 / INJECTION TIMING</p>
+      <h2>When the poison enters context</h2>
+      <p class="dx-lede">A document synthesized at the end of round <code>it</code> first enters context at
+      round <code>it+1</code>. Pick an <code>--inject-round</code> and watch the contamination front move.</p>
+
+      <div class="dx-timeline-ctrl">
+        <span>--inject-round</span>
+        <div class="dx-injbtns" id="injBtns" role="group" aria-label="injection round">
+          <button class="dx-injbtn" data-r="0">0</button>
+          <button class="dx-injbtn" data-r="1" aria-pressed="true">1</button>
+          <button class="dx-injbtn" data-r="2">2</button>
+          <button class="dx-injbtn" data-r="3">3</button>
+        </div>
+        <span style="color:var(--accent-2)">default = 1</span>
+      </div>
+      <div class="dx-rounds-row" id="roundsRow"></div>
+      <p class="dx-timeline-note" id="timingNote"></p>
+    </section>
+
+    <!-- ===================== 06 FLAGS ===================== -->
+    <section id="flags">
+      <p class="dx-secnum">06 / REFERENCE</p>
+      <h2>Flags &amp; ground truth</h2>
+      <p class="dx-lede">All flags default-off — with defaults, <code>faithful</code> <em>is</em> the current
+      pipeline and the eval is a no-op.</p>
+
+      <details class="dx-acc" open>
+        <summary>CLI flags <span class="chev">▸</span></summary>
+        <div class="dx-acc-body">
+          <div class="dx-tablewrap">
+            <table>
+              <thead><tr><th>Flag</th><th>Values / default</th><th>Role</th></tr></thead>
+              <tbody>
+                <tr><td><code>--doc-synthesis-mode</code></td><td class="dx-default"><code>faithful</code> · counterfactual · freeform</td><td>How (or whether) the doc is corrupted.</td></tr>
+                <tr><td><code>--target-mode</code></td><td class="dx-default"><code>final_answer</code> · intermediate_hop · untargeted</td><td>Which entity in the chain is hit.</td></tr>
+                <tr><td><code>--inject-round</code></td><td><code>INT</code>, default <code>1</code></td><td>The round whose synthesized doc is corrupted.</td></tr>
+                <tr><td><code>--inject-every-round</code></td><td>flag</td><td>Stress arm: corrupt every round's doc, not just one.</td></tr>
+                <tr><td><code>--seed</code></td><td><code>INT</code></td><td>Global RNG; substitute pick uses a separate per-question RNG so arms select identical answers.</td></tr>
+                <tr><td><code>--gt-file</code></td><td><code>PATH</code></td><td>Native HotpotQA gold answers. Required when mode ≠ faithful.</td></tr>
+                <tr><td><code>--native-hotpot-file</code></td><td><code>PATH</code></td><td>supporting_facts. Required for intermediate_hop.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="dx-acc">
+        <summary>Injection record (per question, schema-additive) <span class="chev">▸</span></summary>
+        <div class="dx-acc-body">
+          <p style="font-size:0.9rem;color:#B7C6C5;">Absent in faithful runs. The recorded ground truth every metric keys off of:</p>
+<pre class="dx-json"><span class="k">"injection"</span>: {
+  <span class="k">"mode"</span>: <span class="e">"counterfactual"</span>, <span class="k">"target"</span>: <span class="s">"final_answer"</span>, <span class="k">"inject_round"</span>: 1, <span class="k">"seed"</span>: 42,
+  <span class="k">"gold_answer"</span>: <span class="s">"Providence"</span>, <span class="k">"eligible"</span>: true, <span class="k">"status"</span>: <span class="s">"ok"</span>,
+  <span class="k">"injected_entity"</span>: <span class="e">"Newport"</span>, <span class="k">"substitute_candidates"</span>: [<span class="e">"Newport"</span>, <span class="c">…</span>],
+  <span class="k">"injected_doc_ids"</span>: [<span class="e">"gen_2_0"</span>],
+  <span class="k">"discovered_claims"</span>: null,                <span class="c">// freeform only</span>
+  <span class="k">"bridge_entity"</span>: null, <span class="k">"implied_answer"</span>: null   <span class="c">// hop only</span>
+}</pre>
+          <p style="font-size:0.85rem;color:var(--dim);margin:16px 0 6px;font-family:var(--font-display);letter-spacing:0.08em;">status ∈</p>
+          <div class="dx-pills">
+            <span class="dx-spill ok">ok</span>
+            <span class="dx-spill">leaky_gold</span>
+            <span class="dx-spill">not_realized</span>
+            <span class="dx-spill">gold_absent_in_answer</span>
+            <span class="dx-spill">no_valid_substitute</span>
+            <span class="dx-spill">no_error_produced</span>
+            <span class="dx-spill skip">skipped_yes_no</span>
+            <span class="dx-spill skip">skipped_no_bridge</span>
+            <span class="dx-spill skip">skipped_*</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="dx-acc">
+        <summary>Metrics &amp; aggregates <span class="chev">▸</span></summary>
+        <div class="dx-acc-body">
+          <p style="font-size:0.9rem;color:#B7C6C5;">Per round, over eligible injected questions. Injection-aware; a no-op without injection records.</p>
+          <div class="dx-tablewrap">
+            <table>
+              <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><code>retrieval_condition</code></td><td>Injected doc id present in this round's retrieved context (PoisonedRAG retrieval condition).</td></tr>
+                <tr><td><code>injected_match_rate</code> <span style="color:var(--accent-2)">(ASR)</span></td><td>Fraction of runs whose answer adopts the injected entity (generation condition).</td></tr>
+                <tr><td><code>gold_match_rate</code></td><td>Fraction matching gold — the recovery signal.</td></tr>
+                <tr><td><code>implied_match_rate</code></td><td>Hop only: fraction matching the derived implied-wrong answer (compounding).</td></tr>
+                <tr><td><code>doc_propagation</code></td><td>Injected entity reappears in a newly synthesized doc (self-reinforcement).</td></tr>
+                <tr><td><code>amplification_count</code></td><td>Distinct off-target answers (string-level divergence proxy).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:0.85rem;color:var(--dim);margin:16px 0 6px;font-family:var(--font-display);letter-spacing:0.08em;">aggregates</p>
+          <div class="dx-pills">
+            <span class="dx-spill">asr_by_iteration</span>
+            <span class="dx-spill">gold_match_by_iteration</span>
+            <span class="dx-spill">retrieval_condition_by_iteration</span>
+            <span class="dx-spill">doc_propagation_by_iteration</span>
+            <span class="dx-spill">adoption_rate</span>
+            <span class="dx-spill">mean_time_to_adoption</span>
+            <span class="dx-spill">mean_persistence</span>
+            <span class="dx-spill">recovery_rate</span>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <p class="dx-foot">faithful == current pipeline · all treatments default-off · ground truth lives in the injection record, not content analysis</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- Synthesis mode content ---------------- */
+  var MODES = {
+    faithful: {
+      tag: "control", tagcls: "is-control",
+      gt: "Ground truth: <b>—</b> (no injection). Byte-identical to the existing pipeline.",
+      doc: 'Brown University sits in <span class="dx-gold">Providence</span>, the capital of Rhode Island. '
+         + 'Founded in 1764, it is one of the oldest universities in the United States.',
+      note: "The synthesizer condenses the correct answer. This arm exists so any drift in a treatment arm "
+          + "can be attributed to the falsehood and nothing else."
+    },
+    counterfactual: {
+      tag: "treatment", tagcls: "is-treat",
+      gt: "Ground truth: <b>exact</b> — the injected entity itself. A judge proposes K=5 same-type candidates; a seeded deterministic pick chooses one.",
+      doc: 'Brown University sits in <span class="dx-strike">Providence</span> <span class="dx-bad">Newport</span>, '
+         + 'the capital of Rhode Island. Founded in 1764, it is one of the oldest universities in the United States.',
+      note: "The gold entity is swapped for a same-type wrong entity before synthesis. Treatment and control "
+          + "then differ only in that one entity — the cleanest possible comparison."
+    },
+    freeform: {
+      tag: "treatment", tagcls: "is-treat",
+      gt: "Ground truth: <b>LLM-judged</b> — a judge call discovers what the synthesizer actually injected.",
+      doc: 'Brown University sits in <span class="dx-gold">Providence</span>, the capital of Rhode Island. '
+         + '<span class="dx-bad">Its metropolitan population now exceeds three million.</span> Founded in 1764, '
+         + 'it is one of the oldest universities in the United States.',
+      note: "The synthesizer is told to invent exactly one plausible but false claim and keep everything else "
+          + "accurate. A discovery judge then extracts the claim into the record as trackable ground truth."
+    }
+  };
+
+  var TARGETS = {
+    final_answer: {
+      tag: "default", tagcls: "is-treat",
+      gt: 'Corrupts the <span class="dx-gold">gold answer</span> entity. Needs only the gold answer (<code>--gt-file</code>).',
+      doc: 'The capital of the state where Brown University is located is '
+         + '<span class="dx-strike">Providence</span> <span class="dx-bad">Newport</span>.',
+      note: "The straight question: does a wrong final answer, laundered into a doc, get re-adopted?"
+    },
+    intermediate_hop: {
+      tag: "treatment", tagcls: "is-treat",
+      gt: 'Corrupts a <span class="dx-bad">bridge entity</span> mid-chain. Needs <code>--native-hotpot-file</code> '
+        + '(supporting_facts); bridge-only cohort — spot-check before trusting <code>implied_match_rate</code>.',
+      doc: 'Brown University is located in <span class="dx-strike">Rhode Island</span> '
+         + '<span class="dx-bad">New Hampshire</span>. → implied answer drifts to '
+         + '<span class="dx-bad">Concord</span>, an error never written into the doc.',
+      note: "Compounding is the point: the doc never states a wrong final answer, yet the model may infer one "
+          + "(Concord) from the corrupted premise."
+    },
+    untargeted: {
+      tag: "control", tagcls: "is-control",
+      gt: 'Inserts one <b>answer-irrelevant</b> false detail; the answer stays correct.',
+      doc: 'Brown University sits in <span class="dx-gold">Providence</span>, '
+         + '<span class="dx-bad">which was incorporated in 1622.</span> '
+         + '(The correct answer, Providence, is untouched.)',
+      note: "Separates “any falsehood destabilizes the loop” from “only answer-relevant "
+          + "falsehoods do.” The final answer is left intact on purpose."
+    }
+  };
+
+  function renderPanel(el, data) {
+    el.innerHTML =
+      '<div class="dx-panel-head"><span class="tag ' + data.tagcls + '">' + data.tag + '</span></div>' +
+      '<p class="dx-gt">' + data.gt + '</p>' +
+      '<div class="dx-doc"><span class="lbl">synthesized document</span>' + data.doc + '</div>' +
+      '<p style="font-size:0.9rem;color:#B7C6C5;margin:16px 0 0;">' + data.note + '</p>';
+  }
+
+  function wireTabs(tablist, dictKey, dict, panel) {
+    var tabs = Array.prototype.slice.call(tablist.querySelectorAll('.dx-tab'));
+    function select(tab) {
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+      renderPanel(panel, dict[tab.getAttribute(dictKey)]);
+    }
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () { select(tab); });
+      tab.addEventListener('keydown', function (e) {
+        var i = tabs.indexOf(tab);
+        if (e.key === 'ArrowRight') { e.preventDefault(); tabs[(i + 1) % tabs.length].focus(); tabs[(i + 1) % tabs.length].click(); }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); tabs[(i - 1 + tabs.length) % tabs.length].focus(); tabs[(i - 1 + tabs.length) % tabs.length].click(); }
+      });
+    });
+    select(tabs.find(function (t) { return t.getAttribute('aria-selected') === 'true'; }) || tabs[0]);
+  }
+
+  wireTabs(document.querySelector('#modes .dx-tabs'), 'data-mode', MODES, document.getElementById('modePanel'));
+  wireTabs(document.querySelector('#targets .dx-tabs'), 'data-target', TARGETS, document.getElementById('targetPanel'));
+
+  /* ---------------- Round timeline ---------------- */
+  var N_ROUNDS = 8;
+  var roundsRow = document.getElementById('roundsRow');
+  var timingNote = document.getElementById('timingNote');
+  var injBtns = document.getElementById('injBtns');
+
+  function renderTimeline(injRound) {
+    roundsRow.innerHTML = '';
+    for (var i = 0; i < N_ROUNDS; i++) {
+      var cls = 'dx-round', ic = '○', st = 'clean docs';
+      if (i < injRound) { cls += ' clean'; ic = '✓'; st = 'clean'; }
+      else if (i === injRound) { cls += ' inject'; ic = '☢'; st = 'doc corrupted'; }
+      else { cls += ' contam'; ic = '☢'; st = 'contaminated'; }
+      if (i === 0 && injRound !== 0) { cls = 'dx-round clean'; ic = '✓'; st = 'original docs'; }
+      var d = document.createElement('div');
+      d.className = cls;
+      d.innerHTML = '<div class="rn">round ' + i + '</div><div class="ic">' + ic + '</div><div class="st">' + st + '</div>';
+      roundsRow.appendChild(d);
+    }
+    var entersAt = injRound + 1;
+    timingNote.innerHTML = 'The doc synthesized at the end of <b>round ' + injRound + '</b> first enters '
+      + 'retrieved context at <b>round ' + entersAt + '</b>. Rounds 0–' + injRound
+      + ' use clean documents; the seeded error is present from <b>round ' + entersAt + '</b> onward. '
+      + (injRound === 0 ? 'At inject-round 0 even the first synthetic doc is corrupted.'
+                        : 'Round 0 is always original corpus docs — there is no AI doc to corrupt yet.');
+  }
+
+  Array.prototype.slice.call(injBtns.querySelectorAll('.dx-injbtn')).forEach(function (b) {
+    b.addEventListener('click', function () {
+      injBtns.querySelectorAll('.dx-injbtn').forEach(function (x) { x.removeAttribute('aria-pressed'); });
+      b.setAttribute('aria-pressed', 'true');
+      renderTimeline(parseInt(b.getAttribute('data-r'), 10));
+    });
+  });
+  renderTimeline(1);
+
+  /* ---------------- Hero loop animation ---------------- */
+  var canvas = document.getElementById('dxLoop');
+  var ctx = canvas.getContext('2d');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var stages = ['RETRIEVE', 'ANSWER', 'SYNTHESIZE', 'RE-CONTEXT'];
+  var W = 0, H = 0, cx = 0, cy = 0, R = 0;
+
+  function resize() {
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W / 2; cy = H / 2; R = Math.min(W, H) * 0.31;
+  }
+
+  function nodePos(i) {
+    var a = (i / stages.length) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a: a };
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    var lap = (t / 5200) % 1;               // 0..1 around the ring
+    var contaminated = (t % 10400) > 5200;  // after one clean lap, inject
+
+    // ring
+    ctx.lineWidth = 1.4;
+    for (var s = 0; s < stages.length; s++) {
+      var p = nodePos(s), q = nodePos((s + 1) % stages.length);
+      var seg = ctx.createLinearGradient(p.x, p.y, q.x, q.y);
+      var hot = contaminated && (s >= 1);   // contamination spreads from SYNTHESIZE onward
+      seg.addColorStop(0, hot ? 'rgba(255,106,77,0.55)' : 'rgba(52,214,174,0.4)');
+      seg.addColorStop(1, hot ? 'rgba(255,106,77,0.3)' : 'rgba(52,214,174,0.18)');
+      ctx.strokeStyle = seg;
+      // arc between nodes
+      ctx.beginPath();
+      var steps = 24;
+      for (var k = 0; k <= steps; k++) {
+        var aa = p.a + (q.a - p.a) * (k / steps);
+        var xx = cx + Math.cos(aa) * R, yy = cy + Math.sin(aa) * R;
+        if (k === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+      }
+      ctx.stroke();
+    }
+
+    // nodes
+    for (var n = 0; n < stages.length; n++) {
+      var np = nodePos(n);
+      var hotNode = contaminated && (n === 2 || n === 3 || n === 0);
+      ctx.beginPath();
+      ctx.arc(np.x, np.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = hotNode ? '#FF6A4D' : '#34D6AE';
+      ctx.shadowColor = hotNode ? 'rgba(255,106,77,0.7)' : 'rgba(52,214,174,0.6)';
+      ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
+      ctx.font = '600 11px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillStyle = hotNode ? '#FFB7A8' : '#9fded0';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var lx = cx + Math.cos(np.a) * (R + 26), ly = cy + Math.sin(np.a) * (R + 22);
+      ctx.fillText(stages[n], lx, ly);
+    }
+
+    // travelling token
+    var ta = lap * Math.PI * 2 - Math.PI / 2;
+    var tx = cx + Math.cos(ta) * R, ty = cy + Math.sin(ta) * R;
+    var tokenHot = contaminated && lap > 0.5; // turns after passing synthesize
+    ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI * 2);
+    ctx.fillStyle = tokenHot ? '#FF6A4D' : '#E6EDEC';
+    ctx.shadowColor = tokenHot ? 'rgba(255,106,77,0.9)' : 'rgba(230,237,236,0.8)';
+    ctx.shadowBlur = 14; ctx.fill(); ctx.shadowBlur = 0;
+
+    // center label
+    ctx.font = '700 12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = contaminated ? '#FF6A4D' : '#34D6AE';
+    ctx.fillText(contaminated ? 'error in the loop' : 'faithful loop', cx, cy);
+  }
+
+  function frame(t) { draw(t); raf = requestAnimationFrame(frame); }
+  var raf = null;
+  function start() {
+    resize();
+    if (reduce) { draw(7000); return; }   // static contaminated snapshot
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', function () { resize(); if (reduce) draw(7000); });
+  start();
+})();
+</script>
