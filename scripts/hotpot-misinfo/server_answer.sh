@@ -1,7 +1,8 @@
 #!/bin/bash
-# vLLM server for the ANSWER model (HotpotQA misinfo experiment).
+# vLLM server for the ANSWER model (HotpotQA misinfo experiment). Model is parametrized via
+# MODEL_NAME/SERVED_MODEL_NAME/EXTRA_VLLM_ARGS; the launcher overrides -J per model.
 # Non-agentic search variant → no tool-calling flags needed.
-#SBATCH -J vllm-answer-qwen14b
+#SBATCH -J vllm-answer
 #SBATCH -c 6
 #SBATCH --mem=48g
 #SBATCH --nodes=1
