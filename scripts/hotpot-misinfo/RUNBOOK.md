@@ -144,6 +144,30 @@ ever risks the 47h wall at your scale, split it: launch per-arm jobs with `ARMS=
 Monitor with `squeue --me` and `tail -f logs/hotpot_misinfo_cli_*.out`; cancel everything
 with the `scancel` line the launcher prints.
 
+### Per-model launchers (4 answer models)
+
+`launch_all_variants.sh` is parametrized by the answer model; four thin wrappers set the right
+model id, served name, model-specific vLLM flags, and output folder, then call it. The doc-gen
+model is **fixed at Qwen2.5-7B** for all four (project convention). Each writes raw experiment
+JSON (+ eval/summary/plots) under
+`/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_distractor_experiment/<served-name>/`:
+
+```bash
+export GT_FILE=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json
+bash scripts/hotpot-misinfo/launch_qwen14b.sh      # Qwen2.5-14B          -> .../qwen2.5-14b/
+bash scripts/hotpot-misinfo/launch_mistral7b.sh    # Mistral-7B-v0.3      -> .../mistral-7b/            (--tokenizer-mode mistral)
+bash scripts/hotpot-misinfo/launch_llama8b.sh      # Llama-3.1-8B         -> .../llama3.1-8b/
+bash scripts/hotpot-misinfo/launch_deepseek7b.sh   # DeepSeek-R1-Qwen-7B  -> .../deepseek-r1-distill-qwen-7b/  (--reasoning-parser deepseek_r1, MAX_TOKENS=4096)
+```
+
+Each launcher is independent and uses **2 GPUs** (its own answer + doc-gen pair). Run them one
+at a time, or all four at once if you have the GPU budget (8 GPUs); outputs never collide
+(per-model subfolders) and `MODEL`-tagged job names (`<model>-<variant>`) keep `squeue` readable.
+Override the output root with `OUTPUT_BASE=…`. **DeepSeek needs `--reasoning-parser deepseek_r1`**
+so its `<think>` trace is kept out of the scored answer, and a larger answer-token budget; both
+are set by its launcher. Document length is pinned to 512 tokens across all models so it stays a
+controlled constant.
+
 ---
 
 ## Troubleshooting

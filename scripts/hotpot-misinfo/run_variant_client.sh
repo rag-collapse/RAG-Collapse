@@ -45,6 +45,11 @@ TARGET="${TARGET:-final_answer}"
 MAX_Q="${MAX_Q:-50}"
 SEED="${SEED:-42}"
 INJECT_ROUND="${INJECT_ROUND:-1}"
+# Answer token ceiling. 512 is plenty for the non-reasoning models; DeepSeek-R1 needs much
+# more headroom for its <think> trace (set MAX_TOKENS=4096 in its launcher). DOC_MAX_TOKENS
+# is pinned to 512 for ALL models so synthesized-document length stays a controlled constant.
+MAX_TOKENS="${MAX_TOKENS:-512}"
+DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 ARMS="${ARMS:-faithful counterfactual freeform}"
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
@@ -65,6 +70,7 @@ run_arm () {
     --doc-vllm-api-base "$DOC_VLLM_API_BASE" --doc-model-name "$DOC_MODEL" \
     --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR" \
     --pipeline-variant "$VARIANT" --max-questions "$MAX_Q" --seed "$SEED" \
+    --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS" \
     --doc-synthesis-mode "$mode" --target-mode "$TARGET" --inject-round "$INJECT_ROUND" \
     --output-path "$out" $extra
   python -u hotpot_evaluation.py "$out" "${out%.json}_eval.json" \

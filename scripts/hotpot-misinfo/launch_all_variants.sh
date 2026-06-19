@@ -24,12 +24,22 @@ SERVER_TIME="${SERVER_TIME:-48:00:00}"   # reaper kills servers early; this is j
 CLIENT_TIME="${CLIENT_TIME:-47:00:00}"   # < server time so servers always outlive clients
 ANSWER_PORT="${ANSWER_PORT:-5154}"
 DOCGEN_PORT="${DOCGEN_PORT:-5153}"
+
+# Answer model — overridden by the per-model wrappers (launch_<model>.sh). Doc-gen stays
+# fixed at Qwen2.5-7B (server_docgen.sh) for all answer models.
+ANSWER_MODEL_ID="${ANSWER_MODEL_ID:-Qwen/Qwen2.5-14B-Instruct}"
+ANSWER_SERVED="${ANSWER_SERVED:-qwen2.5-14b}"     # served name == client --model-name
+ANSWER_EXTRA_ARGS="${ANSWER_EXTRA_ARGS:-}"        # model-specific vLLM flags (e.g. --reasoning-parser deepseek_r1)
+OUTDIR="${OUTDIR:-hotpot_misinfo_outputs}"
 mkdir -p logs
 
-echo "### submitting shared servers (time limit $SERVER_TIME) ###"
-A_JID=$(sbatch --parsable -t "$SERVER_TIME" scripts/hotpot-misinfo/server_answer.sh)
-D_JID=$(sbatch --parsable -t "$SERVER_TIME" scripts/hotpot-misinfo/server_docgen.sh)
-echo "  answer server job: $A_JID   doc-gen server job: $D_JID"
+echo "### submitting shared servers for answer model '$ANSWER_SERVED' (time limit $SERVER_TIME) ###"
+A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED" \
+        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS" \
+        scripts/hotpot-misinfo/server_answer.sh)
+D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" --export=ALL \
+        scripts/hotpot-misinfo/server_docgen.sh)   # no MODEL_NAME exported -> keeps its Qwen2.5-7B default
+echo "  answer server job: $A_JID ($ANSWER_MODEL_ID)   doc-gen server job: $D_JID (Qwen2.5-7B)"
 
 # Wait until a server job is RUNNING, its log prints the URL, and /models responds.
 # args: <jobid> <logfile> <port> <varname-for-message>  -> prints the URL on stdout
@@ -56,11 +66,11 @@ D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
 A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
 D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
 
-echo "### both servers up — fanning out variants: $VARIANTS ###"
+echo "### both servers up — fanning out variants for '$ANSWER_SERVED': $VARIANTS -> $OUTDIR ###"
 CLIENT_JIDS=()
 for v in $VARIANTS; do
-  jid=$(sbatch --parsable -t "$CLIENT_TIME" \
-        --export=ALL,VLLM_API_BASE="$A_URL",DOC_VLLM_API_BASE="$D_URL",GT_FILE="$GT_FILE",VARIANT="$v",MAX_Q="${MAX_Q:-50}",SEED="${SEED:-42}",TARGET="${TARGET:-final_answer}",MODEL="${MODEL:-qwen2.5-14b}",DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}",ARMS="${ARMS:-faithful counterfactual freeform}",OUTDIR="${OUTDIR:-hotpot_misinfo_outputs}" \
+  jid=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-$v" \
+        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,GT_FILE=$GT_FILE,VARIANT=$v,MAX_Q=${MAX_Q:-50},SEED=${SEED:-42},TARGET=${TARGET:-final_answer},MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},ARMS=${ARMS:-faithful counterfactual freeform},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=$OUTDIR" \
         scripts/hotpot-misinfo/run_variant_client.sh)
   echo "  variant $v -> client job $jid"
   CLIENT_JIDS+=("$jid")
@@ -74,10 +84,11 @@ echo "  reaper job: $REAP (scancels servers $A_JID $D_JID once all clients finis
 
 cat <<EOF
 
-### launched ###
+### launched: answer model '$ANSWER_SERVED' ###
   servers : answer=$A_JID ($A_URL)   docgen=$D_JID ($D_URL)
   clients : ${CLIENT_JIDS[*]}
   reaper  : $REAP
+  outputs : $OUTDIR
 Monitor:  squeue --me
           tail -f logs/hotpot_misinfo_cli_*.out
 Cancel everything early:  scancel $A_JID $D_JID ${CLIENT_JIDS[*]} $REAP
