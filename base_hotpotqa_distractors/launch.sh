@@ -1,0 +1,73 @@
+#!/bin/bash
+# One-command launcher for the base-HotpotQA + round-0 distractor sweep. Run on a LOGIN node:
+#
+#   bash base_hotpotqa_distractors/launch.sh                 # qwen2.5-14b, default sweep
+#   ANSWER_MODEL_ID=mistralai/Mistral-7B-Instruct-v0.3 ANSWER_SERVED=mistral-7b \
+#     ANSWER_EXTRA_ARGS="--tokenizer-mode mistral" ANSWER_MAX_NUM_SEQS=128 bash ...   # other models
+#
+# Starts a shared answer + Qwen2.5-7B doc server (own ports, so it coexists with the running
+# graphite baseline on 5154/5153 and the misinfo launchers on 5164-5170), waits until both serve,
+# submits the fraction-sweep CPU client (run_sweep.sh), and submits a reaper that scancels the
+# servers when the client finishes. Reuses the validated servers in scripts/hotpot-misinfo/.
+set -eo pipefail
+cd "$(dirname "$0")/.." || exit 1          # repo root (this script lives in base_hotpotqa_distractors/)
+
+SERVER_TIME="${SERVER_TIME:-48:00:00}"
+CLIENT_TIME="${CLIENT_TIME:-47:00:00}"
+ANSWER_PORT="${ANSWER_PORT:-5180}"
+DOCGEN_PORT="${DOCGEN_PORT:-5181}"
+ANSWER_MODEL_ID="${ANSWER_MODEL_ID:-Qwen/Qwen2.5-14B-Instruct}"
+ANSWER_SERVED="${ANSWER_SERVED:-qwen2.5-14b}"
+ANSWER_EXTRA_ARGS="${ANSWER_EXTRA_ARGS:-}"      # e.g. "--tokenizer-mode mistral"; DeepSeek: leave empty
+ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B (anti-OOM); set 128 for 7-8B models
+mkdir -p logs
+
+echo "### submitting shared servers for '$ANSWER_SERVED' (ports $ANSWER_PORT/$DOCGEN_PORT, time $SERVER_TIME) ###"
+A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED-bd" \
+        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS,PORT=$ANSWER_PORT" \
+        scripts/hotpot-misinfo/server_answer.sh)
+D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b-bd" --export="ALL,PORT=$DOCGEN_PORT" \
+        scripts/hotpot-misinfo/server_docgen.sh)
+echo "  answer=$A_JID  doc=$D_JID"
+
+wait_for_server () {
+  local jid="$1" log="$2" port="$3" name="$4" url=""
+  echo "### waiting for $name (job $jid) to serve on :$port ###" >&2
+  for i in $(seq 1 240); do
+    local st; st=$(squeue -j "$jid" -h -o %T 2>/dev/null)
+    if [[ -z "$st" ]]; then echo "!!! $name job $jid left the queue before serving" >&2; return 1; fi
+    if [[ "$st" == "RUNNING" && -f "$log" ]]; then
+      url=$(grep -oE "http://[^\" ]+:$port/v1" "$log" 2>/dev/null | head -1)
+      if [[ -n "$url" ]] && curl -sf "$url/models" >/dev/null 2>&1; then
+        echo "  $name ready: $url" >&2; echo "$url"; return 0
+      fi
+    fi
+    sleep 10
+  done
+  echo "!!! $name (job $jid) never became ready" >&2; return 1
+}
+
+A_LOG="logs/slurm-${A_JID}-vllm-answer.out"
+D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
+A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
+D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
+
+echo "### both servers up — submitting the distractor-fraction sweep client ###"
+CJ=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-bd-sweep" \
+     --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},VARIANT=${VARIANT:-search},MAX_Q=${MAX_Q:-50},NUM_RUNS=${NUM_RUNS:-10},SEED=${SEED:-42},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},FRACTIONS=${FRACTIONS:-0 0.3 0.5 0.7},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=${OUTDIR:-}" \
+     base_hotpotqa_distractors/run_sweep.sh)
+echo "  sweep client: $CJ"
+
+REAP=$(sbatch --parsable --dependency=afterany:"$CJ" -p cpu -c 1 --mem=1g -t 00:05:00 \
+       -J reap-bd -o logs/reap_%j.out \
+       --wrap="scancel $A_JID $D_JID; echo 'reaped servers $A_JID $D_JID after client $CJ'")
+
+cat <<EOF
+
+### launched: base-HotpotQA distractor sweep ('$ANSWER_SERVED') ###
+  servers : answer=$A_JID ($A_URL)   docgen=$D_JID ($D_URL)
+  client  : $CJ   reaper: $REAP
+  sweep   : fractions=${FRACTIONS:-0 0.3 0.5 0.7}  variant=${VARIANT:-search}  mode=${DISTRACTOR_MODE:-rewrite}
+Monitor:  squeue --me ;  tail -f logs/base_distractor_*.out
+Cancel:   scancel $A_JID $D_JID $CJ $REAP
+EOF

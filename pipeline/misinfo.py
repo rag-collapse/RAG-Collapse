@@ -710,23 +710,73 @@ class DistractorController:
             for (s, doc_idx, gold) in jobs
         ]
         disc = self.doc_llm.inference_batch(disc_convos) if disc_convos else []
+
+        # Classify each rewritten doc. A rewrite only "lands" if the judge found an error AND
+        # the asserted answer is non-empty AND is NOT the gold (gold-leak exclusion): the
+        # discovery judge sometimes re-extracts the correct answer, which would otherwise be
+        # recorded as a "distractor" and pollute distractor_adoption.
+        results: Dict[tuple, Dict[str, str]] = {}     # (qid, doc_idx) -> {injected_entity, status}
+        pending: Dict[str, List[int]] = {}            # qid -> doc_idxs that need substitution fallback
         for (s, doc_idx, gold), out in zip(jobs, disc):
-            rec = self.records[s.query_id]
-            doc = s.current_docs[doc_idx]
             parsed = parse_json(out)
             asserted, contains_err = "", False
             if isinstance(parsed, dict):
                 asserted = str(parsed.get("asserted_answer") or "").strip()
                 contains_err = bool(parsed.get("contains_error"))
-            rec.distractors.append({
-                "doc_id": doc.get("doc_id"),
-                "injected_entity": asserted,
-                "status": "ok" if contains_err else "no_error_produced",
-            })
+            if contains_err and asserted and normalize(asserted) != normalize(gold):
+                results[(s.query_id, doc_idx)] = {"injected_entity": asserted, "status": "ok"}
+            else:
+                pending.setdefault(s.query_id, []).append(doc_idx)   # rewrite failed or leaked gold
+
+        # Substitution fallback: for every doc whose rewrite failed/leaked, substitute a
+        # DISTINCT wrong entity (distinct from gold and from the entities the good docs of the
+        # same question already carry), so each corrupted doc becomes a real, diverse distractor.
+        plan_by_qid = {s.query_id: (s, gold) for (s, idxs, gold) in plans}
+        pend_qids = [q for q in pending if q in plan_by_qid]
+        prop_convos = [
+            get_substitute_proposal_conversation(
+                question=plan_by_qid[q][0].question_text, entity=plan_by_qid[q][1],
+                k=max(self.k_substitutes, len(pending[q])))
+            for q in pend_qids
+        ]
+        props = self.doc_llm.inference_batch(prop_convos) if prop_convos else []
+        for q, out in zip(pend_qids, props):
+            s, gold = plan_by_qid[q]
+            parsed = parse_json(out)
+            cands = [str(c).strip() for c in parsed if str(c).strip()] if isinstance(parsed, list) else []
+            self.records[q].substitute_candidates = cands
+            used = {normalize(r["injected_entity"]) for (qq, _), r in results.items() if qq == q}
+            subs = [c for c in choose_distinct_substitutes(
+                        cands, gold, s.question_text, len(pending[q]) + len(used))
+                    if normalize(c) not in used]
+            for j, doc_idx in enumerate(pending[q]):
+                doc = s.current_docs[doc_idx]
+                if j < len(subs):
+                    sub = subs[j]
+                    new_text, ncount = substitute_in_text(doc.get("text", ""), gold, sub)
+                    if ncount == 0:
+                        new_text = (doc.get("text", "") + f" In fact, the answer is {sub}.").strip()
+                        status = "fallback_appended"
+                    else:
+                        status = "fallback_substitution"
+                    doc["text"] = new_text
+                    results[(q, doc_idx)] = {"injected_entity": sub, "status": status}
+                else:
+                    results[(q, doc_idx)] = {"injected_entity": "", "status": "no_error_produced"}
+
+        # Write per-doc records in the original corruption order for each question.
         for (s, idxs, gold) in plans:
             rec = self.records[s.query_id]
+            for doc_idx in idxs:
+                doc = s.current_docs[doc_idx]
+                r = results.get((s.query_id, doc_idx), {"injected_entity": "", "status": "no_error_produced"})
+                rec.distractors.append({
+                    "doc_id": doc.get("doc_id"),
+                    "injected_entity": r["injected_entity"],
+                    "status": r["status"],
+                })
             rec.n_corrupted = len(rec.distractors)
-            rec.status = "ok" if any(d["status"] == "ok" for d in rec.distractors) else "no_error_produced"
+            rec.status = "ok" if any(d["injected_entity"] for d in rec.distractors) else "no_error_produced"
 
     # ---- native_noise: real non-answer paragraphs (control; no asserted wrong entity) ----
     def _apply_native_noise(self, plans: List[tuple]) -> None:
