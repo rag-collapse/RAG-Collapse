@@ -42,16 +42,21 @@ CHARS_PER_DOC="${CHARS_PER_DOC:-400}"              # baseline default
 MAX_TOKENS="${MAX_TOKENS:-4096}"
 DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 VARIANT="${VARIANT:-search}"
-OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}"
-mkdir -p "$OUTDIR"
+# Store into the consolidated all_experiments tree, matching the other baselines' layout:
+#   <ALL_EXP_BASE>/graphite/baseline/<variant>/experiment_outputs/<org>/<model>/local_<variant>.json
+ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
+MODEL_SUBDIR="${MODEL_SUBDIR:-deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}"
 
 # map the output label -> pipeline-variant + variant-specific flags (from baseline metadata)
 case "$VARIANT" in
-  replace_all)  PV="hybrid";       EXTRA="--num-synth-docs 10 --num-db-docs 0";                       OUT="$OUTDIR/local_replace_all.json" ;;
-  replace_one)  PV="replace_one";  EXTRA="";                                                          OUT="$OUTDIR/local_replace_one.json" ;;
-  search)       PV="search";       EXTRA="--search-top-k 10 --search-chunk-size 500 --search-chunk-overlap 50"; OUT="$OUTDIR/local_search.json" ;;
+  replace_all)  PV="hybrid";       EXTRA="--num-synth-docs 10 --num-db-docs 0" ;;
+  replace_one)  PV="replace_one";  EXTRA="" ;;
+  search)       PV="search";       EXTRA="--search-top-k 10 --search-chunk-size 500 --search-chunk-overlap 50" ;;
   *) echo "unknown VARIANT '$VARIANT' (expected replace_all|replace_one|search)"; exit 1 ;;
 esac
+OUTDIR="$ALL_EXP_BASE/graphite/baseline/$VARIANT/experiment_outputs/$MODEL_SUBDIR"
+mkdir -p "$OUTDIR"
+OUT="$OUTDIR/local_$VARIANT.json"
 
 echo "=== DeepSeek baseline: VARIANT=$VARIANT (pipeline-variant=$PV) -> $OUT ==="
 python -u pipeline.py \

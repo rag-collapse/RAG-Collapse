@@ -15,8 +15,9 @@
 #      chars-per-doc 400, 400 questions, top_k 10 / chunk 500 / overlap 50);
 #   4. submits a reaper (depends on all clients) that scancels the servers when they finish.
 #
-# Outputs: <OUTDIR>/local_<variant>.json  (default OUTDIR below).
-# Env overrides: VARIANTS, OUTDIR, MAX_Q, NUM_RUNS, CHARS_PER_DOC, MAX_TOKENS, DOC_MAX_TOKENS,
+# Outputs land in the consolidated all_experiments tree, matching the other baselines:
+#   <ALL_EXP_BASE>/graphite/baseline/<variant>/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_<variant>.json
+# Env overrides: VARIANTS, ALL_EXP_BASE, MAX_Q, NUM_RUNS, CHARS_PER_DOC, MAX_TOKENS, DOC_MAX_TOKENS,
 #                DATASET, SERVER_TIME, CLIENT_TIME.
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1     # repo root
@@ -26,7 +27,7 @@ SERVER_TIME="${SERVER_TIME:-48:00:00}"
 CLIENT_TIME="${CLIENT_TIME:-47:00:00}"
 ANSWER_PORT="${ANSWER_PORT:-5154}"
 DOCGEN_PORT="${DOCGEN_PORT:-5153}"
-OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}"
+ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
 mkdir -p logs
 
 echo "### submitting shared servers (DeepSeek answer + Qwen2.5-7B doc), time limit $SERVER_TIME ###"
@@ -62,11 +63,11 @@ D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
 A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
 D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
 
-echo "### both servers up — fanning out baseline variants: $VARIANTS -> $OUTDIR ###"
+echo "### both servers up — fanning out baseline variants: $VARIANTS -> $ALL_EXP_BASE/graphite/baseline/<variant>/... ###"
 CLIENT_JIDS=()
 for v in $VARIANTS; do
   jid=$(sbatch --parsable -t "$CLIENT_TIME" -J "ds-baseline-$v" \
-        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,VARIANT=$v,OUTDIR=$OUTDIR,MODEL=deepseek-r1-distill-qwen-7b,DOC_MODEL=qwen2.5-7b-doc,MAX_Q=${MAX_Q:-400},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-400},MAX_TOKENS=${MAX_TOKENS:-4096},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},DATASET=${DATASET:-datasets/umass_data.entity.chatgpt.400.jsonl}" \
+        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,VARIANT=$v,ALL_EXP_BASE=$ALL_EXP_BASE,MODEL=deepseek-r1-distill-qwen-7b,DOC_MODEL=qwen2.5-7b-doc,MAX_Q=${MAX_Q:-400},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-400},MAX_TOKENS=${MAX_TOKENS:-4096},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},DATASET=${DATASET:-datasets/umass_data.entity.chatgpt.400.jsonl}" \
         scripts/deepseek_baseline/run_baseline_variant.sh)
   echo "  variant $v -> client job $jid"
   CLIENT_JIDS+=("$jid")
@@ -84,7 +85,7 @@ cat <<EOF
   servers : answer=$A_JID ($A_URL)   docgen=$D_JID ($D_URL)
   clients : ${CLIENT_JIDS[*]}
   reaper  : $REAP
-  outputs : $OUTDIR/local_{replace_all,replace_one,search}.json
+  outputs : $ALL_EXP_BASE/graphite/baseline/<variant>/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_<variant>.json
 Monitor:  squeue --me
           tail -f logs/ds_baseline_*.out
 Cancel everything early:  scancel $A_JID $D_JID ${CLIENT_JIDS[*]} $REAP
