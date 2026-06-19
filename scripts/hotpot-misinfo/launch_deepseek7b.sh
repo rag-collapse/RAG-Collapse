@@ -5,9 +5,9 @@
 #   bash scripts/hotpot-misinfo/launch_deepseek7b.sh
 #
 # DeepSeek-R1 is a reasoning model:
-#   NO --reasoning-parser: vLLM's deepseek_r1 parser corrupts message.content into byte-level
-#   BPE artifacts (Ġ/Ċ) on current vLLM. Instead the server returns the raw <think>...</think>
-#   + answer, and server_llm.py (_strip_reasoning) drops the think block client-side.
+#   NO --reasoning-parser: on vLLM 0.20 the detokenizer returns this model's content as
+#   byte-level BPE (Ġ/Ċ) REGARDLESS of the parser; server_llm.py (_clean_response) byte-decodes
+#   it and strips any <think> block client-side.
 #   MAX_TOKENS=4096 gives the trace room (512 would truncate it and can leave content empty).
 set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1

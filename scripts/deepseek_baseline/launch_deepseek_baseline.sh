@@ -6,7 +6,7 @@
 #   bash scripts/deepseek_baseline/launch_deepseek_baseline.sh
 #
 # What it does (same proven topology as the misinfo launcher — 2 shared GPUs):
-#   1. starts the DeepSeek answer server (no reasoning-parser; <think> stripped client-side) and a Qwen2.5-7B
+#   1. starts the DeepSeek answer server (no reasoning-parser; output cleaned in server_llm.py) and a Qwen2.5-7B
 #      doc server (served name "qwen2.5-7b-doc", as in the canonical baseline metadata),
 #      reusing the generic servers in scripts/hotpot-misinfo/;
 #   2. waits until both are serving (parses each server log for its URL + curls /models);
@@ -32,9 +32,10 @@ ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage
 mkdir -p logs
 
 echo "### submitting shared servers (DeepSeek answer + Qwen2.5-7B doc), time limit $SERVER_TIME ###"
-# NOTE: NO --reasoning-parser. vLLM's deepseek_r1 reasoning parser corrupts message.content
-# into byte-level BPE artifacts (Ġ/Ċ) on current vLLM; instead the server returns the raw
-# <think>...</think> + answer and server_llm.py (_strip_reasoning) drops the think block.
+# NOTE: NO --reasoning-parser. On vLLM 0.20 the detokenizer returns this DeepSeek model's
+# content as byte-level BPE (Ġ/Ċ) REGARDLESS of the parser; server_llm.py (_clean_response)
+# byte-decodes it and strips any <think> block. Special tokens are already skipped, so the
+# parser buys nothing here and only added corruption risk.
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-deepseek-r1-7b" \
         --export="ALL,MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,SERVED_MODEL_NAME=deepseek-r1-distill-qwen-7b,MAX_NUM_SEQS=${ANSWER_MAX_NUM_SEQS:-128}" \
         scripts/hotpot-misinfo/server_answer.sh)
