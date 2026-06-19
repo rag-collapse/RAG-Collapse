@@ -44,7 +44,7 @@ COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
         --doc-vllm-api-base "$DOC_VLLM_API_BASE" --doc-model-name "$DOC_MODEL"
         --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
         --pipeline-variant "$VARIANT" --max-questions ${MAX_Q:-5} --num-iterations ${ITERS:-3}
-        --num-runs 4 --seed 42)
+        --num-runs 4 --chars-per-doc 500 --seed 42)
 
 echo "########## arm: faithful (parity) ##########"
 python -u hotpot_pipeline.py "${COMMON[@]}" \

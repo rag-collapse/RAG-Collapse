@@ -10,6 +10,7 @@ BASE="${OUTPUT_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapat
 export ANSWER_MODEL_ID="meta-llama/Llama-3.1-8B-Instruct"
 export ANSWER_SERVED="llama3.1-8b"
 export ANSWER_EXTRA_ARGS=""
+export ANSWER_MAX_NUM_SEQS=128                        # 8B model -> matches start_llm_server_llama3.1_8b.sh
 export OUTDIR="$BASE/$ANSWER_SERVED"
 
 exec bash scripts/hotpot-misinfo/launch_all_variants.sh

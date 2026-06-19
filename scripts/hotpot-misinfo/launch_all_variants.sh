@@ -30,12 +30,13 @@ DOCGEN_PORT="${DOCGEN_PORT:-5153}"
 ANSWER_MODEL_ID="${ANSWER_MODEL_ID:-Qwen/Qwen2.5-14B-Instruct}"
 ANSWER_SERVED="${ANSWER_SERVED:-qwen2.5-14b}"     # served name == client --model-name
 ANSWER_EXTRA_ARGS="${ANSWER_EXTRA_ARGS:-}"        # model-specific vLLM flags (e.g. --reasoning-parser deepseek_r1)
+ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B (anti-OOM); 7-8B wrappers set 128
 OUTDIR="${OUTDIR:-hotpot_misinfo_outputs}"
 mkdir -p logs
 
 echo "### submitting shared servers for answer model '$ANSWER_SERVED' (time limit $SERVER_TIME) ###"
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED" \
-        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS" \
+        --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS" \
         scripts/hotpot-misinfo/server_answer.sh)
 D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b" --export=ALL \
         scripts/hotpot-misinfo/server_docgen.sh)   # no MODEL_NAME exported -> keeps its Qwen2.5-7B default
@@ -70,7 +71,7 @@ echo "### both servers up — fanning out variants for '$ANSWER_SERVED': $VARIAN
 CLIENT_JIDS=()
 for v in $VARIANTS; do
   jid=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-$v" \
-        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,GT_FILE=$GT_FILE,VARIANT=$v,MAX_Q=${MAX_Q:-50},SEED=${SEED:-42},TARGET=${TARGET:-final_answer},MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},ARMS=${ARMS:-faithful counterfactual freeform},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=$OUTDIR" \
+        --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,GT_FILE=$GT_FILE,VARIANT=$v,MAX_Q=${MAX_Q:-50},SEED=${SEED:-42},TARGET=${TARGET:-final_answer},MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},ARMS=${ARMS:-faithful counterfactual freeform},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=$OUTDIR" \
         scripts/hotpot-misinfo/run_variant_client.sh)
   echo "  variant $v -> client job $jid"
   CLIENT_JIDS+=("$jid")

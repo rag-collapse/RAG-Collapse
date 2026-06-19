@@ -50,6 +50,10 @@ INJECT_ROUND="${INJECT_ROUND:-1}"
 # is pinned to 512 for ALL models so synthesized-document length stays a controlled constant.
 MAX_TOKENS="${MAX_TOKENS:-512}"
 DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
+# Match the canonical hotpot run (scripts/hotpot_pipeline.sh): --num-runs 10 --chars-per-doc 500.
+# chars-per-doc especially matters — it sets how much of each doc feeds the RAG prompt per round.
+NUM_RUNS="${NUM_RUNS:-10}"
+CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 ARMS="${ARMS:-faithful counterfactual freeform}"
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
@@ -70,6 +74,7 @@ run_arm () {
     --doc-vllm-api-base "$DOC_VLLM_API_BASE" --doc-model-name "$DOC_MODEL" \
     --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR" \
     --pipeline-variant "$VARIANT" --max-questions "$MAX_Q" --seed "$SEED" \
+    --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC" \
     --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS" \
     --doc-synthesis-mode "$mode" --target-mode "$TARGET" --inject-round "$INJECT_ROUND" \
     --output-path "$out" $extra

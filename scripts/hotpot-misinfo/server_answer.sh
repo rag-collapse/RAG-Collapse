@@ -35,6 +35,9 @@ PORT="${PORT:-5154}"
 #   DeepSeek-R1  -> EXTRA_VLLM_ARGS="--reasoning-parser deepseek_r1"  (keeps <think> out of message.content)
 # No tool-call flags needed: search/replace_one/hybrid are NOT agentic.
 EXTRA_VLLM_ARGS="${EXTRA_VLLM_ARGS:-}"
+# Match the canonical per-model servers: 64 for the 14B default (anti-OOM, see
+# start_llm_server_qwen14b.sh), 128 for the 7-8B answer models (set by their launchers).
+MAX_NUM_SEQS="${MAX_NUM_SEQS:-64}"
 
 FQDN=$(hostname -f)
 echo "Answer server: http://${FQDN}:${PORT}/v1   (served name: ${SERVED_MODEL_NAME})"
@@ -45,7 +48,7 @@ vllm serve "${MODEL_NAME}" \
   --host 0.0.0.0 --port "${PORT}" \
   --served-model-name "${SERVED_MODEL_NAME}" \
   --tensor-parallel-size 1 \
-  --max-num-seqs 128 \
+  --max-num-seqs "${MAX_NUM_SEQS}" \
   --max-num-batched-tokens 8192 \
   --gpu-memory-utilization 0.92 \
   --trust-remote-code ${EXTRA_VLLM_ARGS}
