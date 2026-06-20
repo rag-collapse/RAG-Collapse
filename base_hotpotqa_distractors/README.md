@@ -79,3 +79,44 @@ sweep — fixing the overwrite gotcha and giving the baseline needed to interpre
   `[title, [sentences]]`; web-confirmed). It's a noise control — no asserted wrong entity.
 - Reuses the validated servers in `scripts/hotpot-misinfo/`. Honors the repo constraints in
   `handoff.md` §8 (vLLM 0.20 model flags, canonical params, 2-day cap via the reaper, hardcoded CACHE_DIR).
+
+---
+
+## Original HotpotQA paper distractor setting (Yang et al., EMNLP 2018)
+
+The synthetic sweep above corrupts retrieved docs to assert *wrong answers*. The **paper's own
+distractor setting** is different: each question ships with **2 gold + 8 TF-IDF distractor**
+paragraphs, where the distractors are *answer-absent hard negatives* (related but don't state the
+answer). This second experiment runs **that** setting through the recursive loop — seeding round 0
+from the native context, no synthesis of distractors.
+
+**How it works.** `hotpot_pipeline.py --initial-docs native_distractor --native-hotpot-file <distractor.json>`
+seeds round 0 from each question's native `context` (each paragraph a doc, tagged gold/distractor),
+bypassing FAISS. `--distractor-gold-only` keeps just the 2 gold paragraphs (the contrast).
+`--initial-docs faiss` (default) is byte-identical to the original pipeline. Native seeding and the
+synthetic `--distractor-fraction` are mutually exclusive.
+
+**Data.** Needs `hotpot_dev_distractor_v1.json` (the *distractor* setting — gold guaranteed present),
+NOT the fullwiki file. Official download:
+`http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json`. `launch_native.sh` downloads
+it on the login node if missing.
+
+**Recommended variants.** `replace_one` (default — starts with all 10 native docs, replaces one slot
+per round) and `hybrid` carry the native context forward. **`search` caveat:** with native seeding the
+search universe is the question's own 10 paragraphs (embedded), growing with generated docs — it does
+*not* re-retrieve from Wikipedia. So native seeding is most meaningful in `replace_one`/`hybrid`.
+
+**Run (Unity, login node):**
+```bash
+bash base_hotpotqa_distractors/smoke_native.sh        # fast: hybrid, 20 q, num_runs 2, both arms
+bash base_hotpotqa_distractors/launch_native.sh       # full: replace_one, distractor + gold-only
+```
+Each run emits both arms `native_<variant>_{distractor,goldonly}.json` (+ per-round F1/EM via
+`hotpot_evaluation.py`) and `compare_native.py` prints the per-round `gold_match`/`distinct_answers`
+for distractor-setting vs gold-only over the shared cohort. Dedicated ports **5186/5187**.
+
+**Eval note.** Native distractors are answer-absent (no seeded wrong entity), so there is no
+`distractor_adoption` here — the read is accuracy degradation over rounds and distractor-setting vs
+gold-only. `compare_native.py` + per-arm `hotpot_evaluation.py` (token F1/EM) cover it.
+
+Files: `launch_native.sh`, `run_native.sh`, `smoke_native.sh`, `compare_native.py`, `test_native_seed.py`.

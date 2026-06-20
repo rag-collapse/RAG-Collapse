@@ -30,6 +30,7 @@ from formatters import get_create_document_conversation
 from pipeline.misinfo import (
     MisinfoController, MODE_FAITHFUL, MODES, TARGETS,
     DistractorController, DISTRACTOR_MODES,
+    load_native_records, native_context_docs,
 )
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
@@ -233,6 +234,20 @@ def parse_args():
              "per doc), substitution (distinct same-type wrong entity per doc), or native_noise "
              "(real non-answer HotpotQA paragraphs; requires --native-hotpot-file).")
 
+    # --- Original HotpotQA paper distractor setting (round-0 source; default-off) ---
+    # Replicate Yang et al. (EMNLP 2018): seed round 0 from each question's native
+    # 2-gold + 8-TF-IDF-distractor context instead of FAISS retrieval. Distinct from the
+    # synthetic --distractor-fraction above (those assert a wrong answer; the native ones
+    # are answer-absent hard negatives).
+    p.add_argument("--initial-docs", choices=["faiss", "native_distractor"], default="faiss",
+        help="Round-0 document source. 'faiss' (default): retrieve from the Wikipedia FAISS "
+             "index (pipeline unchanged). 'native_distractor': seed round 0 from the question's "
+             "native HotpotQA distractor-setting context (2 gold + 8 TF-IDF distractors); "
+             "requires --native-hotpot-file (hotpot_dev_distractor_v1.json).")
+    p.add_argument("--distractor-gold-only", action="store_true",
+        help="With --initial-docs native_distractor: keep ONLY the 2 gold paragraphs (drop the 8 "
+             "distractors) — the no-distractor contrast for the distractor-setting experiment.")
+
     return p.parse_args()
 
 
@@ -259,6 +274,15 @@ def run_pipeline() -> None:
     if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
         raise SystemExit("--native-hotpot-file is required when --distractor-mode native_noise")
 
+    native_seed = args.initial_docs == "native_distractor"
+    if native_seed and not args.native_hotpot_file:
+        raise SystemExit("--initial-docs native_distractor requires --native-hotpot-file "
+                         "(the hotpot_dev_distractor_v1.json distractor-setting file)")
+    if native_seed and distractor_enabled:
+        raise SystemExit("--initial-docs native_distractor and synthetic --distractor-fraction are "
+                         "mutually exclusive: native distractors are answer-absent paragraphs, "
+                         "synthetic ones assert a wrong answer.")
+
     variant = args.pipeline_variant
     num_iterations = args.num_iterations or DEFAULT_ROUNDS[variant]
     num_runs = args.num_runs
@@ -273,20 +297,28 @@ def run_pipeline() -> None:
         else min(args.max_questions, len(queries_ds))
     )
 
-    print("Loading corpus metadata ...")
-    from datasets import load_dataset as hf_load_dataset
-    corpus_ds = hf_load_dataset("mteb/hotpotqa", "corpus", cache_dir=args.cache_dir)["corpus"]
-    corpus_titles = corpus_ds["title"]
-    corpus_texts = corpus_ds["text"]
+    if native_seed:
+        # Original-HotpotQA distractor setting: no FAISS / Wikipedia corpus — round-0 docs come
+        # from each question's native context. Embedder only needed for the search variant.
+        print(f"Loading native HotpotQA distractor-setting file {args.native_hotpot_file} ...")
+        native_records = load_native_records(args.native_hotpot_file)
+        index = docid_map = corpus_ds = corpus_titles = corpus_texts = None
+        embedder = E5Embedder() if is_search else None
+    else:
+        print("Loading corpus metadata ...")
+        from datasets import load_dataset as hf_load_dataset
+        corpus_ds = hf_load_dataset("mteb/hotpotqa", "corpus", cache_dir=args.cache_dir)["corpus"]
+        corpus_titles = corpus_ds["title"]
+        corpus_texts = corpus_ds["text"]
 
-    print("Loading E5 embedding model ...")
-    embedder = E5Embedder()  # GPU if available, else CPU
+        print("Loading E5 embedding model ...")
+        embedder = E5Embedder()  # GPU if available, else CPU
 
-    print(f"Loading FAISS index from {args.index_dir} ...")
-    index = faiss.read_index(os.path.join(args.index_dir, "ivf.index"))
-    index.nprobe = args.nprobe
-    with open(os.path.join(args.index_dir, "docid_map.json")) as f:
-        docid_map: List[str] = json.load(f)
+        print(f"Loading FAISS index from {args.index_dir} ...")
+        index = faiss.read_index(os.path.join(args.index_dir, "ivf.index"))
+        index.nprobe = args.nprobe
+        with open(os.path.join(args.index_dir, "docid_map.json")) as f:
+            docid_map: List[str] = json.load(f)
 
     def _faiss_search(query, top_k):
         """Return (query_vec, [(score, doc_dict), ...]) from FAISS."""
@@ -315,6 +347,7 @@ def run_pipeline() -> None:
 
     print(f"Running initial retrieval for {num_questions} questions ...")
     states: List[_QState] = []
+    n_missing = 0
     for q_idx in range(num_questions):
         s = _QState()
         s.q_idx = q_idx
@@ -322,18 +355,39 @@ def run_pipeline() -> None:
         s.question_text = queries_ds[q_idx]["text"]
         s.search_state = None
 
-        k = MAX_INITIAL_DOCS_REPLACE_ONE if variant == VARIANT_REPLACE_ONE else args.top_k
-        fetch_k = k + 20 if is_search else k
-        qvec, candidates = _faiss_search(s.question_text, fetch_k)
+        if native_seed:
+            # Round-0 = the question's native distractor-setting context (2 gold + 8 distractors).
+            rec = native_records.get(s.query_id)
+            if rec is None:
+                n_missing += 1
+                continue
+            docs = native_context_docs(rec, gold_only=args.distractor_gold_only)
+            s.initial_corpus_docs = docs
+            s.current_docs = list(docs)
+            if variant == VARIANT_HYBRID and args.num_db_docs > 0:
+                s.current_docs = _select(docs, args.num_db_docs, args.db_doc_selection)
+            if is_search:
+                # Search universe = the native paragraphs (embedded), growing with generated docs.
+                qv = embedder.encode([s.question_text], prefix="query: ")[0]
+                if docs:
+                    dvecs = embedder.encode([d["text"] for d in docs], prefix="passage: ")
+                    candidates = [(float(sc), d) for sc, d in zip(dvecs @ qv, docs)]
+                else:
+                    candidates = []
+                s.search_state = CachedSearchState(query_vec=qv, corpus_candidates=candidates)
+        else:
+            k = MAX_INITIAL_DOCS_REPLACE_ONE if variant == VARIANT_REPLACE_ONE else args.top_k
+            fetch_k = k + 20 if is_search else k
+            qvec, candidates = _faiss_search(s.question_text, fetch_k)
 
-        s.initial_corpus_docs = [doc for _, doc in candidates[:k]]
-        s.current_docs = list(s.initial_corpus_docs)
+            s.initial_corpus_docs = [doc for _, doc in candidates[:k]]
+            s.current_docs = list(s.initial_corpus_docs)
 
-        if variant == VARIANT_HYBRID and args.num_db_docs > 0:
-            s.current_docs = _select(s.initial_corpus_docs, args.num_db_docs, args.db_doc_selection)
+            if variant == VARIANT_HYBRID and args.num_db_docs > 0:
+                s.current_docs = _select(s.initial_corpus_docs, args.num_db_docs, args.db_doc_selection)
 
-        if is_search:
-            s.search_state = CachedSearchState(query_vec=qvec, corpus_candidates=candidates)
+            if is_search:
+                s.search_state = CachedSearchState(query_vec=qvec, corpus_candidates=candidates)
 
         s.question_obj = {
             "question_id": q_idx,
@@ -345,16 +399,23 @@ def run_pipeline() -> None:
         if (q_idx + 1) % 100 == 0:
             print(f"  {q_idx + 1}/{num_questions}")
 
+    if native_seed and n_missing:
+        print(f"[native] {n_missing}/{num_questions} questions not found in the distractor file (skipped).")
+    if not states:
+        raise SystemExit("No questions to run — check that --native-hotpot-file (distractor setting) "
+                         "aligns with the query --split.")
     print(f"Initial retrieval done for {len(states)} questions.")
 
-    # Free FAISS index and corpus.
+    # Free FAISS index and corpus (faiss path only; the native path never loaded them).
     # For search: embedder stays on GPU to encode AI-generated docs each round.
     # For hybrid / replace_one: embedder is no longer needed.
-    del index, docid_map, corpus_ds, corpus_titles, corpus_texts
+    if not native_seed:
+        del index, docid_map, corpus_ds, corpus_titles, corpus_texts
     gc.collect()
 
     if not is_search:
-        del embedder
+        if embedder is not None:
+            del embedder
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -430,6 +491,10 @@ def run_pipeline() -> None:
         "top_k": args.top_k,
         "nprobe": args.nprobe,
     }
+    if native_seed:
+        meta["initial_docs"] = args.initial_docs
+        meta["native_hotpot_file"] = args.native_hotpot_file
+        meta["distractor_gold_only"] = args.distractor_gold_only
     if variant == VARIANT_HYBRID:
         meta["num_synth_docs"] = args.num_synth_docs
         meta["num_db_docs"] = args.num_db_docs

@@ -160,6 +160,40 @@ def load_native_records(path: str) -> Dict[str, Dict[str, Any]]:
     return {row["_id"]: row for row in data}
 
 
+def native_context_docs(record: Dict[str, Any], gold_only: bool = False) -> List[Dict[str, Any]]:
+    """Build round-0 docs from a native HotpotQA **distractor-setting** record's ``context``.
+
+    Replicates the original HotpotQA paper (Yang et al., EMNLP 2018) distractor setting: each
+    question's context is 2 gold supporting paragraphs + 8 TF-IDF distractor paragraphs. A
+    paragraph is GOLD iff its title appears in ``supporting_facts``; the rest are distractors
+    (answer-absent hard negatives — NOT wrong-answer assertions). With ``gold_only=True`` only
+    the gold paragraphs are returned (the no-distractor contrast).
+
+    Each doc dict matches the corpus-doc shape used by the loop, plus ``gold``/``distractor`` tags.
+    """
+    ctx = record.get("context", []) or []
+    gold_titles = {t for t, _ in record.get("supporting_facts", []) or []}
+    docs: List[Dict[str, Any]] = []
+    for i, item in enumerate(ctx):
+        # native context item = [title, [sentence, sentence, ...]]
+        title = item[0] if len(item) > 0 else ""
+        sents = item[1] if len(item) > 1 else []
+        is_gold = title in gold_titles
+        if gold_only and not is_gold:
+            continue
+        text = " ".join(sents) if isinstance(sents, (list, tuple)) else str(sents)
+        docs.append({
+            "doc_id": f"native_{i}",
+            "iteration": 0,
+            "url": "",
+            "title": title,
+            "text": text,
+            "gold": is_gold,
+            "distractor": not is_gold,
+        })
+    return docs
+
+
 # ── substitute validation & selection ───────────────────────────────────────
 def validate_substitute(
     candidate: str,
