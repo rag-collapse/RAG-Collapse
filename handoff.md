@@ -104,6 +104,47 @@ inflates). (2) `run_sweep.sh` runs fractions **sequentially in one client job** 
 rounds) × large `MAX_Q` × 4 fractions this can approach the 47h wall; split fractions across jobs for the
 full run.
 
+> **Status:** a synthetic qwen2.5-14b sweep was started then **stopped** — the user clarified their goal
+> is to replicate the *original HotpotQA paper's distractor setting* (Option A, §1c), which is a different
+> construct (answer-absent native distractors, not synthetic wrong-answer attractors). The synthetic code
+> + partial outputs remain and are re-runnable; it's now the secondary "Option B".
+
+---
+
+## 1c. NEW — Option A: native HotpotQA distractor setting (the paper's setting; `1eab431`)
+
+The user's actual goal: replicate the **original HotpotQA paper** (Yang et al., **EMNLP 2018**) **distractor
+setting** — each question's round-0 context = its **2 gold supporting paragraphs + 8 TF-IDF distractor
+paragraphs**, where distractors are **answer-ABSENT hard negatives** (NOT wrong-answer assertions) — and
+run the recursive collapse loop from that start. This is distinct from the §1b synthetic distractors.
+
+Built + reviewed twice (find-docs + web) + my spot-check; **31 tests pass**; committed `1eab431` (pushed).
+- `pipeline/misinfo.py::native_context_docs(record, gold_only)` — splits a native record's `context` into
+  gold (title ∈ `supporting_facts`) vs distractor docs, tagged `gold`/`distractor`, stable `native_{i}` ids.
+- `hotpot_pipeline.py` — `--initial-docs {faiss,native_distractor}` (default `faiss`, **byte-identical**) +
+  `--distractor-gold-only`. `native_distractor` seeds round 0 from the native context (no FAISS); gated on
+  `native_seed`; mutually exclusive with synthetic `--distractor-fraction`; requires `--native-hotpot-file`.
+- `base_hotpotqa_distractors/`: `launch_native.sh` (ports **5186/5187**; downloads the distractor file on
+  the login node), `run_native.sh` (distractor-setting + gold-only arms → F1/EM eval → `compare_native.py`),
+  `smoke_native.sh`, `compare_native.py`, `test_native_seed.py`, README section.
+
+**Data dependency:** the **distractor** dev file `hotpot_dev_distractor_v1.json` (gold guaranteed) — NOT the
+fullwiki file we already have (its `context` is fullwiki TF-IDF, gold usually absent). URL (web-verified):
+`http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json`. `launch_native.sh` fetches it on
+the login node (compute nodes lack internet).
+
+**Eval:** native distractors are answer-absent → no adoption metric. Uses F1/EM/`gold_match` over rounds;
+the headline is **distractor-setting vs gold-only** accuracy (the paper's ablation) and whether the loop
+degrades across rounds. **Recommended variants: `replace_one` / `hybrid`** (native context carries forward).
+**`search` caveat:** native seeding makes the search universe the question's own 10 paragraphs (no Wikipedia
+re-retrieval), so it's most meaningful in replace_one/hybrid — documented; runner defaults to `replace_one`.
+
+**Run (Unity, after pull):**
+```bash
+bash base_hotpotqa_distractors/smoke_native.sh                 # fast validation (downloads the file)
+bash base_hotpotqa_distractors/launch_native.sh                # distractor-setting + gold-only, replace_one
+```
+
 ---
 
 ## 2. THE TWO OPEN QUESTIONS (resolve these first)
