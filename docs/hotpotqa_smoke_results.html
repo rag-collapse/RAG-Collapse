@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HotpotQA Collapse — Smoke &amp; Validation Log</title>
+<style>
+  :root{
+    --ground:#13201d; --panel:#1a2a27; --panel2:#213431; --line:#2c443f;
+    --text:#e9e4d7; --muted:#93a8a1; --faint:#6f857f;
+    --accent:#e3a53a; --pass:#74c596; --issue:#dd6e4c; --info:#5fb6c4;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+    line-height:1.55;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(120% 80% at 50% -10%,#1a2c28 0%,var(--ground) 60%);}
+  .wrap{max-width:920px;margin:0 auto;padding:0 22px}
+  a{color:var(--accent);text-decoration:none}
+  a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+  .mono{font-family:var(--mono)}
+
+  /* hero */
+  header{padding:64px 0 34px}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.32em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(2rem,5.4vw,3.3rem);line-height:1.02;margin:.35em 0 .2em;font-weight:800;letter-spacing:-.02em}
+  .lede{color:var(--muted);font-size:1.06rem;max-width:62ch;margin:0}
+  .ledger{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);
+    border-radius:999px;padding:7px 13px 7px 11px;font-size:.82rem;color:var(--text);cursor:pointer;
+    font-family:var(--mono);transition:border-color .15s,background .15s}
+  .chip:hover{border-color:var(--accent);background:var(--panel2)}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .d-pass{background:var(--pass)} .d-issue{background:var(--issue)} .d-info{background:var(--info)} .d-accent{background:var(--accent)}
+  .tally{margin-top:18px;font-family:var(--mono);font-size:.8rem;color:var(--faint)}
+  .tally b{color:var(--text)}
+
+  /* sections */
+  section{border-top:1px solid var(--line);padding:38px 0}
+  .snum{font-family:var(--mono);font-size:.74rem;letter-spacing:.18em;color:var(--faint)}
+  h2{font-size:clamp(1.3rem,3vw,1.7rem);margin:.18em 0 .1em;font-weight:750;letter-spacing:-.01em}
+  .cfg{font-family:var(--mono);font-size:.8rem;color:var(--muted);margin:.2em 0 0}
+  .verdict{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:.72rem;
+    letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid var(--line);margin-top:14px}
+  .v-pass{color:var(--pass);border-color:#34534280;background:#1c2f2a}
+  .v-fix{color:var(--accent);border-color:#5a472180;background:#2a241a}
+  .v-full{color:var(--info);border-color:#2c4a5080;background:#172a2d}
+  .v-issue{color:var(--issue);border-color:#5a302480;background:#2c1f1b}
+  p.body{color:var(--text);max-width:64ch}
+  .muted{color:var(--muted)}
+
+  /* data tables */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px;margin:16px 0;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:380px;font-family:var(--mono);font-size:.82rem}
+  th,td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--accent);font-weight:600;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase}
+  tbody tr:last-child td{border-bottom:none}
+  td .up{color:var(--issue)} td .down{color:var(--pass)} /* up=accuracy fell(bad) ; not used as semantic globally */
+  .pos{color:var(--pass)} .neg{color:var(--issue)} .zero{color:var(--faint)}
+
+  /* checks */
+  ul.checks{list-style:none;padding:0;margin:14px 0;display:grid;gap:8px}
+  ul.checks li{display:flex;gap:10px;align-items:flex-start;font-size:.93rem}
+  ul.checks li::before{content:"✓";color:var(--pass);font-family:var(--mono);font-weight:700;flex:none;margin-top:1px}
+  ul.checks li.x::before{content:"!";color:var(--issue)}
+
+  /* bars */
+  .bars{display:grid;gap:10px;margin:16px 0}
+  .barrow{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:12px;font-family:var(--mono);font-size:.8rem}
+  .barlabel{color:var(--muted);text-align:right}
+  .track{background:#0e1916;border:1px solid var(--line);border-radius:5px;height:20px;position:relative;overflow:hidden}
+  .fill{height:100%;border-radius:4px 0 0 4px}
+  .barval{color:var(--text);min-width:46px;text-align:left}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:2px 8px;border-radius:5px;border:1px solid var(--line);color:var(--muted);margin:2px 4px 2px 0}
+  .pill.ok{color:var(--pass);border-color:#34534280}
+  .pill.bad{color:var(--issue);border-color:#5a302480}
+
+  details{border:1px solid var(--line);border-radius:9px;background:var(--panel);margin-top:14px}
+  summary{cursor:pointer;padding:12px 15px;font-family:var(--mono);font-size:.82rem;color:var(--accent);list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--faint)}
+  details[open] summary::before{content:"▾ "}
+  .details-body{padding:2px 16px 16px}
+
+  /* toggle */
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:6px 0 4px}
+  .toggle button{background:transparent;color:var(--muted);border:none;padding:8px 14px;font-family:var(--mono);
+    font-size:.8rem;cursor:pointer;border-right:1px solid var(--line)}
+  .toggle button:last-child{border-right:none}
+  .toggle button[aria-pressed="true"]{background:var(--panel2);color:var(--accent)}
+  .stat{font-family:var(--mono)}
+  .bignum{font-size:clamp(2.2rem,7vw,3.6rem);font-weight:800;color:var(--accent);line-height:1;letter-spacing:-.02em}
+  .statgrid{display:flex;flex-wrap:wrap;gap:26px;margin:16px 0;align-items:flex-end}
+  .statgrid div span{display:block;color:var(--muted);font-family:var(--mono);font-size:.78rem;margin-top:6px}
+  footer{border-top:1px solid var(--line);padding:30px 0 70px;color:var(--faint);font-family:var(--mono);font-size:.78rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Validation log · this session</p>
+    <h1>HotpotQA collapse:<br>smoke &amp; validation results</h1>
+    <p class="lede">Five runs took the recursive RAG-collapse pipeline from "does the machinery work?"
+    to reproducing the original HotpotQA paper's distractor setting inside the loop. Each card is one run,
+    in the order it happened, with the actual numbers.</p>
+    <div class="ledger" id="ledger">
+      <button class="chip" data-go="s1"><span class="dot d-pass"></span>01 · misinfo smoke</button>
+      <button class="chip" data-go="s2"><span class="dot d-issue"></span>02 · distractor issue</button>
+      <button class="chip" data-go="s3"><span class="dot d-accent"></span>03 · fix validated</button>
+      <button class="chip" data-go="s4"><span class="dot d-info"></span>04 · DeepSeek full run</button>
+      <button class="chip" data-go="s5"><span class="dot d-pass"></span>05 · native distractor</button>
+    </div>
+    <p class="tally">runs <b>5</b> &nbsp;·&nbsp; passed <b>4</b> &nbsp;·&nbsp; issue caught + fixed <b>1</b>
+      &nbsp;·&nbsp; byte-artifacts across all runs <b>0</b></p>
+  </header>
+
+  <!-- 01 -->
+  <section id="s1">
+    <p class="snum">01 / MISINFO ERROR-COMPOUNDING</p>
+    <h2>The injection machinery runs end-to-end</h2>
+    <p class="cfg">Qwen2.5-7B (answer + doc, shared) · search · 20 q · 3 rounds · num_runs 4 · all-in-one smoke</p>
+    <div><span class="verdict v-pass"><span class="dot d-pass"></span>all checks passed</span></div>
+    <ul class="checks">
+      <li><b>Parity</b> — the <span class="mono">faithful</span> arm is byte-identical: no injection records, no extra metadata.</li>
+      <li><b>Counterfactual</b> — 20 records, 15 eligible; 3 reached <span class="mono">status=ok</span> with recorded injected doc ids.</li>
+      <li><b>Freeform</b> — 15 eligible; the discovery judge populated claims for every eligible question.</li>
+      <li><b>Eval</b> — <span class="mono">injection_aggregates</span> present: n_eligible=15, adoption_rate=0.067.</li>
+    </ul>
+    <p class="cfg">statuses seen: <span class="pill ok">ok</span><span class="pill">gold_absent_in_answer</span><span class="pill">leaky_gold</span><span class="pill">skipped_yes_no</span></p>
+    <p class="body"><b>ASR is non-degenerate</b> — it stays 0 while the seeded error is still upstream, then appears at round 2
+    (inject-round 1 → the corrupted doc enters context at round 2). That shape is the signal the smoke was checking for:</p>
+    <div class="bars" id="asrbars">
+      <div class="barrow"><span class="barlabel">round 0</span><div class="track"><div class="fill" style="width:2%;background:var(--faint)"></div></div><span class="barval">0.000</span></div>
+      <div class="barrow"><span class="barlabel">round 1</span><div class="track"><div class="fill" style="width:2%;background:var(--faint)"></div></div><span class="barval">0.000</span></div>
+      <div class="barrow"><span class="barlabel">round 2</span><div class="track"><div class="fill" style="width:67%;background:var(--accent)"></div></div><span class="barval">0.067</span></div>
+    </div>
+    <p class="cfg muted">asr_by_iteration — the round-2 bar is scaled against the run's max (0.067), not an absolute rate.</p>
+  </section>
+
+  <!-- 02 -->
+  <section id="s2">
+    <p class="snum">02 / SYNTHETIC DISTRACTOR — DIAGNOSIS</p>
+    <h2>The smoke caught a weak distractor</h2>
+    <p class="cfg">Qwen2.5-14B · search · 20 q · num_runs 10 · --distractor-fraction 0.5 · faithful synthesis</p>
+    <div><span class="verdict v-issue"><span class="dot d-issue"></span>issue found</span></div>
+    <p class="body">Plumbing ran clean (6,000 answers, 0 byte-artifacts, 0 empty), but the <span class="mono">rewrite</span>
+    distractor only landed about a third of the time and frequently re-asserted the gold answer — which also inflated the
+    adoption metric. Of 75 corrupted-doc records:</p>
+    <div class="bars">
+      <div class="barrow"><span class="barlabel">status = ok</span><div class="track"><div class="fill" style="width:70.7%;background:var(--info)"></div></div><span class="barval">53/75</span></div>
+      <div class="barrow"><span class="barlabel">no error made</span><div class="track"><div class="fill" style="width:29.3%;background:var(--issue)"></div></div><span class="barval">22/75</span></div>
+      <div class="barrow"><span class="barlabel">empty entity</span><div class="track"><div class="fill" style="width:49.3%;background:var(--issue)"></div></div><span class="barval">37/75</span></div>
+      <div class="barrow"><span class="barlabel">gold-leak</span><div class="track"><div class="fill" style="width:17.3%;background:var(--issue)"></div></div><span class="barval">13/75</span></div>
+    </div>
+    <p class="cfg">distinct real wrong entities / question: <b class="mono">1.33</b> (12/15 questions ≥1)</p>
+    <details>
+      <summary>distractor_aggregates over 30 rounds (round 0 → round 29)</summary>
+      <div class="details-body">
+        <div class="tablewrap"><table>
+          <thead><tr><th>metric</th><th>round 0</th><th>round 29</th><th>note</th></tr></thead>
+          <tbody>
+            <tr><td>gold_match</td><td>0.200</td><td>0.200</td><td class="zero">flat — no movement</td></tr>
+            <tr><td>distractor_adoption</td><td>0.667</td><td>0.533</td><td class="neg">inflated by gold-leak</td></tr>
+            <tr><td>distinct_answers</td><td>1.40</td><td>1.20</td><td class="muted">—</td></tr>
+            <tr><td>offtarget_rate</td><td>0.333</td><td>0.467</td><td class="muted">—</td></tr>
+          </tbody>
+        </table></div>
+        <p class="cfg muted">Conclusion: not yet moving the distribution — fix the distractor before reading any result.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- 03 -->
+  <section id="s3">
+    <p class="snum">03 / SYNTHETIC DISTRACTOR — FIX</p>
+    <h2>Gold-leak removed, every doc now a real distractor</h2>
+    <p class="cfg">hybrid · 20 q · num_runs 2 · fractions {0, 0.5} · gold-leak exclusion + substitution fallback</p>
+    <div><span class="verdict v-fix"><span class="dot d-accent"></span>fix validated</span></div>
+    <p class="body">The fix drops any "distractor" that re-asserts gold and substitutes a distinct wrong entity wherever the
+    rewrite fails — so every corrupted doc carries a real, distinct falsehood. Before → after:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>distractor quality</th><th>before</th><th>after</th></tr></thead>
+      <tbody>
+        <tr><td>gold-leak</td><td class="neg">13/75</td><td class="pos">0/30</td></tr>
+        <tr><td>empty entity</td><td class="neg">37/75</td><td class="pos">0/30</td></tr>
+        <tr><td>distinct wrong / question</td><td>1.33</td><td class="pos">2.0</td></tr>
+        <tr><td>effective questions</td><td>12/15</td><td class="pos">15/15</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cfg">post-fix per-doc statuses: <span class="pill ok">9 ok</span><span class="pill">6 fallback_substitution</span><span class="pill">15 fallback_appended</span></p>
+    <p class="body"><b>Dose-response</b> (faithful synthesis, distractors at round 0). Adoption goes from 0 at the baseline to
+    0.53 with distractors — and now it's <em>real</em> adoption, not gold-leak:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>fraction</th><th>gold_match</th><th>distractor_adoption</th><th>distinct_answers</th></tr></thead>
+      <tbody>
+        <tr><td>0.0 — baseline</td><td>0.067</td><td>0.000</td><td>1.20</td></tr>
+        <tr><td>0.5 — distractors</td><td>0.000</td><td>0.533</td><td>1.07</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- 04 -->
+  <section id="s4">
+    <p class="snum">04 / DEEPSEEK-R1 GRAPHITE BASELINE</p>
+    <h2>Full run — the byte-decode fix holds at scale</h2>
+    <p class="cfg">DeepSeek-R1-Distill-Qwen-7B · graphite dataset (not HotpotQA) · 400 q · full run, not a smoke</p>
+    <div><span class="verdict v-full"><span class="dot d-info"></span>full run · clean</span></div>
+    <p class="body">The session's starting point: regenerate the missing DeepSeek baseline. vLLM 0.20's detokenizer returns this
+    model's text as byte-level BPE (<span class="mono">Ġ</span>/<span class="mono">Ċ</span>); a client-side decode handles it.
+    Across all three update regimes:</p>
+    <div class="statgrid">
+      <div><div class="bignum">240,000</div><span>answers generated</span></div>
+      <div><div class="bignum" style="color:var(--pass)">0</div><span>byte-artifacts (Ġ/Ċ)</span></div>
+      <div><div class="bignum" style="color:var(--pass)">0</div><span>empty answers</span></div>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>variant</th><th>questions</th><th>rounds</th><th>answers</th></tr></thead>
+      <tbody>
+        <tr><td>replace_all</td><td>400</td><td>10</td><td>40,000</td></tr>
+        <tr><td>replace_one</td><td>400</td><td>20</td><td>80,000</td></tr>
+        <tr><td>search</td><td>400</td><td>30</td><td>120,000</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cfg muted">Outputs consolidated into all_experiments/graphite/baseline/. Derived eval/entity metrics are still
+    being refreshed against the new raw files.</p>
+  </section>
+
+  <!-- 05 -->
+  <section id="s5">
+    <p class="snum">05 / NATIVE HOTPOTQA DISTRACTOR SETTING</p>
+    <h2>The original paper's setting, inside the loop</h2>
+    <p class="cfg">Qwen2.5-14B · 20 q · num_runs 2 · arms: distractor (2 gold + 8 distractors) vs gold-only (2 gold)
+      · Yang et al., EMNLP 2018</p>
+    <div><span class="verdict v-pass"><span class="dot d-pass"></span>faithful setting reproduced</span></div>
+    <p class="body">Seed round 0 with each question's real HotpotQA distractor-setting context — 2 gold supporting paragraphs
+    plus 8 TF-IDF distractors — and run the collapse loop. The variant determines whether the full 10-paragraph context survives:</p>
+
+    <div class="toggle" role="group" aria-label="variant">
+      <button id="t-ro" aria-pressed="true" data-arm="ro">replace_one — faithful</button>
+      <button id="t-hy" aria-pressed="false" data-arm="hy">hybrid — truncated</button>
+    </div>
+    <p class="cfg" id="seedline"></p>
+
+    <div class="bars" id="goldbars"></div>
+    <p class="cfg muted" id="readline"></p>
+
+    <details>
+      <summary>full ablation numbers (both variants)</summary>
+      <div class="details-body">
+        <div class="tablewrap"><table>
+          <thead><tr><th>variant · arm</th><th>round0 docs</th><th>gold r0</th><th>gold rF</th><th>Δ gold</th><th>distinct r0→rF</th></tr></thead>
+          <tbody>
+            <tr><td>replace_one · distractor</td><td>10 (2g+8d)</td><td>0.500</td><td>0.325</td><td class="neg">−0.175</td><td>1.05→1.10</td></tr>
+            <tr><td>replace_one · gold-only</td><td>2 (2g)</td><td>0.650</td><td>0.450</td><td class="neg">−0.200</td><td>1.00→1.00</td></tr>
+            <tr><td>hybrid · distractor</td><td>3 (1g+2d)</td><td>0.400</td><td>0.250</td><td class="neg">−0.150</td><td>1.45→1.30</td></tr>
+            <tr><td>hybrid · gold-only</td><td>2 (2g)</td><td>0.550</td><td>0.500</td><td class="neg">−0.050</td><td>1.10→1.05</td></tr>
+          </tbody>
+        </table></div>
+        <p class="cfg muted">hybrid keeps only num_db_docs of the 10 native paragraphs → not the paper's setting. Use replace_one.
+        Both arms ran clean (800 answers/arm, 0 byte-artifacts).</p>
+      </div>
+    </details>
+    <p class="body" style="margin-top:18px"><b>Reading (faithful arm):</b> the 8 distractors lower accuracy from the very
+    first round (0.50 vs 0.65 with gold-only), and the recursive loop pulls both arms down — the paper's distractor setting
+    reproduced as a starting point for collapse.</p>
+
+    <p class="body" style="margin-top:18px"><b>Faithful setting validated across all four answer models</b>
+    (replace_one, 20 q, num_runs 2 — all clean, all round-0 = 10 docs / 2 gold + 8 distractor):</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>answer model</th><th>round0 docs</th><th>distractor gold r0→rF (Δ)</th><th>gold-only gold r0→rF (Δ)</th><th>clean</th></tr></thead>
+      <tbody>
+        <tr><td>Qwen2.5-14B</td><td>10 (2g+8d)</td><td>0.500→0.325 (<span class="neg">−0.175</span>)</td><td>0.650→0.450 (<span class="neg">−0.200</span>)</td><td>✓</td></tr>
+        <tr><td>Mistral-7B-v0.3</td><td>10 (2g+8d)</td><td>0.200→0.200 (0.000)</td><td>0.200→0.075 (<span class="neg">−0.125</span>)</td><td>✓</td></tr>
+        <tr><td>Llama-3.1-8B</td><td>10 (2g+8d)</td><td>0.400→0.250 (<span class="neg">−0.150</span>)</td><td>0.425→0.275 (<span class="neg">−0.150</span>)</td><td>✓</td></tr>
+        <tr><td>DeepSeek-R1-Distill-Qwen-7B</td><td>10 (2g+8d)</td><td>0.000→0.000 (0.000)</td><td>0.025→0.000 (<span class="neg">−0.025</span>)</td><td>✓</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cfg muted">All four served &amp; seeded faithfully with clean answers (0 byte-artifacts — including DeepSeek via the
+    client-side byte-decode, and Mistral via <span class="mono">--tokenizer-mode mistral</span>). These are noisy smokes
+    (20 q, num_runs 2) — plumbing/seeding validation, not findings. DeepSeek scores ~0 gold_match here: clean but diverse
+    answers that don't match the short gold spans (reasoning-model answer format — watch in the full run).</p>
+  </section>
+
+  <!-- status -->
+  <section id="status">
+    <p class="snum">— / STATUS &amp; CAVEATS</p>
+    <h2>What's validated, what's pending</h2>
+    <ul class="checks">
+      <li>Injection machinery, distractor seeding, the Q1 fix, the byte-decode, and native distractor-setting seeding all run end-to-end and clean.</li>
+      <li>The faithful native setting (replace_one) is confirmed across all four answer models — Qwen2.5-14B, Mistral-7B, Llama-3.1-8B, DeepSeek-R1-7B: round 0 = 10 docs (2 gold + 8 distractor), gold-only = 2 gold, all clean.</li>
+      <li class="x">All HotpotQA numbers are <b>preliminary smokes</b> (20 q, num_runs 2–10) — magnitudes are not yet statistically meaningful.</li>
+      <li class="x">hybrid <em>truncates</em> the 10-paragraph native context — use <span class="mono">replace_one</span> for the paper's setting.</li>
+      <li class="x">The CMU host for the distractor file is dead — it's now reconstructed from HuggingFace automatically.</li>
+    </ul>
+    <p class="body"><b>Ready next:</b> the Qwen2.5-14B native full run (replace_one, 400 q, num_runs 10, distractor + gold-only)
+    for statistically meaningful numbers.</p>
+  </section>
+
+  <footer>
+    HotpotQA recursive-RAG collapse · smoke &amp; validation log · all figures transcribed from this session's runs ·
+    preliminary unless marked full run
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // ledger + status nav
+  document.querySelectorAll("[data-go]").forEach(function(b){
+    b.addEventListener("click",function(){
+      var el=document.getElementById(b.getAttribute("data-go"));
+      if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
+
+  // section 05 variant toggle
+  var DATA={
+    ro:{
+      seed:'round 0 = <b>10 docs (2 gold + 8 distractor)</b> · gold-only = 2 gold · clean (800 answers/arm)',
+      read:'replace_one keeps all 10 native paragraphs — the faithful paper setting.',
+      bars:[
+        {label:"distractor r0",val:0.500,w:50,c:"var(--accent)"},
+        {label:"distractor rF",val:0.325,w:32.5,c:"var(--issue)"},
+        {label:"gold-only r0",val:0.650,w:65,c:"var(--pass)"},
+        {label:"gold-only rF",val:0.450,w:45,c:"var(--info)"}
+      ]
+    },
+    hy:{
+      seed:'round 0 = <b>3 docs (1 gold + 2 distractor)</b> — hybrid selected only num_db_docs · NOT the paper setting',
+      read:'hybrid truncates the native context to num_db_docs — shown for contrast, do not use for the paper setting.',
+      bars:[
+        {label:"distractor r0",val:0.400,w:40,c:"var(--accent)"},
+        {label:"distractor rF",val:0.250,w:25,c:"var(--issue)"},
+        {label:"gold-only r0",val:0.550,w:55,c:"var(--pass)"},
+        {label:"gold-only rF",val:0.500,w:50,c:"var(--info)"}
+      ]
+    }
+  };
+  var barsEl=document.getElementById("goldbars"),
+      seedEl=document.getElementById("seedline"),
+      readEl=document.getElementById("readline");
+  function render(arm){
+    var d=DATA[arm];
+    seedEl.innerHTML=d.seed;
+    readEl.textContent=d.read;
+    barsEl.innerHTML=d.bars.map(function(b){
+      return '<div class="barrow"><span class="barlabel">'+b.label+'</span>'+
+        '<div class="track"><div class="fill" style="width:'+b.w+'%;background:'+b.c+'"></div></div>'+
+        '<span class="barval">'+b.val.toFixed(3)+'</span></div>';
+    }).join("");
+  }
+  document.querySelectorAll(".toggle button").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      document.querySelectorAll(".toggle button").forEach(function(x){x.setAttribute("aria-pressed","false");});
+      btn.setAttribute("aria-pressed","true");
+      render(btn.getAttribute("data-arm"));
+    });
+  });
+  render("ro");
+})();
+</script>
+</body>
+</html>
