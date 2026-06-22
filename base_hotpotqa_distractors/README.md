@@ -97,9 +97,11 @@ bypassing FAISS. `--distractor-gold-only` keeps just the 2 gold paragraphs (the 
 synthetic `--distractor-fraction` are mutually exclusive.
 
 **Data.** Needs `hotpot_dev_distractor_v1.json` (the *distractor* setting — gold guaranteed present),
-NOT the fullwiki file. Official download:
-`http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json`. `launch_native.sh` downloads
-it on the login node if missing.
+NOT the fullwiki file. The official host `curtis.ml.cmu.edu` is **dead**, so the identical dev data is
+reconstructed from HuggingFace (`hotpot_qa`, config `distractor`, split `validation` = the 7,405 dev
+questions) by `fetch_distractor_file.py`. `launch_native.sh` runs this automatically on the login node if
+the file is missing (needs internet + the `ragenv` env); or generate it manually:
+`python base_hotpotqa_distractors/fetch_distractor_file.py <out_path>`.
 
 **Recommended variants.** `replace_one` (default — starts with all 10 native docs, replaces one slot
 per round) and `hybrid` carry the native context forward. **`search` caveat:** with native seeding the

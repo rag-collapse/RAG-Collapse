@@ -129,9 +129,11 @@ Built + reviewed twice (find-docs + web) + my spot-check; **31 tests pass**; com
   `smoke_native.sh`, `compare_native.py`, `test_native_seed.py`, README section.
 
 **Data dependency:** the **distractor** dev file `hotpot_dev_distractor_v1.json` (gold guaranteed) — NOT the
-fullwiki file we already have (its `context` is fullwiki TF-IDF, gold usually absent). URL (web-verified):
-`http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json`. `launch_native.sh` fetches it on
-the login node (compute nodes lack internet).
+fullwiki file we already have (its `context` is fullwiki TF-IDF, gold usually absent). The official host
+`curtis.ml.cmu.edu` is **DEAD** (connection times out), so `fetch_distractor_file.py` reconstructs the
+identical dev data from HuggingFace (`hotpot_qa`, config `distractor`, split `validation` = 7,405 dev
+questions). `launch_native.sh` runs it automatically on the login node if the file is missing (needs
+internet + `ragenv`). It's already generated at `/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_distractor_v1.json`.
 
 **Eval:** native distractors are answer-absent → no adoption metric. Uses F1/EM/`gold_match` over rounds;
 the headline is **distractor-setting vs gold-only** accuracy (the paper's ablation) and whether the loop

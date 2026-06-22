@@ -25,11 +25,17 @@ ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B; 128 for 7-8B
 NATIVE_FILE="${NATIVE_FILE:-$SCR/hotpot_dev_distractor_v1.json}"
 mkdir -p logs
 
-# Ensure the paper's distractor-setting file is present (download here — login nodes have internet;
-# compute nodes usually do not).
+# Ensure the paper's distractor-setting file is present. The official host
+# (curtis.ml.cmu.edu) is dead, so we reconstruct the IDENTICAL dev data from HuggingFace
+# (hotpot_qa, distractor/validation). Generate here — login nodes have internet + the env;
+# compute nodes usually have neither.
 if [[ ! -f "$NATIVE_FILE" ]]; then
-  echo "Downloading hotpot_dev_distractor_v1.json -> $NATIVE_FILE ..."
-  curl -fL -o "$NATIVE_FILE" http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json
+  echo "Generating $NATIVE_FILE from HuggingFace hotpot_qa (distractor/validation) ..."
+  module load conda/latest >/dev/null 2>&1 || true
+  conda activate ragenv >/dev/null 2>&1 || true
+  HF_HOME="$SCR/hf_cache" HF_HUB_CACHE="$SCR/hf_cache" \
+    python "$(dirname "$0")/fetch_distractor_file.py" "$NATIVE_FILE" \
+    || { echo "ERROR: failed to generate $NATIVE_FILE (need internet + the ragenv env on this login node)" >&2; exit 1; }
 fi
 
 echo "### submitting shared servers for '$ANSWER_SERVED' (ports $ANSWER_PORT/$DOCGEN_PORT, time $SERVER_TIME) ###"

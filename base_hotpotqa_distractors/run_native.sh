@@ -48,7 +48,8 @@ mkdir -p "$OUTDIR"
 # Guard: the distractor-setting file must exist (the launcher downloads it on the login node).
 if [[ ! -f "$NATIVE_FILE" ]]; then
   echo "Distractor-setting file missing: $NATIVE_FILE" >&2
-  echo "Fetch it first (login node, has internet): curl -fL -o $NATIVE_FILE http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json" >&2
+  echo "Generate it on a login node (has internet + ragenv): python base_hotpotqa_distractors/fetch_distractor_file.py $NATIVE_FILE" >&2
+  echo "  (or just run launch_native.sh, which generates it automatically)" >&2
   exit 1
 fi
 
