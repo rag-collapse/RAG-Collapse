@@ -98,6 +98,24 @@
   .statgrid{display:flex;flex-wrap:wrap;gap:26px;margin:16px 0;align-items:flex-end}
   .statgrid div span{display:block;color:var(--muted);font-family:var(--mono);font-size:.78rem;margin-top:6px}
   footer{border-top:1px solid var(--line);padding:30px 0 70px;color:var(--faint);font-family:var(--mono);font-size:.78rem}
+
+  /* beginner layer: primer, "what this is" notes, glossary */
+  .primer{border-top:1px solid var(--line);padding:36px 0 8px}
+  .primer p{color:var(--text);max-width:66ch}
+  .primer p.muted{color:var(--muted)}
+  .loop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0;font-family:var(--mono);font-size:.8rem}
+  .loop .step{border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:7px 11px;color:var(--text)}
+  .loop .arrow{color:var(--accent);font-weight:700}
+  .note{border-left:3px solid var(--accent);background:var(--panel);border-radius:0 8px 8px 0;
+    padding:12px 16px;margin:14px 0;color:var(--muted);font-size:.96rem;max-width:66ch}
+  .note b{color:var(--text)}
+  dl.gloss{margin:16px 0;border:1px solid var(--line);border-radius:9px;background:var(--panel);overflow:hidden}
+  dl.gloss>div{display:grid;grid-template-columns:minmax(130px,200px) 1fr;gap:16px;padding:10px 15px;border-bottom:1px solid var(--line)}
+  dl.gloss>div:last-child{border-bottom:none}
+  dl.gloss dt{font-family:var(--mono);font-size:.78rem;color:var(--accent);margin:0}
+  dl.gloss dd{margin:0;color:var(--text);font-size:.92rem}
+  @media (max-width:560px){dl.gloss>div{grid-template-columns:1fr;gap:3px}}
+  abbr[title]{text-decoration:underline dotted var(--faint);cursor:help}
 </style>
 </head>
 <body>
@@ -110,20 +128,54 @@
     to reproducing the original HotpotQA paper's distractor setting inside the loop. Each card is one run,
     in the order it happened, with the actual numbers.</p>
     <div class="ledger" id="ledger">
+      <button class="chip" data-go="primer"><span class="dot d-accent"></span>00 · start here</button>
       <button class="chip" data-go="s1"><span class="dot d-pass"></span>01 · misinfo smoke</button>
       <button class="chip" data-go="s2"><span class="dot d-issue"></span>02 · distractor issue</button>
       <button class="chip" data-go="s3"><span class="dot d-accent"></span>03 · fix validated</button>
       <button class="chip" data-go="s4"><span class="dot d-info"></span>04 · DeepSeek full run</button>
       <button class="chip" data-go="s5"><span class="dot d-pass"></span>05 · native distractor</button>
+      <button class="chip" data-go="glossary"><span class="dot d-info"></span>glossary</button>
     </div>
     <p class="tally">runs <b>5</b> &nbsp;·&nbsp; passed <b>4</b> &nbsp;·&nbsp; issue caught + fixed <b>1</b>
       &nbsp;·&nbsp; byte-artifacts across all runs <b>0</b></p>
   </header>
 
+  <!-- primer -->
+  <section class="primer" id="primer">
+    <p class="snum">00 / START HERE</p>
+    <h2>What this page is, in plain terms</h2>
+    <p><b>RAG</b> (retrieval-augmented generation) just means a language model answers a question by first
+    pulling in some documents and reading them. <b>“RAG collapse,”</b> the thing this project studies, is what
+    happens when you close the loop: take the model’s own answer, turn it back into a “document,” feed it in as
+    context next round, and repeat. Over many rounds the answers tend to degenerate — they lose variety and/or
+    drift away from the truth. This happens at answer time, with no retraining.</p>
+    <p class="muted">The recursive loop, one round at a time:</p>
+    <div class="loop">
+      <span class="step">retrieve top documents</span><span class="arrow">→</span>
+      <span class="step">model answers</span><span class="arrow">→</span>
+      <span class="step">answer condensed into a new “document”</span><span class="arrow">→</span>
+      <span class="step">fed back as context</span><span class="arrow">↻</span>
+      <span class="step">repeat 10–30 rounds</span>
+    </div>
+    <p><b>HotpotQA</b> is the question set used here: <em>multi-hop</em> questions (each needs facts from two or
+    more Wikipedia paragraphs) that have a short, exact “gold” answer — so we can measure whether the model still
+    gets it right as the loop runs.</p>
+    <p>The five runs below ask: does planting a <b>false claim</b> inside the loop make the error <b>compound</b>
+    over rounds (runs 01–03)? does a byte-level text fix for one model hold up at scale (run 04)? and can we
+    reproduce the <b>original HotpotQA paper’s “distractor” setting</b> — real but misleading documents mixed in
+    at the start — inside the loop (run 05)?</p>
+    <p class="note"><b>Read these as smoke tests.</b> They use tiny question sets to check the machinery runs and
+    the numbers move in sensible directions — not as final results. Every term is defined in the
+    <a href="#glossary">glossary</a> at the bottom.</p>
+  </section>
+
   <!-- 01 -->
   <section id="s1">
     <p class="snum">01 / MISINFO ERROR-COMPOUNDING</p>
     <h2>The injection machinery runs end-to-end</h2>
+    <p class="note"><b>What this is:</b> the “misinfo” experiment plants one false claim into the document the
+    model writes each round, then tracks whether that error spreads in later rounds. This run only checks that the
+    machinery works end-to-end and that the planted error shows up on schedule.</p>
     <p class="cfg">Qwen2.5-7B (answer + doc, shared) · search · 20 q · 3 rounds · num_runs 4 · all-in-one smoke</p>
     <div><span class="verdict v-pass"><span class="dot d-pass"></span>all checks passed</span></div>
     <ul class="checks">
@@ -133,7 +185,7 @@
       <li><b>Eval</b> — <span class="mono">injection_aggregates</span> present: n_eligible=15, adoption_rate=0.067.</li>
     </ul>
     <p class="cfg">statuses seen: <span class="pill ok">ok</span><span class="pill">gold_absent_in_answer</span><span class="pill">leaky_gold</span><span class="pill">skipped_yes_no</span></p>
-    <p class="body"><b>ASR is non-degenerate</b> — it stays 0 while the seeded error is still upstream, then appears at round 2
+    <p class="body"><b>ASR is non-degenerate</b> (ASR = how often the answer adopts the planted wrong answer) — it stays 0 while the seeded error is still upstream, then appears at round 2
     (inject-round 1 → the corrupted doc enters context at round 2). That shape is the signal the smoke was checking for:</p>
     <div class="bars" id="asrbars">
       <div class="barrow"><span class="barlabel">round 0</span><div class="track"><div class="fill" style="width:2%;background:var(--faint)"></div></div><span class="barval">0.000</span></div>
@@ -147,6 +199,9 @@
   <section id="s2">
     <p class="snum">02 / SYNTHETIC DISTRACTOR — DIAGNOSIS</p>
     <h2>The smoke caught a weak distractor</h2>
+    <p class="note"><b>What this is:</b> a <b>distractor document</b> here is a retrieved doc we deliberately rewrite
+    to assert a <em>wrong</em> answer, placed in the starting context to try to pull the model off the truth. This
+    run found the rewriting was weak — most corrupted docs didn’t end up carrying a usable wrong answer.</p>
     <p class="cfg">Qwen2.5-14B · search · 20 q · num_runs 10 · --distractor-fraction 0.5 · faithful synthesis</p>
     <div><span class="verdict v-issue"><span class="dot d-issue"></span>issue found</span></div>
     <p class="body">Plumbing ran clean (6,000 answers, 0 byte-artifacts, 0 empty), but the <span class="mono">rewrite</span>
@@ -180,6 +235,9 @@
   <section id="s3">
     <p class="snum">03 / SYNTHETIC DISTRACTOR — FIX</p>
     <h2>Gold-leak removed, every doc now a real distractor</h2>
+    <p class="note"><b>What this is:</b> the fix for run 02. It discards any “distractor” that accidentally repeats
+    the correct answer (<em>gold-leak</em>) and, when the rewrite fails, swaps in a clean wrong entity instead — so
+    every corrupted document now carries a real, distinct falsehood.</p>
     <p class="cfg">hybrid · 20 q · num_runs 2 · fractions {0, 0.5} · gold-leak exclusion + substitution fallback</p>
     <div><span class="verdict v-fix"><span class="dot d-accent"></span>fix validated</span></div>
     <p class="body">The fix drops any "distractor" that re-asserts gold and substitutes a distinct wrong entity wherever the
@@ -209,6 +267,9 @@
   <section id="s4">
     <p class="snum">04 / DEEPSEEK-R1 GRAPHITE BASELINE</p>
     <h2>Full run — the byte-decode fix holds at scale</h2>
+    <p class="note"><b>What this is:</b> a <b>baseline</b> — a plain reference run with no manipulation — on a
+    different dataset (graphite, not HotpotQA). The serving software was handing back garbled text for this model;
+    we decode it on our side. This full run confirms the fix holds across 240,000 answers.</p>
     <p class="cfg">DeepSeek-R1-Distill-Qwen-7B · graphite dataset (not HotpotQA) · 400 q · full run, not a smoke</p>
     <div><span class="verdict v-full"><span class="dot d-info"></span>full run · clean</span></div>
     <p class="body">The session's starting point: regenerate the missing DeepSeek baseline. vLLM 0.20's detokenizer returns this
@@ -235,6 +296,9 @@
   <section id="s5">
     <p class="snum">05 / NATIVE HOTPOTQA DISTRACTOR SETTING</p>
     <h2>The original paper's setting, inside the loop</h2>
+    <p class="note"><b>What this is:</b> the original HotpotQA paper’s setup — each question comes with 2 correct
+    (“gold”) paragraphs plus 8 real-but-unhelpful “distractor” paragraphs — used as the loop’s starting context.
+    The <b>gold-only</b> arm (just the 2 correct paragraphs) is the control to compare against.</p>
     <p class="cfg">Qwen2.5-14B · 20 q · num_runs 2 · arms: distractor (2 gold + 8 distractors) vs gold-only (2 gold)
       · Yang et al., EMNLP 2018</p>
     <div><span class="verdict v-pass"><span class="dot d-pass"></span>faithful setting reproduced</span></div>
@@ -300,6 +364,39 @@
     </ul>
     <p class="body"><b>Ready next:</b> the Qwen2.5-14B native full run (replace_one, 400 q, num_runs 10, distractor + gold-only)
     for statistically meaningful numbers.</p>
+  </section>
+
+  <!-- glossary -->
+  <section id="glossary">
+    <p class="snum">— / GLOSSARY</p>
+    <h2>Every term on this page, in one line</h2>
+    <dl class="gloss">
+      <div><dt>RAG</dt><dd>Retrieval-augmented generation — the model answers using documents it retrieves first.</dd></div>
+      <div><dt>recursive / self-refinement loop</dt><dd>Feeding the model's own answers back in as documents, round after round.</dd></div>
+      <div><dt>collapse</dt><dd>Answers degenerating over rounds — losing variety, or drifting off the truth.</dd></div>
+      <div><dt>HotpotQA</dt><dd>A multi-hop question-answering benchmark; each question has a short gold answer.</dd></div>
+      <div><dt>multi-hop</dt><dd>A question that needs facts combined from two or more documents.</dd></div>
+      <div><dt>gold answer / supporting facts</dt><dd>The correct short answer, and the specific paragraphs that justify it.</dd></div>
+      <div><dt>distractor (paper)</dt><dd>A real Wikipedia paragraph retrieved as a hard negative — related but does NOT contain the answer.</dd></div>
+      <div><dt>distractor (synthetic)</dt><dd>A retrieved doc we deliberately corrupt to assert a specific WRONG answer.</dd></div>
+      <div><dt>search / replace_one / hybrid</dt><dd>The three loop variants — growing store (30 rounds) / swap one doc per round (20) / replace the whole context (10).</dd></div>
+      <div><dt>round / iteration</dt><dd>One pass through the loop.</dd></div>
+      <div><dt>num_runs</dt><dd>How many independent answer samples are drawn per question per round.</dd></div>
+      <div><dt>faithful / counterfactual / freeform</dt><dd>Synthesis modes — write the truth / swap in a wrong entity / invent a plausible false claim.</dd></div>
+      <div><dt>injection</dt><dd>Planting a false claim into the document the model generates.</dd></div>
+      <div><dt>inject-round</dt><dd>The round whose generated document gets the planted error.</dd></div>
+      <div><dt>ASR (injected_match_rate)</dt><dd>Attack success rate — how often the model's answer adopts the planted wrong answer.</dd></div>
+      <div><dt>gold_match</dt><dd>How often the answer matches the correct gold answer (i.e. accuracy).</dd></div>
+      <div><dt>distractor_adoption_rate</dt><dd>How often the answer adopts any seeded distractor's wrong answer.</dd></div>
+      <div><dt>distinct_answers</dt><dd>How many different answers appear per question — a diversity measure.</dd></div>
+      <div><dt>offtarget_rate</dt><dd>How often the answer is neither the gold nor a seeded wrong answer.</dd></div>
+      <div><dt>gold-leak</dt><dd>A "distractor" that accidentally still asserts the correct answer — a failed distractor.</dd></div>
+      <div><dt>substitution fallback</dt><dd>When a rewrite fails to produce a wrong answer, swapping in a clean distinct wrong entity instead.</dd></div>
+      <div><dt>eligible</dt><dd>A question that qualifies for the manipulation (e.g. not a yes/no answer, gold present).</dd></div>
+      <div><dt>byte-artifacts (Ġ/Ċ)</dt><dd>Garbled tokenizer output (Ġ = space, Ċ = newline) when text isn't decoded properly.</dd></div>
+      <div><dt>F1 / EM</dt><dd>Standard QA scores — token overlap with the gold answer / exact match.</dd></div>
+      <div><dt>baseline</dt><dd>A plain reference run with no manipulation, to compare other runs against.</dd></div>
+    </dl>
   </section>
 
   <footer>
