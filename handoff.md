@@ -1,326 +1,164 @@
-# Handoff — HotpotQA round-0 distractor experiment (status + open decisions)
+# Handoff — RAG-collapse / HotpotQA work (fresh-start context)
 
-The round-0 "distractor document" feature is **built, reviewed, unit-tested, and smoke-tested**. This
-doc captures what's done, the two open decisions, and the immediate goal: **study the base HotpotQA
-pipeline *with distractor documents* to see how it performs.** Read top to bottom, resolve the two
-questions in §2 with the user, then run §3.
+Everything below is **built, reviewed, and smoke-validated**; the only thing not yet done is the
+**full-scale HotpotQA runs**. This doc is organized around the three things to know: **(1) the
+`all_experiments` data folder, (2) the HotpotQA experiments, (3) working with Unity.** Then repo/code
+map and next steps.
 
----
-
-## 0. TL;DR
-
-- The distractor feature lets you corrupt a fraction of each question's **round-0 *initial retrieved*
-  documents** into wrong-answer "distractor" docs (leaving the rest correct), so the **starting**
-  answer distribution is wider/partly-wrong instead of a spike on gold. Separate from, and composable
-  with, the existing `--inject-round` generated-stream injection.
-- **Decision already made:** distractors are **DIVERSE** — each corrupted doc gets its **own distinct**
-  invented falsehood (to simulate independently-hallucinated AI docs), via `--distractor-mode rewrite`
-  (default), `substitution`, or `native_noise`.
-- **Built + validated:** implemented, two independent reviews (find-docs + handoff compliance), 24
-  pure-Python tests pass, and a qwen2.5-14b Unity smoke ran end-to-end. **The smoke exposed a quality
-  problem with the rewrite distractor (see §4) — that's what the two open questions in §2 are about.**
-- **Immediate goal (user):** run the **base HotpotQA pipeline with distractor docs** — i.e. the pure
-  distractor arm (faithful synthesis + round-0 distractors), with a matched no-distractor baseline, to
-  see how performance shifts.
+- Repo: `RAG-Collapsement-on-Self-Refined-Generation` — research on inference-time **RAG collapse** (a
+  model answers from retrieved docs; its answers become "documents" fed back next round; over rounds the
+  answers degenerate / drift). Read `CLAUDE.md` for the repo map, `docs/misinfo_error_compounding.md` for
+  the experiment, and the interactive `docs/hotpotqa_smoke_results.html` (beginner primer + all smoke results).
+- Branch: **`misinfo-error-compounding`** (draft PR **#32** → `main`); latest `origin` ≈ `b76fced`.
+- Beginner orientation: open `docs/hotpotqa_smoke_results.html` (has a "START HERE" primer + glossary).
 
 ---
 
-## 1. What's accomplished
+## 1. The `all_experiments` folder (consolidated data on Unity)
 
-**Feature (committed on branch `misinfo-error-compounding`; latest `origin` = `2e2cbd3`):**
-- `pipeline/misinfo.py` — `DistractorController` + `DistractorRecord` + helpers `n_to_corrupt`,
-  `select_distractor_indices` (prefers gold-bearing docs), `choose_distinct_substitutes`,
-  `DISTRACTOR_MODES`. Corrupts docs **in place** so the change persists across rounds in all three
-  variants (shared dict objects; search keeps each doc's original embedding so distractors stay
-  retrievable). Verified by review.
-- `formatters.py` — `get_rewrite_distractor_conversation` (rewrites one passage to imply its own
-  invented wrong answer).
-- `hotpot_pipeline.py` — flags `--distractor-fraction` (default 0.0=off) and `--distractor-mode
-  {rewrite,substitution,native_noise}`; round-0 `prepare_and_apply` (after `doc_llm` is built, before
-  the loop); validation (`>0` needs `--gt-file`; `native_noise` needs `--native-hotpot-file`);
-  metadata. **`--distractor-fraction 0` is byte-identical to the prior pipeline (guard verified).**
-- `hotpot_evaluation.py` — `distractor_aggregates` block (no-op without `initial_distractor` records).
-- `tests/test_misinfo.py` — +9 tests (24 total, all pass in `rag-collapse`).
-- Per-question schema-additive record `initial_distractor`: a **LIST** `distractors:[{doc_id,
-  injected_entity, status}]`, one entry per corrupted doc, plus `{fraction, mode, gold_answer,
-  eligible, n_docs, n_corrupted, status}`.
+**Path:** `/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments/`
+**Layout:** `<dataset>/<method>[/<config>]/<output_tree>[/<owner>]/<org>/<model>/<file>` where
+`<output_tree>` ∈ `experiment_outputs` (raw run JSON) / `evaluation_outputs` (text metrics) /
+`entity_extraction_output` (entity metrics). Built by `scripts/consolidate_experiments.py`
+(see `docs/data_locations.md`, `scripts/all_experiments_README.md`).
 
-**Diverse-aware metrics** (`distractor_aggregates`, per round incl. round 0): `gold_match_rate`
-(accuracy/recovery), `distractor_adoption_rate` (adopts *any* seeded wrong entity), **`distinct_answers`**
-(headline diversity signal), `offtarget_rate` (off-gold and off-every-seeded-entity),
-`distractor_retrieval_condition`.
-
-**Operational fixes this session (all committed):**
-- Server **ports are now configurable** and the launchers actually pass them (was a latent no-op).
-  Distinct per model so the experiment coexists with the running baseline and multi-model smokes don't
-  collide even on the same node: qwen14b `5164/5163`, mistral7b `5166/5165`, llama8b `5168/5167`,
-  deepseek7b `5170/5169` (answer/doc); the DeepSeek **graphite baseline** uses `5154/5153`.
-- **`GT_FILE` is now defaulted** to `/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json`
-  in `launch_all_variants.sh` + `run_variant_client.sh` — no manual `export` needed (still overridable).
-- DeepSeek served **without** `--reasoning-parser` (it corrupts content to byte-level BPE on vLLM 0.20);
-  `server_llm.py` `_clean_response()` byte-decodes + strips `<think>` instead. Affects the misinfo
-  DeepSeek launcher too.
-- Interactive docs: `docs/hotpotqa_experiments.html` (full suite incl. these smoke metrics) and the
-  older `docs/distractor_experiment.html`.
-
-**Separately running on Unity (unrelated to this feature):** the **DeepSeek-R1-Distill-Qwen-7B graphite
-baseline** (`scripts/deepseek_baseline/launch_deepseek_baseline.sh`) — regenerating the missing
-`local_{replace_all,replace_one,search}.json` into `all_experiments/graphite/baseline/...`. It uses 2
-GPUs on ports 5154/5153; let it finish or run new work on the per-model ports above.
+- **Datasets:** `graphite` (the umass-entity set) and `hotpotqa`. **Methods:** `baseline`,
+  `agentic_rag`, reranker ablations, etc.
+- **Canonical baseline owners:** ffatima = Qwen-14B + Mistral; Rati = Llama + DeepSeek; rsenapati =
+  Agentic RAG. (Which owner's run to trust per model.)
+- **This session regenerated the missing DeepSeek graphite baseline raw outputs** (they were never saved
+  to shared storage; the original raw was lost). Now present + verified clean (400 q, 240,000 answers, 0
+  byte-artifacts):
+  `all_experiments/graphite/baseline/{replace_all,replace_one,search}/experiment_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_<variant>.json`
+  - ⚠️ **The `evaluation_outputs/` + `entity_extraction_output/` for DeepSeek baseline there are STALE**
+    (dated Apr, computed from the *lost* original raw). They do NOT match the new raw (Jun). **Re-run
+    `evaluation.py` + `entity_extraction.py` on the new raw to make the derived metrics consistent.**
+  - A laptop copy of the three raw files lives in `baseline-DeepSeek-R1-Distill-Qwen-7B/` (gitignored).
+- **HotpotQA experiment outputs land per-owner**, NOT in all_experiments by default:
+  `…/file_storage/rsenapati_umass_edu/hotpotqa_distractor_experiment/<served>/` (misinfo + synthetic) and
+  `…/rsenapati_umass_edu/base_hotpotqa_distractors/native_<model>/` (native). Consolidate later if wanted.
 
 ---
 
-## 1b. NEW — `base_hotpotqa_distractors/` standalone experiment (built, reviewed; `bfc660d`)
+## 2. The HotpotQA experiments (3 of them; all smoke-validated, full runs pending)
 
-A clean, self-contained package for the user's goal — **base HotpotQA recursive-RAG + round-0 diverse
-distractors**, decoupled from the misinfo synthesis/injection story. It is a **thin interface over the
-validated `hotpot_pipeline.py` + `pipeline/misinfo.py::DistractorController`** — it does NOT reimplement
-retrieval or the loop (no divergence risk). Runs ONLY faithful synthesis + distractors + a matched
-baseline (no `counterfactual`/`freeform` arms). Reviewed twice (find-docs + web) + my spot-check; **26
-tests pass**; committed (push pending my final review).
+All use the recursive loop in `hotpot_pipeline.py` (variants: `search` 30 rounds / `replace_one` 20 /
+`hybrid` 10) with FAISS/E5 Wikipedia retrieval + a Qwen2.5-7B doc/judge model. Diverse-aware + injection
+metrics live in `hotpot_evaluation.py`. Launchers + RUNBOOK in `scripts/hotpot-misinfo/` and
+`base_hotpotqa_distractors/`.
 
-Files (`base_hotpotqa_distractors/`):
-- `launch.sh` — login-node orchestrator; shared answer+doc servers on **dedicated ports 5180/5181**
-  (coexist with the graphite baseline 5154/5153 and misinfo launchers 5164–5170) → sweep client → reaper.
-- `run_sweep.sh` — CPU client; runs `hotpot_pipeline.py --doc-synthesis-mode faithful` for each fraction
-  incl. **0 = matched baseline**, non-overwriting filenames `base_<variant>_f<frac>.json`, then analysis.
-- `smoke.sh` — fast smoke (hybrid/10-round, 20 q, num_runs 2, fractions {0,0.5}, short servers, throwaway).
-- `compare_sweep.py` — matched-cohort comparison: per-round `gold_match` / `distractor_adoption` /
-  `offtarget` / `distinct_answers` for every fraction + a dose-response summary JSON.
-- `test_base_distractors.py` — pure-Python tests for the Q1 fix; `README.md`.
+### 2a. Misinfo error-compounding (`scripts/hotpot-misinfo/`)
+The doc synthesizer injects a false claim into the **generated** doc each round; tracks whether it
+propagates. Flags: `--doc-synthesis-mode {faithful,counterfactual,freeform}`, `--target-mode
+{final_answer,intermediate_hop,untargeted}`, `--inject-round`. Per-question `injection` record + ASR
+metrics. **Smoke passed** (parity, counterfactual, freeform discovery, non-degenerate ASR). Full run not
+done. Per-model launchers `launch_{qwen14b,mistral7b,llama8b,deepseek7b}.sh`.
 
-Run (Unity, after pull; `GT_FILE` defaulted, no exports needed):
+### 2b. Synthetic round-0 distractors — "Option B" (`base_hotpotqa_distractors/`, `launch.sh`)
+Corrupt a fraction of round-0 *retrieved* docs into **DIVERSE wrong-answer** distractors (each a distinct
+invented falsehood). `--distractor-fraction`, `--distractor-mode {rewrite,substitution,native_noise}`.
+The **Q1 fix is done** (gold-leak exclusion + substitution fallback in `pipeline/misinfo.py::_apply_rewrite`)
+→ re-smoke confirmed 0 gold-leak, 2.0 distinct entities/q, 15/15 effective. A qwen14b sweep was started
+then **stopped** when the user clarified the real goal is Option A (below). Code + partial outputs remain.
+
+### 2c. Native HotpotQA distractor setting — "Option A", THE CURRENT FOCUS (`base_hotpotqa_distractors/`, `launch_native.sh`)
+Replicates the **original HotpotQA paper** (Yang et al., EMNLP 2018) **distractor setting**: round-0
+context = each question's native **2 gold + 8 TF-IDF distractor** paragraphs (answer-absent hard
+negatives — NOT wrong-answer assertions), run through the recursive loop. `--initial-docs
+native_distractor` (default `faiss`, byte-identical) + `--distractor-gold-only` (the control). Eval =
+F1/EM/`gold_match` over rounds; headline = **distractor-setting vs gold-only** (the paper's ablation).
+- **Smoke-validated across ALL 4 models** (qwen14b / mistral-7b / llama-3.1-8b / deepseek-r1-7b): faithful
+  round-0 = 10 docs (2 gold + 8 distractor), gold-only = 2 gold, **clean answers** (incl. DeepSeek).
+- **Use `replace_one`** (default) or `hybrid` — `search` makes the universe just the 10 native paragraphs
+  (documented caveat). `replace_one` keeps all 10; `hybrid` truncates to `num_db_docs`.
+- ⚠️ **DeepSeek scored ~0 gold_match** in the smoke (clean but diverse answers not matching short gold
+  spans — reasoning-model answer-format issue). **Investigate before trusting DeepSeek native numbers.**
+
+**Run the full native experiment (the next step):** on Unity, after `git pull`:
 ```bash
-bash base_hotpotqa_distractors/smoke.sh                              # fast validation
-bash base_hotpotqa_distractors/launch.sh                             # full sweep {0,0.3,0.5,0.7} + baseline
-# override via env: MODEL launcher choice, MAX_Q, VARIANTS, FRACTIONS, SERVER_TIME/CLIENT_TIME, OUTPUT_BASE
-```
-Headline read: does `gold_match` drop and `distinct_answers`/`offtarget` rise as the distractor fraction
-increases, vs the fraction-0 baseline.
-
-Two caveats (from review): (1) the matched cohort = union of the distractor arms applied to all arms incl.
-baseline — sound/apples-to-apples, with a mild **conservative** dilution for low fractions (never
-inflates). (2) `run_sweep.sh` runs fractions **sequentially in one client job** — for full `search` (30
-rounds) × large `MAX_Q` × 4 fractions this can approach the 47h wall; split fractions across jobs for the
-full run.
-
-> **Status:** a synthetic qwen2.5-14b sweep was started then **stopped** — the user clarified their goal
-> is to replicate the *original HotpotQA paper's distractor setting* (Option A, §1c), which is a different
-> construct (answer-absent native distractors, not synthetic wrong-answer attractors). The synthetic code
-> + partial outputs remain and are re-runnable; it's now the secondary "Option B".
-
----
-
-## 1c. NEW — Option A: native HotpotQA distractor setting (the paper's setting; `1eab431`)
-
-The user's actual goal: replicate the **original HotpotQA paper** (Yang et al., **EMNLP 2018**) **distractor
-setting** — each question's round-0 context = its **2 gold supporting paragraphs + 8 TF-IDF distractor
-paragraphs**, where distractors are **answer-ABSENT hard negatives** (NOT wrong-answer assertions) — and
-run the recursive collapse loop from that start. This is distinct from the §1b synthetic distractors.
-
-Built + reviewed twice (find-docs + web) + my spot-check; **31 tests pass**; committed `1eab431` (pushed).
-- `pipeline/misinfo.py::native_context_docs(record, gold_only)` — splits a native record's `context` into
-  gold (title ∈ `supporting_facts`) vs distractor docs, tagged `gold`/`distractor`, stable `native_{i}` ids.
-- `hotpot_pipeline.py` — `--initial-docs {faiss,native_distractor}` (default `faiss`, **byte-identical**) +
-  `--distractor-gold-only`. `native_distractor` seeds round 0 from the native context (no FAISS); gated on
-  `native_seed`; mutually exclusive with synthetic `--distractor-fraction`; requires `--native-hotpot-file`.
-- `base_hotpotqa_distractors/`: `launch_native.sh` (ports **5186/5187**; downloads the distractor file on
-  the login node), `run_native.sh` (distractor-setting + gold-only arms → F1/EM eval → `compare_native.py`),
-  `smoke_native.sh`, `compare_native.py`, `test_native_seed.py`, README section.
-
-**Data dependency:** the **distractor** dev file `hotpot_dev_distractor_v1.json` (gold guaranteed) — NOT the
-fullwiki file we already have (its `context` is fullwiki TF-IDF, gold usually absent). The official host
-`curtis.ml.cmu.edu` is **DEAD** (connection times out), so `fetch_distractor_file.py` reconstructs the
-identical dev data from HuggingFace (`hotpot_qa`, config `distractor`, split `validation` = 7,405 dev
-questions). `launch_native.sh` runs it automatically on the login node if the file is missing (needs
-internet + `ragenv`). It's already generated at `/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_distractor_v1.json`.
-
-**Eval:** native distractors are answer-absent → no adoption metric. Uses F1/EM/`gold_match` over rounds;
-the headline is **distractor-setting vs gold-only** accuracy (the paper's ablation) and whether the loop
-degrades across rounds. **Recommended variants: `replace_one` / `hybrid`** (native context carries forward).
-**`search` caveat:** native seeding makes the search universe the question's own 10 paragraphs (no Wikipedia
-re-retrieval), so it's most meaningful in replace_one/hybrid — documented; runner defaults to `replace_one`.
-
-**Run (Unity, after pull):**
-```bash
-bash base_hotpotqa_distractors/smoke_native.sh                 # fast validation (downloads the file)
-bash base_hotpotqa_distractors/launch_native.sh                # distractor-setting + gold-only, replace_one
+bash base_hotpotqa_distractors/smoke_native.sh                  # fast re-check (downloads distractor file if missing)
+bash base_hotpotqa_distractors/launch_native.sh                 # qwen14b: distractor-setting + gold-only, replace_one, 400q, num_runs 10
+# other models — distinct ports + model flags (see launch_native.sh header / §3 example):
+ANSWER_MODEL_ID=meta-llama/Llama-3.1-8B-Instruct ANSWER_SERVED=llama3.1-8b ANSWER_MAX_NUM_SEQS=128 \
+  ANSWER_PORT=5190 DOCGEN_PORT=5191 OUTDIR=$HOME/native_llama bash base_hotpotqa_distractors/launch_native.sh
 ```
 
 ---
 
-## 2. THE TWO OPEN QUESTIONS (resolve these first)
+## 3. Working with Unity (hard-won lessons — read before touching the cluster)
 
-### Q1 — How to fix the rewrite distractor's effectiveness? — ✅ RESOLVED (option (a), in `bfc660d`)
-**Done in shared `pipeline/misinfo.py::_apply_rewrite`** (benefits both the misinfo distractor arm and the
-new `base_hotpotqa_distractors/` experiment): (i) **gold-leak exclusion** — a discovered entity that
-normalizes to the gold is dropped; `status=ok` now requires a non-empty, non-gold entity; (ii)
-**substitution fallback** — any doc whose rewrite yields no usable wrong answer gets a *distinct*
-substituted entity, so every corrupted doc becomes a real, diverse distractor. Reviewed twice + 26 tests
-pass; `--distractor-fraction 0` still byte-identical. **TODO: re-smoke on Unity to confirm the
-effectiveness numbers improve** (the §4 smoke predates this fix). Original analysis + the rejected
-options, for context:
-
-The qwen2.5-14b smoke showed the `rewrite` distractor is only ~⅓ effective per doc and **leaks the
-gold answer** into the seeded set (13/75 "distractors" asserted the *correct* answer, which also
-inflates `distractor_adoption_rate`). Options:
-- **(a) Fix `rewrite` (recommended):** (i) **gold-leak exclusion** — if the discovered entity normalizes
-  to the gold, mark the doc `leaky`/failed and drop it from the seeded-entity set + `status=ok` should
-  require a non-empty, non-gold entity; (ii) **substitution fallback** — for any corrupted doc where
-  rewrite yields no usable wrong answer, fall back to a distinct substituted entity, so every corrupted
-  doc becomes a real, diverse distractor while keeping naturalistic rewrite where it works.
-- **(b) Switch to pure `substitution`** — reliable distinct wrong entities, exact ground truth, less
-  naturalistic text. (Already implemented; `choose_distinct_substitutes` gives diversity.)
-- **(c) Proceed as-is** — accept ~1.33 effective distractors/question and the gold-leak (not recommended).
-
-Recommendation: **(a)**, then re-smoke. It preserves the user's "diverse hallucinated docs" intent while
-making the corruption actually land.
-
-### Q2 — The arm / baseline matrix for "base HotpotQA with distractors"
-`--distractor-fraction` applies to **whichever `ARMS` run**, so it composes with the synthesis arms.
-For the user's goal (study the *base* pipeline + distractors) the clean design is:
-- **Pure distractor arm:** `ARMS="faithful"` + `--distractor-fraction 0.5` (faithful synthesis = no
-  generated-stream injection; the only perturbation is the round-0 distractors).
-- **Matched no-distractor baseline:** `ARMS="faithful"` + `--distractor-fraction 0` — *required* to
-  interpret the result. (The smoke's `gold_match` looked "flat at 0.20" but there was **no baseline to
-  compare against**, so the absolute number is uninterpretable on its own.)
-- Optionally sweep `--distractor-fraction` (0 / 0.3 / 0.5 / 0.7) to see the dose-response.
-- Keep the injection arms (`counterfactual`/`freeform`, `--distractor-fraction 0`) as a *separate* run
-  if/when you want the loop-amplification story — don't conflate them in one run.
-
-Confirm: is the immediate experiment "faithful + distractors vs faithful baseline, sweeping fraction,
-across the 4 models and 3 variants"? If so, §3 is the run plan.
-
----
-
-## 3. Run plan for "base HotpotQA + distractors" (after §2 is resolved)
-
-On Unity (just `git pull origin misinfo-error-compounding` — no env exports needed; `GT_FILE` is
-defaulted). Per-model launchers each start their own answer+doc servers on the ports in §1.
-
-**Smoke first (fast — set `NUM_RUNS=2` and a 10-round variant so it's ~3 min, not 21):**
-```bash
-OUTPUT_BASE=$HOME/misinfo_smoke MAX_Q=20 VARIANTS=hybrid NUM_RUNS=2 ARMS="faithful" \
-SERVER_TIME=01:30:00 CLIENT_TIME=01:00:00 DISTRACTOR_FRACTION=0.5 \
-  bash scripts/hotpot-misinfo/launch_qwen14b.sh
-```
-Verify clean answers + that `distractor_aggregates.gold_match` *drops* vs a `DISTRACTOR_FRACTION=0`
-run and `distinct_answers` rises. Then smoke the other 3 models (`_mistral7b`/`_llama8b`/`_deepseek7b`).
-
-**Full run** (drop the smoke overrides; per the §2 matrix — pure distractor + matched baseline):
-```bash
-for L in qwen14b mistral7b llama8b deepseek7b; do
-  ARMS="faithful" DISTRACTOR_FRACTION=0.5 bash scripts/hotpot-misinfo/launch_$L.sh   # distractor arm
-  ARMS="faithful" DISTRACTOR_FRACTION=0   bash scripts/hotpot-misinfo/launch_$L.sh   # matched baseline
-done
-```
-Outputs: `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_distractor_experiment/<served>/`.
-(Note: same OUTDIR + same filename per variant → the two runs above would overwrite each other; give the
-baseline a distinct `OUTPUT_BASE` or filename. Worth wiring a per-run suffix before the full run.)
-
-> ⚠️ GPU reality: the graphite DeepSeek baseline is still running (2 GPUs) and the queue is deep
-> (~1500 pending). Smokes use short backfillable servers; the full suite (up to 8 GPUs) will queue.
+- **GitHub auth: the agent CANNOT `git pull`/`push` on Unity** (HTTPS remote, no stored credential).
+  Workflow all session: commit + push from the **laptop** clone, then the **user** pulls on Unity (PAT).
+  Don't try to push from Unity.
+- **Conda/Python:** Unity env **`ragenv`** (vllm/faiss/torch). `module load conda; conda activate ragenv`
+  ONLY works in a **login shell** (`ssh unity 'bash -lc "…"'` or `bash -ls`). In a non-login `bash -s`
+  heredoc, `module`/`conda` are undefined → **call the env python directly:
+  `$HOME/.conda/envs/ragenv/bin/python`**. Laptop: env `rag-collapse`, python
+  `/c/Users/riddh/anaconda3/envs/rag-collapse/python.exe` (no GPU — only `py_compile` / pytest / wiring).
+- **Launchers run detached:** `setsid env … bash <launcher>.sh > log 2>&1 </dev/null &` from a login
+  shell. The launcher submits the 2 servers, polls until they serve (`curl /models`), submits the client
+  + a **reaper** (`--dependency=afterany` → `scancel` the servers when the client finishes), then exits.
+  Persists after SSH closes. Monitor by reading the log + `squeue --me`.
+- **SLURM 2-day cap:** servers request 48h but the reaper kills them early; clients 47h (servers start
+  ~10 min earlier, so they outlive clients). Smokes: pass short `SERVER_TIME=01:30:00 CLIENT_TIME=01:00:00`.
+- **Ports must be distinct per concurrent run** (the launchers expose `ANSWER_PORT`/`DOCGEN_PORT` and now
+  actually forward them to the servers). In use: graphite baseline `5154/5153`; misinfo per-model
+  `5164–5170`; synthetic distractor `5180/5181`; native per-model `5186/5187` (qwen) + `5188–5193`
+  (mistral/llama/deepseek).
+- **GPU queue is volatile** — saw 1500+ pending at one point, 52 idle at another. Short server-time jobs
+  backfill fast; long 48h jobs sometimes still scheduled instantly when GPUs freed.
+- **vLLM 0.20.0 DeepSeek detok bug:** DeepSeek-R1 `message.content` comes back as byte-level BPE (`Ġ`=space,
+  `Ċ`=newline) — and `--reasoning-parser deepseek_r1` does NOT fix it (it's a detok regression; CMU/HF
+  issues #12954/#19222/#24459 don't match it). Fixed **client-side** in `llm_service/server_llm.py::_clean_response`
+  (byte-decode when markers present, + strip `<think>`). **Serve DeepSeek WITHOUT `--reasoning-parser`.**
+  Mistral needs `--tokenizer-mode mistral`. Non-agentic variants need no tool-call flags.
+- **HotpotQA data host `curtis.ml.cmu.edu` is DEAD.** `base_hotpotqa_distractors/fetch_distractor_file.py`
+  reconstructs `hotpot_dev_distractor_v1.json` from HuggingFace (`hotpot_qa`, distractor/validation, 7,405
+  q). Already generated at `/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_distractor_v1.json`.
+- **Scripting-over-SSH gotchas (these wasted time):** (a) **parens in `echo`** break `bash -c "…"` — avoid
+  `(…)` in echoed strings; (b) **`pkill -f <pattern>`** can match its own SSH shell's command line and
+  self-kill (exit 255) — use read-only `pgrep`/`ps` or PID-specific kills; (c) **long-running SSH polls
+  drop** (exit 255) — run monitors via the Bash tool's `run_in_background` (or detached) and verify state
+  directly afterward; (d) nested-heredoc + quoting: prefer `ssh unity 'bash -ls' <<'EOF'` (login shell,
+  literal heredoc) when you need `sbatch`/`module` + env vars with spaces.
+- **Data artifacts (Unity scratch `…/oyilmazel_umass_edu-rag_collapse/`):** `hotpotqa_index/{ivf.index,
+  docid_map.json}`, `hf_cache/`, `hotpot_dev_fullwiki_v1.json` (fullwiki — gold often absent),
+  `hotpot_dev_distractor_v1.json` (the paper's distractor setting — generated this session). `CACHE_DIR`
+  in SLURM scripts stays hardcoded to this scratch path (NOT `$USER`). **Never commit API keys.**
 
 ---
 
-## 4. Smoke results (qwen2.5-14b, the evidence behind Q1)
+## 4. Code map (as-built; reference symbols, not line numbers)
 
-Run: `search` variant, 20 questions, `NUM_RUNS=10`, `--distractor-fraction 0.5`, `ARMS=faithful`, ports
-5164/5163. Completed clean (6000 answers, 0 byte-artifacts, 0 empty). Plumbing works end-to-end.
-
-| Finding | Number | Meaning |
-|---|---|---|
-| eligible questions | 15/20 | 5 skipped (yes/no answers) |
-| corrupted-doc sub-records | 75 | 15 q × 5 docs (0.5 of top-k=10) |
-| per-doc status | **53 ok / 22 no_error_produced** | rewrite often yields no discoverable wrong claim |
-| empty `injected_entity` | **37/75** | ~half the corruptions carry no usable wrong answer |
-| **gold-leak** (`injected==gold`) | **13/75** | failed distractors that *assert the gold* + inflate adoption |
-| distinct *real* wrong entities/q | mean **1.33** (0–3); 12/15 ≥1 | only ~⅓ of corruptions become effective distractors |
-
-`distractor_aggregates` (round 0 → 29): `gold_match` 0.200→0.200 (flat — **but no baseline to compare**),
-`distractor_adoption` 0.667→0.533 (inflated by gold-leak), `distinct_answers` 1.4→1.2, `offtarget`
-0.333→0.467. Conclusion: rewrite needs the Q1(a) fixes before it meaningfully moves the distribution.
-
-Cause: the 7B doc model's rewrite + 7B discovery judge frequently fail or re-extract the gold on hard
-multi-hop questions. Model-independent (shared across all answer models) — so don't smoke all 4 models
-until Q1 is resolved.
-
----
-
-## 5. Conceptual background (why this feature exists)
-
-Frame "collapse" as **(a) concentration** (distribution narrows) and **(b) shift** (the mode moves).
-- Entity prompts (`umass_data.entity.*`): subjective → wide support → collapse = *concentration*.
-- HotpotQA: near-degenerate (one right answer) → only the *shift* off gold is interesting.
-- The project's factual runs were flat because round 0 was seeded with **correct-answer docs** — a spike
-  on gold; iterating a loop whose fixed point is the truth is a no-op. To see drift you must move the
-  start off-gold (**distractors**, this feature) or perturb the loop (**`--inject-round`**).
-- Distractors test *static RAG robustness* (round-0 foolability); injection tests *loop amplification*
-  (the project's novel thesis). The decisive future experiment: introduce a distractor that fools the
-  model at round 0, then **remove it**, and see whether the error persists via the model's own generated
-  docs (real compounding) or decays.
-- Caveat: hand-forced errors can shade into context-faithfulness rather than emergent compounding; the
-  `native_noise`/untargeted control and a matched baseline bound that.
-
----
-
-## 6. HotpotQA's own distractors (researched)
-
-HotpotQA's official *distractor setting* = 2 gold + 8 bigram-TF-IDF distractor paragraphs, but those
-are **answer-absent hard negatives**, not wrong-answer assertions — they widen the start as noise, not as
-a competing wrong attractor. Our pipeline retrieves from a **FAISS Wikipedia index** (not the native
-`context` field), reading the native JSON only for gold answers + supporting_facts. So wrong-answer
-distractors are **created** (rewrite/substitution); the native paragraphs feed the `native_noise` mode.
-Native `context` format: list of `[title, [sentences…]]` (web-confirmed: github.com/hotpotqa/hotpot).
-
----
-
-## 7. Code map (as-built; reference symbols, not line numbers — they shift)
-
-- `hotpot_pipeline.py`: flag parsing + `distractor_enabled` guard; `DistractorController(...).prepare_and_apply(states)`
-  at round 0 (after `doc_llm` built, before the loop); metadata + attach. Round loop unchanged.
-- `pipeline/misinfo.py`: `DistractorController`, `DistractorRecord`, `n_to_corrupt`,
-  `select_distractor_indices`, `choose_distinct_substitutes`, `DISTRACTOR_MODES`, plus the original
-  injection machinery (`MisinfoController`, `substitute_in_text`, `choose_substitute`,
-  `validate_substitute`, `realized_status`, `load_ground_truth`, `load_native_records`, `normalize`).
-- `hotpot_evaluation.py`: `_distractor_metrics_for_iteration` + `distractor_aggregates`.
-- `formatters.py`: `get_rewrite_distractor_conversation` + the injection prompts/judges.
+- `hotpot_pipeline.py`: round loop; flags + guards (`distractor_enabled`, `native_seed` — both default-off
+  / byte-identical); `--initial-docs {faiss,native_distractor}`, `--distractor-fraction`, `--distractor-mode`,
+  `--distractor-gold-only`; `DistractorController.prepare_and_apply` at round 0.
+- `pipeline/misinfo.py`: `MisinfoController` (injection), `DistractorController` + `_apply_rewrite`
+  (with the gold-leak/fallback fix) + `native_context_docs` (native gold/distractor split), helpers
+  (`substitute_in_text`, `choose_distinct_substitutes`, `validate_substitute`, `normalize`, `load_*`).
+- `hotpot_evaluation.py`: F1/EM + `injection_aggregates` + `distractor_aggregates` (all no-op without records).
+- `formatters.py`: synthesis/freeform/rewrite-distractor prompts + judges.
 - `llm_service/server_llm.py`: `_clean_response` (byte-decode + `<think>` strip) on every answer path.
-- Scripts: `scripts/hotpot-misinfo/{launch_all_variants.sh, run_variant_client.sh, launch_<model>.sh,
-  server_answer.sh, server_docgen.sh, smoke_test.sh, smoke_all_in_one.sh, RUNBOOK.md}`.
-- AI-doc tagging: generated docs `gen_{iter}_{i}` / `url=model_generated`; corpus docs `corpus_{did}`.
-  Round-0 distractors are corpus docs mutated in place + tagged `distractor=True`.
+- Launchers: `scripts/hotpot-misinfo/{launch_<model>.sh, launch_all_variants.sh, run_variant_client.sh,
+  server_answer.sh, server_docgen.sh, smoke_*.sh, RUNBOOK.md}`; `scripts/deepseek_baseline/`;
+  `base_hotpotqa_distractors/{launch.sh, run_sweep.sh, launch_native.sh, run_native.sh, smoke*.sh,
+  compare_*.py, fetch_distractor_file.py, README.md}`.
+- Tests: `tests/test_misinfo.py` + `base_hotpotqa_distractors/test_{base_distractors,native_seed}.py`
+  (32 pass in `rag-collapse`, pure-Python, no GPU).
+- Docs/HTML: `docs/hotpotqa_smoke_results.html` (results + beginner primer + glossary),
+  `docs/hotpotqa_experiments.html`, `docs/original_vs_distractor.html`, `docs/distractor_experiment.html`.
 
 ---
 
-## 8. Constraints & gotchas
+## 5. Open next steps
 
-- **Unity GitHub auth:** the Unity clone is HTTPS with no stored credential — the agent **cannot
-  pull/push there**. Workflow: commit + push from the laptop clone
-  (`C:\Users\riddh\RAG-Collapsement-on-Self-Refined-Generation`), then the **user** pulls on Unity.
-- **Envs:** Unity `ragenv` (vllm/faiss/torch). Laptop `rag-collapse` (no GPU/server) is fine for
-  `py_compile`, `pytest tests/test_misinfo.py`, wiring checks — use
-  `/c/Users/riddh/anaconda3/envs/rag-collapse/python.exe`.
-- **2-day SLURM cap** — handled: servers 48h with a reaper, clients 47h (servers outlive clients).
-- **vLLM 0.20.0 / SLURM 25.11.** DeepSeek must be served **without** `--reasoning-parser` (detok
-  regression) — `_clean_response` handles it; Mistral needs `--tokenizer-mode mistral`. Non-agentic
-  variants need no tool-call flags.
-- **Canonical params** (comparability): `--num-runs 10`, `--chars-per-doc 500`, answer `--max-num-seqs`
-  64 for 14B / 128 for 7-8B, `DEFAULT_ROUNDS` search 30 / replace_one 20 / hybrid 10.
-- **Never commit API keys.** `CACHE_DIR` stays hardcoded to
-  `/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache` (not `$USER`).
-- **Smoke time limits should be short** (e.g. `SERVER_TIME=01:30:00`), not the full 48h — the user
-  flagged this.
-
----
-
-## 9. First steps in a fresh session
-
-1. Read `docs/misinfo_error_compounding.md` (now includes the distractor section) and skim
-   `pipeline/misinfo.py` (`DistractorController`).
-2. **Resolve §2 Q1 and Q2 with the user.**
-3. If Q1=(a): implement gold-leak exclusion + substitution fallback in `pipeline/misinfo.py`, update
-   tests, commit on the laptop, have the user pull, then re-smoke qwen14b fast (`NUM_RUNS=2
-   VARIANT=hybrid`).
-4. Run §3 (pure distractor arm + matched baseline; mind the OUTDIR-overwrite note).
-5. Keep `--distractor-fraction 0` byte-identical; the graphite DeepSeek baseline is unrelated — leave it.
+1. **Full native runs** (the user's focus): `replace_one`, 400 q, num_runs 10, distractor-setting +
+   gold-only, per model (qwen14b validated; mistral/llama/deepseek smoke-clean). Distinct ports + model
+   flags per §2c. GPUs permitting, run models in parallel.
+2. **Investigate DeepSeek's ~0 gold_match** under native seeding (answer-format vs short gold spans)
+   before trusting its numbers — possibly an answer-extraction/normalization issue for reasoning output.
+3. **Refresh the stale DeepSeek baseline eval/entity** in `all_experiments` (re-run `evaluation.py` +
+   `entity_extraction.py` on the regenerated raw).
+4. Optional: the synthetic distractor full sweep (Option B), and the "introduce distractor → remove it →
+   does the error persist?" compounding experiment.
+5. Everything commits from the laptop; user pulls on Unity. Keep default-off flags byte-identical.

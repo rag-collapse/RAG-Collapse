@@ -1,9 +1,14 @@
 # Misinformation Document Synthesis — Error-Compounding Experiment
 
 > **Interactive walkthroughs (self-contained HTML; open in a browser):**
-> - [`docs/hotpotqa_experiments.html`](hotpotqa_experiments.html) — the **full suite**: base recursive-RAG
->   loop, error-compounding (3 synthesis modes + 3 targets + injection timing), the round-0 diverse
->   distractor experiment, the qwen2.5-14b smoke metrics, and sources.
+> - [`docs/hotpotqa_smoke_results.html`](hotpotqa_smoke_results.html) — **beginner-friendly consolidated
+>   results dashboard**: a plain-language primer + glossary, and every smoke/validation run this session
+>   (misinfo, synthetic distractor + fix, DeepSeek baseline, native distractor setting across 4 models).
+> - [`docs/hotpotqa_experiments.html`](hotpotqa_experiments.html) — the **full suite** concept explainer:
+>   base recursive-RAG loop, error-compounding (3 synthesis modes + 3 targets + injection timing), the
+>   round-0 diverse distractor experiment, smoke metrics, and sources.
+> - [`docs/original_vs_distractor.html`](original_vs_distractor.html) — original HotpotQA vs the
+>   distractor experiment, side by side.
 > - [`docs/distractor_experiment.html`](distractor_experiment.html) — the original page focused on the
 >   3 synthesis modes, 3 targets, injection timing, and metrics.
 
