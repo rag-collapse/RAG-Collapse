@@ -166,10 +166,16 @@ def parse_args():
     p.add_argument("--max-tokens", type=int, default=512)
     p.add_argument("--top-p", type=float, default=0.9)
 
-    p.add_argument("--doc-vllm-api-base", required=True,
-        help="vLLM server base URL for document generation, e.g. http://host:5151/v1")
+    p.add_argument("--doc-model-mode", choices=["api", "local", "server"], default="server",
+        help="Backend for document/distractor generation. 'server' (default) = vLLM HTTP "
+             "(needs --doc-vllm-api-base); 'api' = keymaker LiteLLM strong model (needs API_KEY); "
+             "'local' = in-process vLLM (GPU).")
+    p.add_argument("--doc-vllm-api-base", default=None,
+        help="vLLM server base URL for document generation, e.g. http://host:5151/v1. "
+             "Required when --doc-model-mode=server.")
     p.add_argument("--doc-model-name", default=None,
-        help="Served model name for doc generation. Defaults to --model-name.")
+        help="Model name for doc generation. Defaults to --model-name. For --doc-model-mode=api "
+             "use a keymaker id, e.g. openai/claude-sonnet-4-6.")
     p.add_argument("--doc-temperature", type=float, default=None,
         help="Temperature for doc generation. Defaults to --temperature.")
     p.add_argument("--doc-max-tokens", type=int, default=None,
@@ -261,6 +267,9 @@ def run_pipeline() -> None:
         random.seed(args.seed)
         np.random.seed(args.seed)
         print(f"[seed] global RNG seeded with {args.seed}")
+
+    if args.doc_model_mode == "server" and not args.doc_vllm_api_base:
+        raise SystemExit("--doc-vllm-api-base is required when --doc-model-mode=server")
 
     inject_enabled = args.doc_synthesis_mode != MODE_FAITHFUL
     if inject_enabled and not args.gt_file:
@@ -435,7 +444,7 @@ def run_pipeline() -> None:
     print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
     doc_llm, doc_model_name = build_llm(
-        model_mode="server",
+        model_mode=args.doc_model_mode,
         model_name=args.doc_model_name or args.model_name,
         temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
         max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,

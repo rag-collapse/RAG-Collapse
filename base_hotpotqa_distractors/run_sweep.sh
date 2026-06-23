@@ -24,9 +24,11 @@ export CUDA_VISIBLE_DEVICES=""          # server-mode client; E5/MiniLM embeddin
 mkdir -p logs
 
 : "${VLLM_API_BASE:?set VLLM_API_BASE (shared answer server)}"
-: "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE (shared doc server)}"
 
 MODEL="${MODEL:-qwen2.5-14b}"
+# DOC_MODEL_MODE: 'server' (default, vLLM doc server) or 'api' (keymaker LiteLLM strong model).
+# For api mode set DOC_MODEL to a keymaker id (e.g. openai/claude-sonnet-4-6) and export API_KEY.
+DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}"
 DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}"
 GT_FILE="${GT_FILE:-$SCR/hotpot_dev_fullwiki_v1.json}"   # defaulted; override via env
 VARIANT="${VARIANT:-search}"
@@ -36,18 +38,27 @@ CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
 DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 SEED="${SEED:-42}"
-DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"
+DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
 OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/base_hotpotqa_distractors/$MODEL}"
 mkdir -p "$OUTDIR"
 
+# Doc-generation backend: api (keymaker) needs API_KEY but no doc server; server needs DOC_VLLM_API_BASE.
+DOC_ARGS=(--doc-model-mode "$DOC_MODEL_MODE" --doc-model-name "$DOC_MODEL")
+if [[ "$DOC_MODEL_MODE" == "server" ]]; then
+  : "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE (shared doc server) for DOC_MODEL_MODE=server}"
+  DOC_ARGS+=(--doc-vllm-api-base "$DOC_VLLM_API_BASE")
+else
+  : "${API_KEY:?set API_KEY for DOC_MODEL_MODE=api (keymaker)}"
+fi
+
 NATIVE_ARG=""
 [[ "$DISTRACTOR_MODE" == "native_noise" ]] && NATIVE_ARG="--native-hotpot-file ${NATIVE_FILE:-$GT_FILE}"
 
 COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
-        --doc-vllm-api-base "$DOC_VLLM_API_BASE" --doc-model-name "$DOC_MODEL"
+        "${DOC_ARGS[@]}"
         --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
         --pipeline-variant "$VARIANT" --max-questions "$MAX_Q" --seed "$SEED"
         --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"

@@ -325,6 +325,123 @@ def test_distractor_native_noise_requires_native_file(tmp_path):
             native_file=None)
 
 
+# ── diverse_synth: coordinated distinct distractors, one synthesized doc each ──
+class _GoldLeakLLM:
+    """Proposal returns distinct candidates; create-document leaks the gold answer."""
+    def inference_batch(self, conversations):
+        out = []
+        for conv in conversations:
+            sysc = conv[0]["content"]
+            if "propose alternative" in sysc:
+                out.append('["Claremont", "Lebanon", "Keene"]')
+            else:  # create-document → returns a doc still mentioning the gold (Newport)
+                out.append("The county seat is Newport.")
+        return out
+
+
+class _GoldOnlyProposalLLM:
+    """Proposal returns only the gold (no valid distinct substitute exists)."""
+    def inference_batch(self, conversations):
+        return ['["Newport"]' if "propose alternative" in c[0]["content"] else "doc"
+                for c in conversations]
+
+
+def test_distractor_controller_diverse_synth(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport is the county seat of the area."},
+        {"doc_id": "corpus_3", "text": "Unrelated text about mountains."},
+        {"doc_id": "corpus_4", "text": "More about Newport and its history."},
+    ]
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=42)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok"
+    assert rec.n_corrupted == 2                          # round(0.5*4); 3 gold docs, none all-consumed
+    ents = [d["injected_entity"] for d in rec.distractors]
+    assert len(ents) == 2 and len(set(ents)) == 2        # DIVERSE: distinct wrong answers
+    corrupted = [d for d in s.current_docs if d.get("distractor")]
+    assert len(corrupted) == 2
+    for d in corrupted:
+        assert not M.contains_entity(d["text"], "Newport")    # gold replaced by the wrong answer
+        assert any(M.contains_entity(d["text"], e) for e in ents)
+    # gold preserved: at least one gold-bearing doc remains uncorrupted
+    assert any((not d.get("distractor")) and M.contains_entity(d["text"], "Newport")
+               for d in s.current_docs)
+
+
+def test_diverse_synth_preserves_gold(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport history and trivia."},
+        {"doc_id": "corpus_3", "text": "Unrelated text about rivers."},
+        {"doc_id": "corpus_4", "text": "Unrelated text about mountains."},
+    ]
+    # fraction 1.0 would corrupt ALL 4 docs (both gold docs included) → preservation kicks in
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=1.0, gt_file=gt, doc_llm=FakeLLM(), seed=42)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.n_corrupted == 3          # one gold doc dropped from the 4
+    assert any("preserved gold doc" in n for n in rec.notes)
+    kept = [d for d in s.current_docs if not d.get("distractor")]
+    assert len(kept) == 1 and M.contains_entity(kept[0]["text"], "Newport")
+
+
+def test_diverse_synth_yes_no_skipped(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "yes"})
+    s = _make_state("q1", "Are both directors American?")
+    s.current_docs = [{"doc_id": "corpus_1", "text": "Some doc."}]
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=0.5, gt_file=gt, doc_llm=FakeLLM(), seed=1)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert not rec.eligible and rec.status == "skipped_yes_no"
+    assert not any(d.get("distractor") for d in s.current_docs)
+
+
+def test_diverse_synth_no_valid_substitute(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport history."},
+        {"doc_id": "corpus_3", "text": "Unrelated."},
+    ]
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=1.0, gt_file=gt, doc_llm=_GoldOnlyProposalLLM(), seed=5)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.status == "no_valid_substitute" and not rec.eligible
+    assert not any(d.get("distractor") for d in s.current_docs)   # docs untouched
+
+
+def test_diverse_synth_gold_leak_guard(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport history."},
+        {"doc_id": "corpus_3", "text": "Unrelated mountains."},
+    ]
+    # create-document leaks the gold → guard appends an explicit wrong-answer assertion
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=0.5, gt_file=gt, doc_llm=_GoldLeakLLM(), seed=42)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.n_corrupted >= 1
+    corrupted = [d for d in s.current_docs if d.get("distractor")]
+    for d in corrupted:
+        assert "In summary, the answer is" in d["text"]      # guard fired
+    # the per-doc status records the residual gold mention
+    assert all(d["status"] == "leaky_gold" for d in rec.distractors)
+
+
 def test_distractor_eval_metrics():
     from hotpot_evaluation import _distractor_metrics_for_iteration
     dist = {

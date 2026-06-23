@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HotpotQA · Diverse Distractor Experiment</title>
+<style>
+  :root{
+    --ground:#111524;
+    --surface:#1a2034;
+    --surface-2:#222a42;
+    --text:#e7e9f2;
+    --dim:#9aa0b8;
+    --faint:#6b7290;
+    --line:rgba(231,233,242,0.10);
+    --gold:#e8b23a;        /* truth / gold answer */
+    --violet:#b45cf0;      /* distractor / wrong answer */
+    --leak:#e0696b;        /* failure / gold-leak */
+    --teal:#5fd6bf;        /* diversity / signal */
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1020px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+    line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(232,178,58,0.35)}
+  a:hover{border-bottom-color:var(--gold)}
+  h1,h2,h3,h4{line-height:1.15;letter-spacing:-0.015em;margin:0}
+  p{margin:0.7em 0}
+  code{font-family:var(--mono);font-size:0.86em;background:var(--surface-2);
+    padding:0.12em 0.42em;border-radius:4px;color:#d9dcee;word-break:break-word}
+  .eyebrow{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.22em;
+    text-transform:uppercase;color:var(--faint)}
+  .lede{font-size:1.1rem;color:var(--dim);max-width:64ch}
+
+  /* hero */
+  header.hero{border-bottom:1px solid var(--line);
+    background:radial-gradient(120% 140% at 80% -10%,rgba(180,92,240,0.14),transparent 55%),
+               radial-gradient(110% 120% at 0% 0%,rgba(232,178,58,0.10),transparent 50%)}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:90px 24px 70px}
+  .hero p.kick{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.24em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 18px}
+  .hero h1{font-size:clamp(2.1rem,5.4vw,3.7rem);font-weight:800}
+  .hero h1 .g{color:var(--gold)} .hero h1 .v{color:var(--violet)}
+  .hero .lede{margin-top:20px;font-size:clamp(1rem,2vw,1.18rem)}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:28px;font-family:var(--mono);
+    font-size:0.74rem;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+  /* sections */
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  .sechead{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+  .secnum{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;color:var(--gold);
+    text-transform:uppercase}
+  .sechead h2{font-size:clamp(1.5rem,3.4vw,2.15rem);font-weight:750}
+  .body-cap{max-width:68ch}
+  .body-cap h3{margin:30px 0 6px;font-size:1.15rem;color:var(--text)}
+
+  /* cards */
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h4{font-size:1rem;margin-bottom:6px}
+  .card p{margin:4px 0 0;font-size:0.88rem;color:var(--dim)}
+  .card .big{font-family:var(--mono);font-weight:700;font-size:1.7rem;color:var(--gold)}
+  .card .big span{font-size:0.58rem;letter-spacing:0.16em;color:var(--faint);
+    display:block;text-transform:uppercase}
+
+  /* callouts */
+  .callout{border-left:3px solid var(--gold);background:rgba(232,178,58,0.06);
+    padding:14px 18px;border-radius:0 10px 10px 0;color:#dfe2f0;font-size:0.95rem;margin:16px 0}
+  .callout.v{border-left-color:var(--violet);background:rgba(180,92,240,0.07)}
+  .callout.t{border-left-color:var(--teal);background:rgba(95,214,191,0.07)}
+  .callout.bad{border-left-color:var(--leak);background:rgba(224,105,107,0.07)}
+  .callout strong{color:var(--text)}
+
+  /* loop / flow steps */
+  .loop{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:18px 0}
+  .step{flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:15px}
+  .step .n{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.16em;color:var(--faint);
+    text-transform:uppercase}
+  .step .t{margin-top:6px;font-size:0.92rem;color:var(--text);font-weight:600}
+  .step p{margin:5px 0 0;font-size:0.82rem;color:var(--dim)}
+  .arrow{align-self:center;color:var(--faint);font-size:1.3rem;flex:0 0 auto}
+
+  /* example doc tiles */
+  .docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:16px}
+  .docu{border:1px solid var(--line);border-radius:10px;padding:12px;font-size:0.82rem;
+    background:var(--ground)}
+  .docu .lab{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;
+    display:block;margin-bottom:6px}
+  .docu.gold{border-color:rgba(232,178,58,0.5)} .docu.gold .lab{color:var(--gold)}
+  .docu.viol{border-color:rgba(180,92,240,0.5)} .docu.viol .lab{color:var(--violet)}
+  .docu .ans{font-weight:700}
+  .docu.gold .ans{color:var(--gold)} .docu.viol .ans{color:var(--violet)}
+
+  /* tables */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:16px}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:0.9rem}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--faint);background:var(--surface)}
+  tr:last-child td{border-bottom:none}
+  td code{white-space:nowrap}
+
+  /* code blocks */
+  pre{font-family:var(--mono);font-size:0.8rem;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;padding:16px;overflow-x:auto;line-height:1.6;color:#cfd3e6;margin:16px 0}
+  pre .k{color:var(--gold)} pre .v{color:var(--violet)} pre .c{color:var(--faint)}
+
+  /* details */
+  details{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:var(--surface);
+    overflow:hidden}
+  summary{cursor:pointer;padding:14px 18px;font-family:var(--mono);font-size:0.86rem;color:var(--text);
+    list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{color:var(--faint);transition:.2s} details[open] summary .chev{transform:rotate(90deg);color:var(--gold)}
+  .det-body{padding:2px 18px 18px;font-size:0.92rem;color:var(--dim)}
+  .det-body p{margin:8px 0}
+
+  /* glossary */
+  dl{margin:14px 0 0}
+  dt{font-family:var(--mono);color:var(--teal);font-size:0.88rem;margin-top:14px}
+  dd{margin:4px 0 0;color:var(--dim);font-size:0.92rem}
+
+  /* footer + misc */
+  footer{padding:40px 0 70px;color:var(--faint);font-size:0.85rem}
+  .pill{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .pill.gold{color:var(--gold);border-color:rgba(232,178,58,0.4)}
+  .pill.viol{color:var(--violet);border-color:rgba(180,92,240,0.4)}
+  ul.tight{margin:8px 0;padding-left:20px} ul.tight li{margin:5px 0;color:var(--dim);font-size:0.92rem}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .toc a{font-family:var(--mono);font-size:0.76rem;background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:7px 14px;color:var(--dim)}
+  .toc a:hover{color:var(--text);border-color:var(--gold)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <p class="kick">RAG Collapse · HotpotQA · Round-0 Diversity</p>
+    <h1>Seeding the loop with <span class="v">diverse wrong answers</span><br>to watch it <span class="g">collapse</span></h1>
+    <p class="lede">A beginner-friendly guide to the <code>diverse_synth</code> experiment: how we use a
+    strong language model to plant several <em>different, believable</em> wrong answers into a
+    retrieval system on round&nbsp;0 — so that we have something wide enough to actually measure
+    "collapse" as the system feeds on its own output round after round.</p>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--gold)"></span> gold = the correct answer</span>
+      <span><span class="dot" style="background:var(--violet)"></span> distractor = a planted wrong answer</span>
+      <span><span class="dot" style="background:var(--teal)"></span> diversity = how many distinct answers exist</span>
+    </div>
+    <div class="toc">
+      <a href="#bg">1 · Background</a>
+      <a href="#problem">2 · The problem</a>
+      <a href="#idea">3 · The idea</a>
+      <a href="#how">4 · How it works</a>
+      <a href="#gold">5 · Keeping gold</a>
+      <a href="#model">6 · Model x &amp; LiteLLM</a>
+      <a href="#metrics">7 · Metrics</a>
+      <a href="#run">8 · How to run</a>
+      <a href="#success">9 · What success looks like</a>
+      <a href="#code">10 · Where the code lives</a>
+      <a href="#glossary">Glossary</a>
+    </div>
+  </div>
+</header>
+
+<!-- 1. BACKGROUND -->
+<section id="bg"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">01 — Background</span>
+    <h2>What is "RAG collapse," in plain terms?</h2></div>
+
+  <p><strong>RAG</strong> stands for <em>Retrieval-Augmented Generation</em>. Instead of asking a
+  language model a question from memory, you first <em>retrieve</em> a few relevant documents and
+  paste them into the prompt, so the model answers <em>from those documents</em>. This is how most
+  modern "chat with your docs" systems work.</p>
+
+  <p>Now imagine a feedback loop. The model reads some documents, writes an answer, and then <em>that
+  answer is turned into a new document</em> and added to the pool that future questions retrieve
+  from. Repeat this many times. This is what we call a <strong>recursive self-refinement loop</strong>
+  — the model is increasingly reading <em>its own past output</em> instead of fresh, human-written
+  text.</p>
+
+  <div class="loop">
+    <div class="step"><span class="n">Step 1</span><div class="t">Retrieve</div><p>Pull the top documents related to the question.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">Step 2</span><div class="t">Answer</div><p>The model answers using those documents.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">Step 3</span><div class="t">Condense</div><p>Turn the answer into a new "document."</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">Step 4</span><div class="t">Feed back</div><p>Add it to the pool. Go to Step 1.</p></div>
+  </div>
+
+  <p>Over many rounds, something unhealthy happens: the answers stop being varied and all converge to
+  the same text. The system loses variety and "locks in." That narrowing is <strong>collapse</strong>.
+  It's the inference-time, retrieval-driven cousin of "model collapse" — the well-documented effect
+  where AI systems trained on AI-generated data degrade.</p>
+
+  <div class="callout t"><strong>Two things can go wrong, and they're different.</strong>
+  (a) <em>Concentration</em> — the spread of answers narrows toward a single answer. (b) <em>Shift</em>
+  — that single answer drifts <em>away from the truth</em>. This experiment is mostly about being able
+  to <em>see concentration happen</em>, starting from a deliberately wide spread.</div>
+</div></section>
+
+<!-- 2. THE PROBLEM -->
+<section id="problem"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">02 — The problem</span>
+    <h2>Why the earlier HotpotQA runs didn't show much</h2></div>
+
+  <p><strong>HotpotQA</strong> is a question-answering dataset where each question has a known correct
+  answer (the "gold" answer) and requires combining facts from two Wikipedia paragraphs. Because we
+  know the gold answer, we can measure exactly how often the system is right or wrong — perfect for
+  studying collapse.</p>
+
+  <p>To study collapse you need a <em>starting spread</em> to collapse <em>from</em>. If round 0 already
+  has everyone agreeing on one answer, there's nothing to narrow — you can't watch a crowd disperse if
+  they all started in the same spot. So we plant "distractor" documents on round 0: documents that
+  confidently assert a <em>wrong</em> answer, to widen the initial range of answers.</p>
+
+  <p>The earlier attempts produced a starting spread that was barely wider than one answer — a measured
+  diversity (<code>distinct_answers</code>) of about <strong>1.3</strong>. Two root causes:</p>
+
+  <div class="grid2">
+    <div class="card"><h4>① A weak document writer</h4>
+      <p>The documents were generated by a small local model (Qwen2.5-7B). Its fake documents were bland
+      and unconvincing, so the answering model often ignored them and snapped back to gold.</p></div>
+    <div class="card"><h4>② Uncoordinated wrong answers</h4>
+      <p>The old <code>rewrite</code> mode corrupted each document <em>independently</em>. Independent
+      guesses tend to land on the <em>same</em> most-obvious wrong answer — so the "distractors" weren't
+      distinct from each other. No diversity.</p></div>
+  </div>
+
+  <div class="callout bad"><strong>The crux:</strong> ten documents that all say the same wrong thing
+  give you a spread of <em>one</em> wrong answer, not ten. We needed wrong answers that are
+  <em>different from each other</em> and <em>believable</em>.</div>
+</div></section>
+
+<!-- 3. THE IDEA -->
+<section id="idea"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">03 — The idea</span>
+    <h2>The <span style="color:var(--violet)">diverse_synth</span> approach</h2></div>
+
+  <p>This experiment adds a new distractor-generation mode called <code>diverse_synth</code>
+  ("diverse synthesis"). It fixes both root causes at once:</p>
+
+  <ul class="tight">
+    <li><strong>Use a strong model</strong> to write the fake documents (routed through an API — see
+      §6), so they're convincing.</li>
+    <li><strong>Coordinate the wrong answers</strong> so each planted document asserts a
+      <em>different</em>, plausible wrong answer — guaranteeing variety on round 0.</li>
+  </ul>
+
+  <p>Concretely: for a question whose gold answer is <span class="pill gold">Newport</span>, instead of
+  three documents all nudging toward "Claremont," we plant three documents that each confidently argue
+  for a <em>distinct</em> wrong answer — plus we keep at least one real document that still supports
+  gold. The round-0 spread looks like this:</p>
+
+  <div class="docs">
+    <div class="docu gold"><span class="lab">kept · real doc</span>The county seat is <span class="ans">Newport</span>, established 1827…</div>
+    <div class="docu viol"><span class="lab">distractor 1</span>Records indicate the seat is <span class="ans">Claremont</span>…</div>
+    <div class="docu viol"><span class="lab">distractor 2</span>The administrative center is <span class="ans">Lebanon</span>…</div>
+    <div class="docu viol"><span class="lab">distractor 3</span>Officially, the county seat is <span class="ans">Keene</span>…</div>
+  </div>
+
+  <div class="callout v">Now round 0 has <strong>four</strong> distinct candidate answers in play
+  (Newport, Claremont, Lebanon, Keene). That's a real spread — and over the next rounds we can watch
+  the loop concentrate back down to one. <em>That</em> narrowing is the data we're after.</div>
+
+  <p style="margin-top:18px"><strong>Where this idea comes from.</strong> It sits in a gap between two
+  lines of published work:</p>
+  <ul class="tight">
+    <li><em>Distractor generation</em> (e.g. Bitew et al. 2023; PlausibleQA) shows language models are
+      good at inventing <em>plausible</em> wrong answers — but that work is about building quiz
+      questions, not studying loops.</li>
+    <li><em>RAG poisoning</em> (PoisonedRAG, 2024) plants malicious documents to force <em>one</em>
+      specific wrong answer — but it's single-target, the opposite of diverse.</li>
+  </ul>
+  <p>We borrow the "make plausible wrong answers" technique but aim for <em>many distinct</em> ones, to
+  seed diversity rather than to attack a single target.</p>
+</div></section>
+
+<!-- 4. HOW IT WORKS -->
+<section id="how"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">04 — How it works</span>
+    <h2>The two-phase generation, step by step</h2></div>
+
+  <p>The whole thing happens <em>once</em>, before the loop starts, and uses exactly <strong>two batched
+  calls</strong> to the strong model. "Batched" means we send all questions together in one request for
+  speed.</p>
+
+  <div class="loop">
+    <div class="step"><span class="n">Phase A</span><div class="t">Propose K distinct wrong answers</div>
+      <p>For each question, ask the model: "Give me K plausible answers of the same type as the gold
+      answer, but all <em>wrong</em> and all <em>different</em> from each other." A helper
+      (<code>choose_distinct_substitutes</code>) then filters them so none equals the gold, none appears
+      in the question, and no two are duplicates.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">Phase B</span><div class="t">Write one real-looking doc per wrong answer</div>
+      <p>For each distinct wrong answer, ask the model to write a natural encyclopedia-style document
+      <em>as if that answer were true</em>. We reuse the exact same prompt used to write normal documents
+      — so a distractor reads like any other generated document, not an obviously tampered one.</p></div>
+  </div>
+
+  <p>Each planted document records what wrong answer it carries, so later analysis knows the ground
+  truth of every planted error. A safety check ("gold-leak guard") makes sure the fake document didn't
+  accidentally still mention the correct answer; if it did, we append an explicit wrong-answer sentence
+  to keep the document genuinely misleading.</p>
+
+  <details><summary><span>How many documents get corrupted? (the K knob)</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>You don't set K directly. You set <code>--distractor-fraction</code> (a number between 0 and 1),
+      and K is computed as roughly that fraction of the retrieved documents. For example, with 10
+      retrieved documents and <code>--distractor-fraction 0.7</code>, about 7 become distinct distractors
+      and ~3 stay as real documents. This keeps the new mode consistent with the older distractor modes —
+      no extra flag to learn.</p>
+    </div></details>
+
+  <details><summary><span>Why reuse the normal document prompt instead of a special "lie" prompt?</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>Two reasons. First, the model is simply <em>given</em> a wrong answer and asked to write about it
+      — it isn't told "lie," which avoids refusals. Second, using the identical prompt means a distractor
+      document is stylistically indistinguishable from a genuine generated document, so the experiment
+      isn't accidentally measuring "the model spots weird-looking text."</p>
+    </div></details>
+</div></section>
+
+<!-- 5. KEEPING GOLD -->
+<section id="gold"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">05 — A subtle but important fix</span>
+    <h2>Keeping at least one correct document alive</h2></div>
+
+  <p>There's a trap. The code that picks which documents to corrupt <em>prefers</em> documents that
+  contain the gold answer (because corrupting an irrelevant document would be pointless). But if the
+  fraction is high, that preference could corrupt <em>every</em> gold-bearing document — erasing the
+  correct answer from the context entirely.</p>
+
+  <div class="callout bad">If gold disappears from round 0, you can no longer see whether the loop
+  collapses <em>toward</em> or <em>away from</em> the truth — you've removed the most interesting
+  outcome.</div>
+
+  <p>So <code>diverse_synth</code> adds a rule: <strong>if the selection would consume all gold-bearing
+  documents, drop one</strong> so at least one correct document survives. The result is exactly the
+  spread we want — one anchor of truth plus several distinct wrong answers — and it's recorded honestly
+  (the document count corrupted goes down by at most one, and a note is logged).</p>
+
+  <div class="callout">This matches the choice made during planning: <strong>"mix gold + distinct
+  distractors"</strong>, rather than wiping out gold completely.</div>
+</div></section>
+
+<!-- 6. MODEL X -->
+<section id="model"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">06 — The strong model</span>
+    <h2>"Model x" and how it's plugged in (LiteLLM)</h2></div>
+
+  <p>The answering model still runs on the lab's own GPU servers (vLLM). But the <em>document writer</em>
+  can now be swapped for a strong commercial-grade model accessed over an API. That routing goes through
+  two existing pieces:</p>
+
+  <div class="grid2">
+    <div class="card"><h4>LiteLLM</h4><p>A small library that gives one uniform way to call many
+      different model providers. The repo's <code>ProprietaryLLM</code> class wraps it.</p></div>
+    <div class="card"><h4>The "keymaker" proxy</h4><p>UMass's gateway
+      (<code>thekeymaker.umass.edu</code>) that the API calls go through. You authenticate by setting an
+      <code>API_KEY</code> environment variable.</p></div>
+  </div>
+
+  <p>To turn it on you pass <code>--doc-model-mode api</code> and name the model with
+  <code>--doc-model-name openai/&lt;model&gt;</code>. The new <code>--doc-model-mode</code> flag defaults
+  to <code>server</code>, so every existing script keeps working untouched.</p>
+
+  <div class="callout"><strong>Which model is "model x"?</strong> Deliberately left open for now —
+  it's just a runtime argument. The recommended first try is
+  <code>openai/claude-sonnet-4-6</code> (strong at following instructions, reasonable speed and cost).
+  The final choice gets locked in during the larger pilot run.</div>
+</div></section>
+
+<!-- 7. METRICS -->
+<section id="metrics"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">07 — Metrics</span>
+    <h2>What we actually measure each round</h2></div>
+
+  <p>These metrics already existed in the evaluation code — the new mode plugs straight into them with
+  no changes. For each round, over all the runs of a question:</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Metric</th><th>What it means (beginner version)</th></tr></thead>
+    <tbody>
+      <tr><td><code>distinct_answers</code></td><td><strong>The headline signal.</strong> How many
+        <em>different</em> answers appear this round. High at round 0 (wide spread), then we expect it to
+        <em>fall</em> as the loop collapses.</td></tr>
+      <tr><td><code>gold_match_rate</code></td><td>Fraction of answers that are correct. Tracks whether
+        the system recovers to the truth or drifts away from it.</td></tr>
+      <tr><td><code>distractor_adoption_rate</code></td><td>Fraction of answers that adopted <em>one of
+        the planted wrong answers</em>. Shows the distractors are actually influencing the model.</td></tr>
+      <tr><td><code>offtarget_rate</code></td><td>Fraction of answers that are neither gold nor any
+        planted wrong answer — i.e. the model invented a <em>new</em> wrong answer on its own.</td></tr>
+      <tr><td><code>distractor_retrieval_condition</code></td><td>Whether a planted document was actually
+        retrieved into the context this round (a sanity check that the distractor is reachable).</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout t">The story we hope to tell: <strong>round 0</strong> has high
+  <code>distinct_answers</code> (several wrong answers + gold), and over the following rounds it
+  <strong>shrinks</strong> as the loop concentrates — visible collapse, finally measurable because we
+  engineered a wide enough starting point.</div>
+</div></section>
+
+<!-- 8. HOW TO RUN -->
+<section id="run"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">08 — How to run it</span>
+    <h2>Running the experiment</h2></div>
+
+  <h3>A single run</h3>
+  <pre><span class="c"># strong API model writes the distractor docs; answerer stays on the vLLM server</span>
+API_KEY=... python hotpot_pipeline.py \
+  --vllm-api-base http://&lt;answerer&gt;/v1 --model-name qwen2.5-14b \
+  <span class="k">--doc-model-mode api</span> <span class="k">--doc-model-name openai/claude-sonnet-4-6</span> \
+  <span class="v">--distractor-mode diverse_synth</span> <span class="v">--distractor-fraction 0.7</span> \
+  --gt-file hotpot_dev_fullwiki_v1.json --pipeline-variant search \
+  --max-questions 50 --num-runs 10 --seed 42 --output-path out_f0.7.json</pre>
+
+  <h3>A "dose-response" sweep (recommended)</h3>
+  <p>Run several fractions at once to see how more distractors changes the picture. Fraction
+  <code>0</code> is the clean baseline (no distractors) and is always included for comparison.</p>
+  <pre><span class="c"># in base_hotpotqa_distractors/run_sweep.sh</span>
+DOC_MODEL_MODE=api  DOC_MODEL=openai/claude-sonnet-4-6 \
+DISTRACTOR_MODE=diverse_synth  FRACTIONS="0 0.3 0.5 0.7"  API_KEY=... \
+  sbatch run_sweep.sh
+<span class="c"># then compare_sweep.py prints a per-round table including distinct_answers</span></pre>
+
+  <h3>A quick smoke test first</h3>
+  <p>Before a big run, sanity-check on 1–2 questions: <code>--max-questions 2 --num-runs 4
+  --num-iterations 3</code>. Then open the output JSON and confirm each question lists several
+  <em>distinct</em> planted answers, and that round 0 still includes a real gold document.</p>
+
+  <div class="callout bad"><strong>Never commit your <code>API_KEY</code>.</strong> It lives only in your
+  environment for the run.</div>
+</div></section>
+
+<!-- 9. SUCCESS -->
+<section id="success"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">09 — What success looks like</span>
+    <h2>How we'll know it worked</h2></div>
+
+  <div class="grid3">
+    <div class="card"><div class="big">≈ 3–4<span>round-0 distinct answers</span></div>
+      <p>At fraction 0.7, round 0 should show several distinct answers — far above the old ~1.3.</p></div>
+    <div class="card"><div class="big">↓<span>diversity over rounds</span></div>
+      <p><code>distinct_answers</code> should <em>decrease</em> across rounds — the collapse signal.</p></div>
+    <div class="card"><div class="big">vs.<span>baseline &amp; old modes</span></div>
+      <p><code>diverse_synth</code> should start <em>wider</em> than <code>rewrite</code>/<code>substitution</code> and the no-distractor baseline.</p></div>
+  </div>
+
+  <div class="callout">If round 0 is wide and the following rounds narrow, we've turned "collapse" from
+  something we <em>assert</em> into something we can <em>plot</em>.</div>
+</div></section>
+
+<!-- 10. CODE -->
+<section id="code"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">10 — Where the code lives</span>
+    <h2>Files involved</h2></div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>File</th><th>What changed / role</th></tr></thead>
+    <tbody>
+      <tr><td><code>pipeline/misinfo.py</code></td><td>New <code>diverse_synth</code> mode: the
+        two-phase <code>_apply_diverse_synth</code> method, the gold-leak guard, and the
+        gold-preservation rule.</td></tr>
+      <tr><td><code>hotpot_pipeline.py</code></td><td>New <code>--doc-model-mode</code> flag; the doc
+        writer can now be an API model. <code>--doc-vllm-api-base</code> is required only in server
+        mode.</td></tr>
+      <tr><td><code>formatters.py</code></td><td>Holds the prompts that are reused (propose substitutes,
+        create document). No new prompt needed unless gold-leak turns out to be frequent.</td></tr>
+      <tr><td><code>hotpot_evaluation.py</code></td><td><em>Unchanged.</em> The diversity metrics already
+        understand planted-distractor records.</td></tr>
+      <tr><td><code>tests/test_misinfo.py</code></td><td>Five new CPU-only tests: distinctness,
+        gold-preservation, yes/no skip, no-valid-substitute, and the gold-leak guard.</td></tr>
+      <tr><td><code>base_hotpotqa_distractors/run_sweep.sh</code></td><td>Adds <code>DOC_MODEL_MODE</code>
+        (api/server) and lets <code>DISTRACTOR_MODE=diverse_synth</code> flow through the sweep.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p style="margin-top:16px">See also <code>docs/misinfo_error_compounding.md</code> for the broader
+  experiment family this mode belongs to.</p>
+</div></section>
+
+<!-- GLOSSARY -->
+<section id="glossary"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">Reference</span><h2>Glossary</h2></div>
+  <dl>
+    <dt>RAG</dt><dd>Retrieval-Augmented Generation — answer a question using retrieved documents pasted into the prompt.</dd>
+    <dt>Recursive / self-refinement loop</dt><dd>Feeding the model's own answers back in as documents, round after round.</dd>
+    <dt>Collapse</dt><dd>The narrowing of answer variety (and possible drift from truth) as the loop feeds on itself.</dd>
+    <dt>HotpotQA</dt><dd>A multi-hop QA dataset with known correct ("gold") answers, ideal for measuring right/wrong.</dd>
+    <dt>Gold answer</dt><dd>The single correct answer to a question.</dd>
+    <dt>Distractor</dt><dd>A document we deliberately plant that asserts a wrong answer.</dd>
+    <dt>diverse_synth</dt><dd>The new mode: coordinated, distinct, strong-model-written distractor documents.</dd>
+    <dt>distinct_answers</dt><dd>The count of different answers seen in a round — the main diversity/collapse signal.</dd>
+    <dt>distractor-fraction</dt><dd>How much of the retrieved context to turn into distractors (0–1).</dd>
+    <dt>LiteLLM</dt><dd>A library giving one uniform interface to many model providers.</dd>
+    <dt>keymaker</dt><dd>UMass's API proxy that strong-model requests are routed through.</dd>
+    <dt>vLLM</dt><dd>The high-throughput server that hosts the lab's local models (the answerer).</dd>
+    <dt>Model x</dt><dd>Placeholder name for the strong document-writing model, chosen at runtime.</dd>
+  </dl>
+</div></section>
+
+<footer><div class="wrap">
+  Part of the RAG-Collapse research repo · <code>diverse_synth</code> round-0 diversity experiment.
+  Generated explainer — see <code>docs/</code> for the rest of the suite.
+</div></footer>
+
+</body>
+</html>

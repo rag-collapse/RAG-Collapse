@@ -66,7 +66,13 @@ TARGETS = (TARGET_FINAL, TARGET_HOP, TARGET_UNTARGETED)
 DISTRACTOR_REWRITE = "rewrite"
 DISTRACTOR_SUBSTITUTION = "substitution"
 DISTRACTOR_NATIVE_NOISE = "native_noise"
-DISTRACTOR_MODES = (DISTRACTOR_REWRITE, DISTRACTOR_SUBSTITUTION, DISTRACTOR_NATIVE_NOISE)
+DISTRACTOR_DIVERSE_SYNTH = "diverse_synth"
+DISTRACTOR_MODES = (
+    DISTRACTOR_REWRITE,
+    DISTRACTOR_SUBSTITUTION,
+    DISTRACTOR_NATIVE_NOISE,
+    DISTRACTOR_DIVERSE_SYNTH,
+)
 
 _ARTICLES = re.compile(r"\b(a|an|the)\b")
 _PUNCT = str.maketrans("", "", string.punctuation)
@@ -672,6 +678,22 @@ class DistractorController:
             if not idxs:
                 rec.status = "no_docs"
                 continue
+            # diverse_synth keeps the starting distribution = {>=1 gold doc} + {distinct
+            # distractors}. select_distractor_indices PREFERS gold-bearing docs, so at high
+            # fractions it would corrupt every gold doc and remove gold from context. Drop
+            # one gold-bearing index if the selection would consume all of them.
+            if self.mode == DISTRACTOR_DIVERSE_SYNTH:
+                gold_bearing = [
+                    i for i, d in enumerate(docs)
+                    if contains_entity(d.get("text", ""), gold)
+                ]
+                if gold_bearing and set(gold_bearing) <= set(idxs):
+                    keep = max(gold_bearing)          # deterministic: keep the last gold doc
+                    idxs = [i for i in idxs if i != keep]
+                    rec.notes.append(f"preserved gold doc index {keep}")
+                    if not idxs:
+                        rec.status = "skipped_zero"
+                        continue
             rec.eligible = True
             plans.append((s, idxs, gold))
 
@@ -681,6 +703,8 @@ class DistractorController:
             self._apply_substitution(plans)
         elif self.mode == DISTRACTOR_NATIVE_NOISE:
             self._apply_native_noise(plans)
+        elif self.mode == DISTRACTOR_DIVERSE_SYNTH:
+            self._apply_diverse_synth(plans)
         else:
             self._apply_rewrite(plans)
 
@@ -718,6 +742,69 @@ class DistractorController:
                 applied += 1
             rec.n_corrupted = applied
             rec.status = "ok" if applied else "not_realized"
+
+    # ---- diverse_synth: coordinated DISTINCT wrong answers, one synthesized doc each ----
+    def _apply_diverse_synth(self, plans: List[tuple]) -> None:
+        """Strong-model diverse distractors. Two batched phases:
+          A) ONE proposal call per question → K mutually-DISTINCT plausible wrong answers
+             (``choose_distinct_substitutes`` guarantees distinctness vs gold/question/context).
+          B) ONE faithful synthesis call per (doc, wrong_answer) → a naturalistic document
+             asserting that wrong answer (same prompt as the faithful condensation, so the
+             distractor reads like a real generated doc, not an entity-swapped passage).
+        Each corrupted doc carries its OWN distinct wrong answer → wide round-0 distribution.
+        """
+        # phase A: coordinated distinct proposals (one batched call across all questions)
+        prop_convos = [
+            get_substitute_proposal_conversation(
+                question=s.question_text, entity=gold, k=max(self.k_substitutes, len(idxs)))
+            for (s, idxs, gold) in plans
+        ]
+        props = self.doc_llm.inference_batch(prop_convos) if prop_convos else []
+
+        synth_jobs: List[tuple] = []   # (state, doc_idx, gold, wrong)
+        for (s, idxs, gold), out in zip(plans, props):
+            rec = self.records[s.query_id]
+            parsed = parse_json(out)
+            cands = [str(c).strip() for c in parsed if str(c).strip()] if isinstance(parsed, list) else []
+            rec.substitute_candidates = cands
+            ctx = " ".join(s.current_docs[i].get("text", "") for i in idxs)
+            subs = choose_distinct_substitutes(cands, gold, s.question_text, len(idxs), context_text=ctx)
+            if not subs:
+                rec.eligible = False
+                rec.status = "no_valid_substitute"
+                continue
+            for j, doc_idx in enumerate(idxs):
+                synth_jobs.append((s, doc_idx, gold, subs[j % len(subs)]))
+
+        # phase B: synthesize one full document per (doc, wrong answer)
+        synth_convos = [
+            get_create_document_conversation(question=s.question_text, answer=wrong)
+            for (s, _, _, wrong) in synth_jobs
+        ]
+        synth_outs = self.doc_llm.inference_batch(synth_convos) if synth_convos else []
+
+        for (s, doc_idx, gold, wrong), doc_text in zip(synth_jobs, synth_outs):
+            doc = s.current_docs[doc_idx]
+            text = (doc_text or "").strip()
+            if not text:
+                text = f"The answer to the question is {wrong}."
+            elif contains_entity(text, gold):           # gold-leak guard: force the wrong answer
+                text = (text + f" In summary, the answer is {wrong}.").strip()
+            doc["text"] = text
+            doc["distractor"] = True
+            self.records[s.query_id].distractors.append({
+                "doc_id": doc.get("doc_id"),
+                "injected_entity": wrong,
+                "status": realized_status(text, gold, wrong),
+            })
+
+        # finalize per-question status (skip the no_valid_substitute questions)
+        for (s, idxs, gold) in plans:
+            rec = self.records[s.query_id]
+            if rec.status == "no_valid_substitute":
+                continue
+            rec.n_corrupted = len(rec.distractors)
+            rec.status = "ok" if any(d["injected_entity"] for d in rec.distractors) else "no_error_produced"
 
     # ---- rewrite: doc-LLM invents an independent wrong answer per doc ----
     def _apply_rewrite(self, plans: List[tuple]) -> None:
