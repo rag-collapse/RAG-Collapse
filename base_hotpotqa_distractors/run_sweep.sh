@@ -82,6 +82,8 @@ COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
         --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"
         --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS"
         --doc-synthesis-mode faithful)
+# NUM_ITERATIONS overrides the variant's default round count (e.g. 1 for a quick smoke).
+[[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
 
 OUTS=()
 for f in $FRACTIONS; do
