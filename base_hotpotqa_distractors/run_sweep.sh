@@ -75,6 +75,10 @@ fi
 NATIVE_ARG=""
 [[ "$DISTRACTOR_MODE" == "native_noise" ]] && NATIVE_ARG="--native-hotpot-file ${NATIVE_FILE:-$GT_FILE}"
 
+# Option A: give each run a different single distractor (wide round-0 answer distribution).
+PER_RUN_ARG=""
+case "${DISTRACTOR_PER_RUN:-}" in 1|true|yes) PER_RUN_ARG="--distractor-per-run" ;; esac
+
 COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
         "${DOC_ARGS[@]}"
         --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
@@ -96,7 +100,7 @@ for f in $FRACTIONS; do
     *)          # distractor arm: faithful synthesis + round-0 DIVERSE distractors
       python -u hotpot_pipeline.py "${COMMON[@]}" \
         --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
-        --gt-file "$GT_FILE" $NATIVE_ARG --output-path "$out"
+        --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG --output-path "$out"
       ;;
   esac
   OUTS+=("$out")

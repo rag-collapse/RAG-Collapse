@@ -31,6 +31,7 @@ from pipeline.misinfo import (
     MisinfoController, MODE_FAITHFUL, MODES, TARGETS,
     DistractorController, DISTRACTOR_MODES,
     load_native_records, native_context_docs,
+    per_run_doc_subsets,
 )
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
@@ -237,8 +238,13 @@ def parse_args():
              "(0 = off). Requires --gt-file.")
     p.add_argument("--distractor-mode", choices=list(DISTRACTOR_MODES), default="rewrite",
         help="How to build each distractor: rewrite (doc-LLM invents a distinct wrong answer "
-             "per doc), substitution (distinct same-type wrong entity per doc), or native_noise "
+             "per doc), substitution (distinct same-type wrong entity per doc), diverse_synth "
+             "(coordinated distinct wrong answers, one Wikipedia-style doc each), or native_noise "
              "(real non-answer HotpotQA paragraphs; requires --native-hotpot-file).")
+    p.add_argument("--distractor-per-run", action="store_true",
+        help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
+             "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
+             "the round-0 answer distribution is wide across runs. No-op without distractor docs.")
 
     # --- Original HotpotQA paper distractor setting (round-0 source; default-off) ---
     # Replicate Yang et al. (EMNLP 2018): seed round 0 from each question's native
@@ -525,13 +531,24 @@ def run_pipeline() -> None:
         # --- Step 1: batch answer generation ---
         batch_conversations: List[List[Dict[str, str]]] = []
         for s in states:
-            conv = build_rag_conversation(
-                question=s.question_text,
-                docs=s.current_docs,
-                chars_per_doc=chars_per_doc,
-                shuffle_docs=True,
-            )
-            batch_conversations.extend([conv] * num_runs)
+            if args.distractor_per_run:
+                # Option A: each run sees clean/gold docs + ONE rotating distractor → diverse
+                # round-0 answers across runs (instead of all runs sharing one context).
+                for docs_r in per_run_doc_subsets(s.current_docs, num_runs):
+                    batch_conversations.append(build_rag_conversation(
+                        question=s.question_text,
+                        docs=docs_r,
+                        chars_per_doc=chars_per_doc,
+                        shuffle_docs=True,
+                    ))
+            else:
+                conv = build_rag_conversation(
+                    question=s.question_text,
+                    docs=s.current_docs,
+                    chars_per_doc=chars_per_doc,
+                    shuffle_docs=True,
+                )
+                batch_conversations.extend([conv] * num_runs)
 
         print(f"[Iter {it}/{num_iterations}] Sending {len(batch_conversations)} answer requests "
               f"({len(states)} question(s) × {num_runs} runs)...", flush=True)

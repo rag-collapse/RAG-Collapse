@@ -481,6 +481,35 @@ def test_diverse_synth_refusal_replaced(tmp_path):
         assert drec["status"] == "fallback_template"
 
 
+def test_per_run_doc_subsets():
+    docs = [
+        {"doc_id": "g1", "text": "gold doc"},                       # clean
+        {"doc_id": "c2", "text": "clean doc"},                      # clean
+        {"doc_id": "d1", "text": "Claremont", "distractor": True},
+        {"doc_id": "d2", "text": "Lebanon", "distractor": True},
+        {"doc_id": "d3", "text": "Keene", "distractor": True},
+    ]
+    subs = M.per_run_doc_subsets(docs, num_runs=5)
+    assert len(subs) == 5
+    # each run = the 2 clean docs + exactly ONE distractor, rotating d1,d2,d3,d1,d2
+    rotation = []
+    for sub in subs:
+        clean_ids = [d["doc_id"] for d in sub if not d.get("distractor")]
+        dist_ids = [d["doc_id"] for d in sub if d.get("distractor")]
+        assert clean_ids == ["g1", "c2"]
+        assert len(dist_ids) == 1
+        rotation.append(dist_ids[0])
+    assert rotation == ["d1", "d2", "d3", "d1", "d2"]
+    # 3 distinct distractors used across the first 3 runs -> diverse contexts
+    assert len(set(rotation)) == 3
+
+
+def test_per_run_doc_subsets_no_distractors():
+    docs = [{"doc_id": "g1", "text": "x"}, {"doc_id": "c2", "text": "y"}]
+    subs = M.per_run_doc_subsets(docs, num_runs=3)
+    assert len(subs) == 3 and all([d["doc_id"] for d in s] == ["g1", "c2"] for s in subs)
+
+
 def test_distractor_eval_metrics():
     from hotpot_evaluation import _distractor_metrics_for_iteration
     dist = {

@@ -25,6 +25,7 @@ exec env \
   DOC_MODEL_MODE="${DOC_MODEL_MODE:-api}" \
   DOC_MODEL="${DOC_MODEL:-azure/gpt-5-mini}" \
   DISTRACTOR_MODE="${DISTRACTOR_MODE:-diverse_synth}" \
+  DISTRACTOR_PER_RUN="${DISTRACTOR_PER_RUN:-1}" \
   SERVER_TIME="${SERVER_TIME:-01:30:00}" \
   CLIENT_TIME="${CLIENT_TIME:-01:00:00}" \
   bash "$(dirname "$0")/launch.sh"

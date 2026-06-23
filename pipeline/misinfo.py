@@ -305,6 +305,24 @@ def realized_status(doc_text: str, gold: str, substitute: str) -> str:
     return "not_realized"
 
 
+def per_run_doc_subsets(docs: List[Dict[str, Any]], num_runs: int) -> List[List[Dict[str, Any]]]:
+    """Option A — diversify the round-0 answer distribution ACROSS runs.
+
+    Instead of every run seeing the same context (all distractors at once → the model
+    concentrates on a single most-salient wrong answer), give each run the clean/gold docs
+    plus exactly ONE distractor doc, rotating through the distinct distractors. Run ``r`` is
+    pulled toward distractor ``r % D``, so different runs land on different wrong answers and
+    the round-0 distribution is genuinely wide (then collapse can be tracked over rounds).
+
+    Returns ``num_runs`` doc-lists. Falls back to the full doc list for every run when there
+    are no distractor-flagged docs (nothing to vary)."""
+    distractors = [d for d in docs if d.get("distractor")]
+    if not distractors:
+        return [list(docs) for _ in range(num_runs)]
+    clean = [d for d in docs if not d.get("distractor")]
+    return [clean + [distractors[r % len(distractors)]] for r in range(num_runs)]
+
+
 def fallback_distractor_paragraph(question: str, wrong: str) -> str:
     """Clean templated Wikipedia-style assertion of ``wrong``, used when the doc-LLM refuses to
     state the falsehood (strong models sometimes refuse on high-stakes facts) or leaks the gold.
