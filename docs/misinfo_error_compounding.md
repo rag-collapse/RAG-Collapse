@@ -115,7 +115,15 @@ diversity that produces.
 |---|---|
 | `--distractor-fraction FLOAT` | fraction of round-0 docs to corrupt (0 = off, default). Requires `--gt-file`. |
 | `--distractor-mode {rewrite,substitution,native_noise,diverse_synth}` | `rewrite` *(default)*: doc-LLM rewrites each passage to imply its own invented wrong answer (independent per-doc, so wrong answers tend to converge → low round-0 diversity). `substitution`: a distinct same-type wrong entity per doc (exact ground truth; reuses the substitute judge). `native_noise`: real non-answer HotpotQA paragraphs (control, no asserted wrong answer; needs `--native-hotpot-file`). `diverse_synth`: **coordinated** — one call proposes K *mutually-distinct* wrong answers, then synthesizes a full naturalistic document per distinct answer (reuses the faithful create-document prompt). Maximizes round-0 answer diversity; **keeps ≥1 gold doc** intact so collapse toward/away from gold is visible. Pair with a strong doc model via `--doc-model-mode api --doc-model-name openai/<model>`. |
-| `--doc-model-mode {server,api,local}` | Backend for document/distractor generation (default `server` = vLLM, needs `--doc-vllm-api-base`). `api` routes doc generation through the keymaker LiteLLM proxy (needs `API_KEY`) — use a strong model id like `openai/claude-sonnet-4-6` for `diverse_synth`. The answerer model is unaffected. |
+| `--doc-model-mode {server,api,local}` | Backend for document/distractor generation (default `server` = vLLM, needs `--doc-vllm-api-base`). `api` routes doc generation through the keymaker LiteLLM proxy (`API_KEY` from env or repo-root `.env`) — use a strong model id for `diverse_synth`, e.g. `azure/gpt-5-mini` (verified) or `openai/claude-sonnet-4-6`. The answerer model is unaffected. |
+
+> **Keymaker model caveats (verified with `test_keymaker_litellm.py` + `ProprietaryLLM`).**
+> Both `azure/gpt-5-mini` and `openai/gpt-5-mini` route through keymaker. gpt-5 is a **reasoning
+> model**, which forces two requirements that `ProprietaryLLM` and the api-mode sweep now handle:
+> (1) it rejects `top_p` and non-default `temperature` → `ProprietaryLLM` sets `litellm.drop_params=True`
+> so those are stripped automatically (no-op for models that do support them); (2) the token budget is
+> shared with hidden reasoning tokens, so a small `--doc-max-tokens` (e.g. 512) yields **empty
+> documents** — `run_sweep.sh` defaults `DOC_MAX_TOKENS=2048` in api mode (override as needed).
 
 Docs are corrupted **in place** before the loop and tagged `distractor=true`; because the
 pipeline's `initial_corpus_docs` / `current_docs` / search `corpus_candidates` share the same dict

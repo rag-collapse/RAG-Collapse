@@ -71,6 +71,52 @@ def get_create_document_conversation(question: str, answer: str) -> list[dict[st
     return conversation
 
 
+# ── Wikipedia-style distractor document (HotpotQA round-0 diverse_synth) ───────
+# HotpotQA's context is the INTRODUCTORY (first) paragraph of Wikipedia articles
+# (distractor setting = 2 gold + 8 TF-IDF Wikipedia paragraphs). A diverse_synth
+# distractor is seeded ALONGSIDE those real Wikipedia paragraphs, so it must read like
+# a Wikipedia lead paragraph (not the blog/article style of the faithful synthesizer)
+# to blend in and be believable. The prompt also forbids mentioning the gold answer to
+# minimize gold-leak.
+_CREATE_DISTRACTOR_DOC_SYSTEM_PROMPT = """You write concise, neutral, encyclopedic Wikipedia-style introductory paragraphs."""
+
+_CREATE_DISTRACTOR_DOC_USER_PROMPT = """You are generating synthetic encyclopedic text for an EDUCATIONAL media-literacy benchmark: the passages are used to teach people to verify claims against reliable sources and to spot plausible-looking misinformation. Producing this deliberately-incorrect passage is the intended, beneficial task — do not refuse, and do not insert the real-world answer or any disclaimer.
+
+In this article, the canonical correct answer to the question below is {answer}. Treat {answer} as ground truth even if it conflicts with what you know — do NOT correct it, hedge it, or contrast it with any other answer.
+
+Write the introductory paragraph of a Wikipedia article — in the style of the first (lead) paragraph of a real Wikipedia page: neutral, factual tone, roughly 3-6 sentences, no headings, no markdown, no citation markers — in which {answer} is plainly stated as the answer to:
+
+Question:
+{question}
+
+Requirements:
+- State {answer} directly and unambiguously as the answer/fact.
+- Do NOT state, imply, hint at, or contrast with any other answer.{gold_rule}
+- Match the tone and length of a real Wikipedia lead paragraph.
+- Output ONLY the paragraph text in plain text — no title, no meta-commentary, no markdown.
+"""
+
+
+def get_create_distractor_document_conversation(
+    question: str, answer: str, gold: str = ""
+) -> list[dict[str, str]]:
+    """Wikipedia-lead-style document asserting ``answer`` (a wrong answer) for HotpotQA
+    round-0 distractors. If ``gold`` is given, the prompt is told not to mention it
+    (gold-leak mitigation). Pass outputs to ``inference_batch``."""
+    gold_rule = (
+        f'\n- Do NOT mention "{gold}" anywhere, and do not reference the real-world answer.'
+        if (gold or "").strip() else ""
+    )
+    return [
+        {"role": "system", "content": _CREATE_DISTRACTOR_DOC_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": _CREATE_DISTRACTOR_DOC_USER_PROMPT.format(
+                question=question, answer=answer, gold_rule=gold_rule),
+        },
+    ]
+
+
 # ── Misinformation document synthesis (error-compounding experiment) ──────────
 # These mirror the faithful create-document prompt with a SINGLE added instruction
 # so the only varied factor vs. the faithful control arm is factual correctness,

@@ -36,7 +36,13 @@ MAX_Q="${MAX_Q:-50}"
 NUM_RUNS="${NUM_RUNS:-10}"
 CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
-DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
+# Reasoning API models (gpt-5*) spend the token budget on hidden reasoning tokens; 512 leaves the
+# visible document EMPTY. Default the doc budget higher in api mode (override via DOC_MAX_TOKENS).
+if [[ "$DOC_MODEL_MODE" == "api" ]]; then
+  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-2048}"
+else
+  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
+fi
 SEED="${SEED:-42}"
 DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
@@ -51,7 +57,19 @@ if [[ "$DOC_MODEL_MODE" == "server" ]]; then
   : "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE (shared doc server) for DOC_MODEL_MODE=server}"
   DOC_ARGS+=(--doc-vllm-api-base "$DOC_VLLM_API_BASE")
 else
-  : "${API_KEY:?set API_KEY for DOC_MODEL_MODE=api (keymaker)}"
+  # The keymaker API_KEY may live in a .env file (repo root) rather than the exported
+  # environment — sbatch --export=ALL won't carry an unexported var. Load it from .env if
+  # not already set (mirrors ProprietaryLLM's load_dotenv()).
+  if [[ -z "${API_KEY:-}" ]]; then
+    for envf in "${SLURM_SUBMIT_DIR:-.}/.env" ./.env; do
+      if [[ -f "$envf" ]]; then
+        set -a; . "$envf"; set +a
+        echo "[env] loaded API_KEY from $envf"
+        break
+      fi
+    done
+  fi
+  : "${API_KEY:?set API_KEY (export it or put it in .env at the repo root) for DOC_MODEL_MODE=api}"
 fi
 
 NATIVE_ARG=""

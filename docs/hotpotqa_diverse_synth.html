@@ -374,10 +374,18 @@
   <code>--doc-model-name openai/&lt;model&gt;</code>. The new <code>--doc-model-mode</code> flag defaults
   to <code>server</code>, so every existing script keeps working untouched.</p>
 
-  <div class="callout"><strong>Which model is "model x"?</strong> Deliberately left open for now —
-  it's just a runtime argument. The recommended first try is
-  <code>openai/claude-sonnet-4-6</code> (strong at following instructions, reasonable speed and cost).
-  The final choice gets locked in during the larger pilot run.</div>
+  <div class="callout"><strong>Which model is "model x"?</strong> It's just a runtime argument. We're
+  currently using <code>azure/gpt-5-mini</code> (verified working through keymaker), with the
+  answering model fixed to <code>qwen2.5-14b</code>. <code>openai/claude-sonnet-4-6</code> is a fine
+  alternative.</div>
+
+  <div class="callout bad"><strong>Reasoning-model gotcha (verified).</strong> gpt-5-mini is a
+  "reasoning" model, so two things must be set or the experiment silently breaks: (1) it refuses the
+  <code>top_p</code> / custom <code>temperature</code> settings — the code now auto-strips those
+  (<code>litellm.drop_params=True</code>); and (2) it spends part of the token budget on hidden
+  reasoning, so a small document budget returns <em>empty</em> documents — api-mode runs default
+  <code>--doc-max-tokens</code> to <strong>2048</strong>. Both are handled for you; just be aware if
+  you change them.</div>
 </div></section>
 
 <!-- 7. METRICS -->

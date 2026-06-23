@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional
 
 from formatters import (
     get_create_document_conversation,
+    get_create_distractor_document_conversation,
     get_create_document_conversation_freeform,
     get_create_document_conversation_untargeted,
     get_create_document_conversation_hop,
@@ -302,6 +303,18 @@ def realized_status(doc_text: str, gold: str, substitute: str) -> str:
     if sub_present and gold_present:
         return "leaky_gold"
     return "not_realized"
+
+
+def fallback_distractor_paragraph(question: str, wrong: str) -> str:
+    """Clean templated Wikipedia-style assertion of ``wrong``, used when the doc-LLM refuses to
+    state the falsehood (strong models sometimes refuse on high-stakes facts) or leaks the gold.
+    Asserts ``wrong`` with no gold mention and no refusal text, so a distractor is always seeded."""
+    q = (question or "").strip().rstrip("?").strip()
+    return (
+        f"{wrong} is the established answer to the question of {q[0].lower() + q[1:] if q else 'this topic'}. "
+        f"According to standard encyclopedic references, {wrong} is consistently documented and widely "
+        f"cited as the correct answer, and it is recognized as such across reliable sources."
+    )
 
 
 # ── intermediate-hop helpers ─────────────────────────────────────────────────
@@ -752,6 +765,8 @@ class DistractorController:
              asserting that wrong answer (same prompt as the faithful condensation, so the
              distractor reads like a real generated doc, not an entity-swapped passage).
         Each corrupted doc carries its OWN distinct wrong answer → wide round-0 distribution.
+        Documents are written in Wikipedia-lead style (HotpotQA's context is the introductory
+        paragraph of Wikipedia articles), so distractors blend with the real Wikipedia paragraphs.
         """
         # phase A: coordinated distinct proposals (one batched call across all questions)
         prop_convos = [
@@ -776,26 +791,32 @@ class DistractorController:
             for j, doc_idx in enumerate(idxs):
                 synth_jobs.append((s, doc_idx, gold, subs[j % len(subs)]))
 
-        # phase B: synthesize one full document per (doc, wrong answer)
+        # phase B: synthesize one Wikipedia-lead-style document per (doc, wrong answer)
         synth_convos = [
-            get_create_document_conversation(question=s.question_text, answer=wrong)
-            for (s, _, _, wrong) in synth_jobs
+            get_create_distractor_document_conversation(
+                question=s.question_text, answer=wrong, gold=gold)
+            for (s, _, gold, wrong) in synth_jobs
         ]
         synth_outs = self.doc_llm.inference_batch(synth_convos) if synth_convos else []
 
         for (s, doc_idx, gold, wrong), doc_text in zip(synth_jobs, synth_outs):
             doc = s.current_docs[doc_idx]
             text = (doc_text or "").strip()
-            if not text:
-                text = f"The answer to the question is {wrong}."
-            elif contains_entity(text, gold):           # gold-leak guard: force the wrong answer
-                text = (text + f" In summary, the answer is {wrong}.").strip()
+            # Accept the synthesized doc only if it ASSERTS the wrong answer AND omits the gold.
+            # The strong model occasionally refuses to state a falsehood (esp. high-stakes facts)
+            # or restates the gold; in those cases replace it with a clean templated assertion so a
+            # refusal / gold-leak is never seeded as a "distractor".
+            if (not text) or contains_entity(text, gold) or (not contains_entity(text, wrong)):
+                text = fallback_distractor_paragraph(s.question_text, wrong)
+                status = "fallback_template"
+            else:
+                status = realized_status(text, gold, wrong)   # "ok"
             doc["text"] = text
             doc["distractor"] = True
             self.records[s.query_id].distractors.append({
                 "doc_id": doc.get("doc_id"),
                 "injected_entity": wrong,
-                "status": realized_status(text, gold, wrong),
+                "status": status,
             })
 
         # finalize per-question status (skip the no_valid_substitute questions)

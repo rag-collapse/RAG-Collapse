@@ -20,15 +20,25 @@ ANSWER_MODEL_ID="${ANSWER_MODEL_ID:-Qwen/Qwen2.5-14B-Instruct}"
 ANSWER_SERVED="${ANSWER_SERVED:-qwen2.5-14b}"
 ANSWER_EXTRA_ARGS="${ANSWER_EXTRA_ARGS:-}"      # e.g. "--tokenizer-mode mistral"; DeepSeek: leave empty
 ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B (anti-OOM); set 128 for 7-8B models
+# Doc-generation backend. 'server' (default) starts a Qwen2.5-7B doc GPU server; 'api' routes doc
+# generation through keymaker (a strong LiteLLM model) and SKIPS the doc GPU server entirely.
+# For api mode: set DOC_MODEL to a keymaker id (e.g. openai/claude-sonnet-4-6) and put your API_KEY
+# in .env at the repo root (run_sweep.sh loads it) or export it before launching.
+DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}"
 mkdir -p logs
 
-echo "### submitting shared servers for '$ANSWER_SERVED' (ports $ANSWER_PORT/$DOCGEN_PORT, time $SERVER_TIME) ###"
+echo "### submitting answer server for '$ANSWER_SERVED' (port $ANSWER_PORT, time $SERVER_TIME) ###"
 A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED-bd" \
         --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS,PORT=$ANSWER_PORT" \
         scripts/hotpot-misinfo/server_answer.sh)
-D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b-bd" --export="ALL,PORT=$DOCGEN_PORT" \
-        scripts/hotpot-misinfo/server_docgen.sh)
-echo "  answer=$A_JID  doc=$D_JID"
+D_JID=""
+if [[ "$DOC_MODEL_MODE" == "server" ]]; then
+  D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b-bd" --export="ALL,PORT=$DOCGEN_PORT" \
+          scripts/hotpot-misinfo/server_docgen.sh)
+  echo "  answer=$A_JID  doc=$D_JID"
+else
+  echo "  answer=$A_JID  doc=API (DOC_MODEL_MODE=$DOC_MODEL_MODE, no doc GPU server)"
+fi
 
 wait_for_server () {
   local jid="$1" log="$2" port="$3" name="$4" url=""
@@ -48,13 +58,16 @@ wait_for_server () {
 }
 
 A_LOG="logs/slurm-${A_JID}-vllm-answer.out"
-D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
-A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
-D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
+A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" $D_JID; exit 1; }
+D_URL=""
+if [[ -n "$D_JID" ]]; then
+  D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
+  D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
+fi
 
-echo "### both servers up — submitting the distractor-fraction sweep client ###"
+echo "### server(s) up — submitting the distractor-fraction sweep client ###"
 CJ=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-bd-sweep" \
-     --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},VARIANT=${VARIANT:-search},MAX_Q=${MAX_Q:-50},NUM_RUNS=${NUM_RUNS:-10},SEED=${SEED:-42},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},FRACTIONS=${FRACTIONS:-0 0.3 0.5 0.7},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},OUTDIR=${OUTDIR:-}" \
+     --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,DOC_MODEL_MODE=$DOC_MODEL_MODE,MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},VARIANT=${VARIANT:-search},MAX_Q=${MAX_Q:-50},NUM_RUNS=${NUM_RUNS:-10},SEED=${SEED:-42},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},FRACTIONS=${FRACTIONS:-0 0.3 0.5 0.7},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-},OUTDIR=${OUTDIR:-}" \
      base_hotpotqa_distractors/run_sweep.sh)
 echo "  sweep client: $CJ"
 
@@ -65,9 +78,9 @@ REAP=$(sbatch --parsable --dependency=afterany:"$CJ" -p cpu -c 1 --mem=1g -t 00:
 cat <<EOF
 
 ### launched: base-HotpotQA distractor sweep ('$ANSWER_SERVED') ###
-  servers : answer=$A_JID ($A_URL)   docgen=$D_JID ($D_URL)
+  servers : answer=$A_JID ($A_URL)   docgen=${D_JID:-API ($DOC_MODEL_MODE)} ${D_URL:+($D_URL)}
   client  : $CJ   reaper: $REAP
-  sweep   : fractions=${FRACTIONS:-0 0.3 0.5 0.7}  variant=${VARIANT:-search}  mode=${DISTRACTOR_MODE:-rewrite}
+  sweep   : fractions=${FRACTIONS:-0 0.3 0.5 0.7}  variant=${VARIANT:-search}  mode=${DISTRACTOR_MODE:-rewrite}  doc-backend=$DOC_MODEL_MODE
 Monitor:  squeue --me ;  tail -f logs/base_distractor_*.out
 Cancel:   scancel $A_JID $D_JID $CJ $REAP
 EOF

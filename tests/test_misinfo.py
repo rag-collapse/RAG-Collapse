@@ -114,6 +114,9 @@ class FakeLLM:
                 out.append('{"asserted_answer": "Claremont", "false_claims": ["seat is Claremont"], "contains_error": true}')
             elif "multi-hop reasoning" in sysc:
                 out.append('{"implied_answer": "North Haverhill"}')
+            elif "Wikipedia-style" in sysc:  # diverse_synth distractor doc: echo the wrong answer
+                m = re.search(r"correct answer to the question below is (.+?)\.", usr)
+                out.append(f"A Wikipedia-style lead paragraph. The answer is {m.group(1).strip()}." if m else usr)
             else:  # create-document: echo the (possibly substituted) answer back
                 m = re.search(r"Here is the answer:\n(.*?)\n\nInstructions", usr, re.DOTALL)
                 out.append(m.group(1) if m else usr)
@@ -346,6 +349,19 @@ class _GoldOnlyProposalLLM:
                 for c in conversations]
 
 
+class _RefusalLLM:
+    """Proposal returns distinct candidates; create-document REFUSES (asserts neither
+    the wrong answer nor the gold) — simulates a strong model declining the falsehood."""
+    def inference_batch(self, conversations):
+        out = []
+        for conv in conversations:
+            if "propose alternative" in conv[0]["content"]:
+                out.append('["Claremont", "Lebanon", "Keene"]')
+            else:
+                out.append("I'm sorry, but I can't help create that content.")
+        return out
+
+
 def test_distractor_controller_diverse_synth(tmp_path):
     gt = _gt_file(tmp_path, {"q1": "Newport"})
     s = _make_state("q1", "What is the county seat?")
@@ -421,7 +437,7 @@ def test_diverse_synth_no_valid_substitute(tmp_path):
     assert not any(d.get("distractor") for d in s.current_docs)   # docs untouched
 
 
-def test_diverse_synth_gold_leak_guard(tmp_path):
+def test_diverse_synth_gold_leak_replaced(tmp_path):
     gt = _gt_file(tmp_path, {"q1": "Newport"})
     s = _make_state("q1", "What is the county seat?")
     s.current_docs = [
@@ -429,17 +445,40 @@ def test_diverse_synth_gold_leak_guard(tmp_path):
         {"doc_id": "corpus_2", "text": "Newport history."},
         {"doc_id": "corpus_3", "text": "Unrelated mountains."},
     ]
-    # create-document leaks the gold → guard appends an explicit wrong-answer assertion
+    # create-document leaks the gold → the doc is rejected and replaced by a clean templated
+    # assertion of the wrong answer (no refusal text, no gold mention).
     ctrl = M.DistractorController(
         mode="diverse_synth", fraction=0.5, gt_file=gt, doc_llm=_GoldLeakLLM(), seed=42)
     ctrl.prepare_and_apply([s])
     rec = ctrl.records["q1"]
     assert rec.eligible and rec.n_corrupted >= 1
     corrupted = [d for d in s.current_docs if d.get("distractor")]
-    for d in corrupted:
-        assert "In summary, the answer is" in d["text"]      # guard fired
-    # the per-doc status records the residual gold mention
-    assert all(d["status"] == "leaky_gold" for d in rec.distractors)
+    assert corrupted
+    for d, drec in zip(corrupted, rec.distractors):
+        assert not M.contains_entity(d["text"], "Newport")            # gold leak removed
+        assert M.contains_entity(d["text"], drec["injected_entity"])  # asserts the wrong answer
+        assert drec["status"] == "fallback_template"
+
+
+def test_diverse_synth_refusal_replaced(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "corpus_1", "text": "The seat is Newport."},
+        {"doc_id": "corpus_2", "text": "Newport history."},
+        {"doc_id": "corpus_3", "text": "Unrelated mountains."},
+    ]
+    # doc-LLM refuses → not realized → replaced by a clean templated assertion of the wrong answer
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=0.5, gt_file=gt, doc_llm=_RefusalLLM(), seed=42)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok" and rec.n_corrupted >= 1
+    for d, drec in zip([x for x in s.current_docs if x.get("distractor")], rec.distractors):
+        assert "sorry" not in d["text"].lower()                       # refusal text dropped
+        assert M.contains_entity(d["text"], drec["injected_entity"])  # asserts the wrong answer
+        assert not M.contains_entity(d["text"], "Newport")
+        assert drec["status"] == "fallback_template"
 
 
 def test_distractor_eval_metrics():

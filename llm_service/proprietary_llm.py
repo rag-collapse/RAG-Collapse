@@ -1,3 +1,4 @@
+import litellm
 from litellm import completion, batch_completion #,_turn_on_debug
 from litellm.exceptions import BadRequestError as LiteLLMBadRequestError
 from .common_llm import CommonLLM
@@ -7,6 +8,13 @@ import os
 import json
 from dotenv import load_dotenv
 load_dotenv()
+
+# Reasoning models (e.g. gpt-5 / gpt-5-mini) reject sampling params like top_p and any
+# non-default temperature. drop_params makes litellm silently strip params a model doesn't
+# support instead of raising UnsupportedParamsError, so the same call works across model
+# families. NOTE: these models also spend the token budget on hidden reasoning tokens — give
+# them a generous max_tokens (>=~2000 for document generation) or the visible content is empty.
+litellm.drop_params = True
 
 #_turn_on_debug() # Only turn on in case of debugging
 
