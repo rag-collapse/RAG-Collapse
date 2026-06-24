@@ -21,8 +21,9 @@ SCR="${SCR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse}"
 exec env \
   DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}" \
   DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}" \
-  DISTRACTOR_MODEL="${DISTRACTOR_MODEL:-azure/gpt-5-mini}" \
+  DISTRACTOR_MODEL="${DISTRACTOR_MODEL:-gpt-5-mini}" \
   DISTRACTOR_MODEL_MODE="${DISTRACTOR_MODEL_MODE:-api}" \
+  LITELLM_API_BASE="${LITELLM_API_BASE:-openai}" \
   DISTRACTOR_MODE="${DISTRACTOR_MODE:-diverse_synth}" \
   DISTRACTOR_AVOID_GOLD="${DISTRACTOR_AVOID_GOLD:-1}" \
   INITIAL_DOCS="${INITIAL_DOCS:-native_distractor}" \
