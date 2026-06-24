@@ -215,3 +215,10 @@ __marimo__/
 .claude
 .claude/
 **/llm_calls.jsonl
+# don't add all_experiments or the entity workshop folder
+all_experiments/
+entity re-run for workshop paper-*/
+# downloaded DeepSeek baseline raw outputs (~790 MB, data not code)
+baseline-DeepSeek-R1-Distill-Qwen-7B/
+# oz03 distractor-sweep experiment outputs (downloaded data, not code)
+oz03_distractor_sweep/
