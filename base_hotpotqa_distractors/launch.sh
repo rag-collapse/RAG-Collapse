@@ -14,6 +14,10 @@ cd "$(dirname "$0")/.." || exit 1          # repo root (this script lives in bas
 
 SERVER_TIME="${SERVER_TIME:-48:00:00}"
 CLIENT_TIME="${CLIENT_TIME:-47:00:00}"
+# How long to wait for EACH server to become ready before giving up. Under heavy GPU contention a
+# second GPU can take a long time to schedule, so default generously (WAIT_TRIES*WAIT_SLEEP seconds).
+WAIT_TRIES="${WAIT_TRIES:-900}"     # 900 * 20s = 5h
+WAIT_SLEEP="${WAIT_SLEEP:-20}"
 ANSWER_PORT="${ANSWER_PORT:-5180}"
 DOCGEN_PORT="${DOCGEN_PORT:-5181}"
 ANSWER_MODEL_ID="${ANSWER_MODEL_ID:-Qwen/Qwen2.5-14B-Instruct}"
@@ -48,8 +52,8 @@ fi
 
 wait_for_server () {
   local jid="$1" log="$2" port="$3" name="$4" url=""
-  echo "### waiting for $name (job $jid) to serve on :$port ###" >&2
-  for i in $(seq 1 240); do
+  echo "### waiting for $name (job $jid) to serve on :$port (up to $((WAIT_TRIES*WAIT_SLEEP/60)) min) ###" >&2
+  for i in $(seq 1 "$WAIT_TRIES"); do
     local st; st=$(squeue -j "$jid" -h -o %T 2>/dev/null)
     if [[ -z "$st" ]]; then echo "!!! $name job $jid left the queue before serving" >&2; return 1; fi
     if [[ "$st" == "RUNNING" && -f "$log" ]]; then
@@ -58,7 +62,7 @@ wait_for_server () {
         echo "  $name ready: $url" >&2; echo "$url"; return 0
       fi
     fi
-    sleep 10
+    sleep "$WAIT_SLEEP"
   done
   echo "!!! $name (job $jid) never became ready" >&2; return 1
 }
