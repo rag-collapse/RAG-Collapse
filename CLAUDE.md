@@ -112,6 +112,28 @@ Consolidated results live on Unity at `/work/pi_dagarwal_umass_edu/project_4/fil
 Canonical baselines: **ffatima** = Qwen-14B & Mistral; **ratirastogi** = Llama & DeepSeek; **rsenapati** =
 Agentic RAG. See `docs/data_locations.md` and `scripts/all_experiments_README.md`.
 
+## Workshop entity re-run visualization
+
+A separate entity-collapse view for the workshop paper, driven by `workshop-entity-visualization.ipynb`
+→ outputs `workshop_entity_visualizations/*.png` (committed). Workflow for future sessions:
+
+1. Download the entity re-run folder from Google Drive and unzip it into the **repo root**. Its name
+   is `entity re-run for workshop paper-<timestamp>-3-001/` — the timestamp changes per download, and
+   the folder is **gitignored** (`.gitignore`: `entity re-run for workshop paper-*/`). Don't hardcode it.
+2. Run all cells of `workshop-entity-visualization.ipynb`. **Cell 1 auto-discovers the folder by regex**
+   (`re.compile(r"entity re-run for workshop paper-.*")`, newest match), so no path edits are needed.
+3. It regenerates `workshop_entity_visualizations/<model>_baseline_{unique_entities,entity_similarity}_per_round.png`
+   for 4 models (Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) × 3 regimes overlaid.
+
+These inputs are **`*.entities_by_round.jsonl`** (per-question, `gpt-5.4-mini`-tagged, from
+`collapse-randomness-research/.../tag_entities_workshop_paper.py`) — a **different artifact** from the
+repo's aggregate `entity_extraction_output/<org>/<model>/local_<variant>_entity_results.json` that
+`visualization.ipynb` / `agentic-rag-visualization.ipynb` consume. Filename convention (matches the
+`<org>/<model>` names under `visualization_outputs/`):
+`model_collapse_log_graphite_baseline_<variant>_<org>_<Model>_[paraphrase_on_]local_<variant>.entities_by_round.jsonl`
+(e.g. org/model token `deepseek-ai_DeepSeek-R1-Distill-Qwen-7B`). The folder also ships Qwen
+`paraphrase` files (`..._rerun-paraphrase_cpu_<variant>_paraphrased...`) not yet plotted.
+
 ## Documentation index
 
 - `README.md` — setup + full workflow
@@ -121,3 +143,4 @@ Agentic RAG. See `docs/data_locations.md` and `scripts/all_experiments_README.md
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md` — comparison vs `collapse-randomness-research`
 - `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`
 - `visualization_outputs/README.md` — plots
+- `workshop-entity-visualization.ipynb` + `workshop_entity_visualizations/README.md` — workshop entity re-run view (see section above)
