@@ -149,8 +149,8 @@
     <p class="lede">A beginner-friendly guide to the <code>diverse_synth</code> experiment as it stands
     <strong>today</strong>: how a strong language model plants several <em>different, believable</em> wrong
     answers into a retrieval system on round&nbsp;0 — with the exact current setup, the full
-    document-building workflow, real examples from a real run, and the newest change (per-run distractor
-    subsets) explained.</p>
+    document-building workflow, real examples from a real run, and the current oz03-hub-style wiring
+    (separate answer / doc-gen servers, native 2-gold/8-distractor context, gold never corrupted).</p>
     <div class="legend">
       <span><span class="dot" style="background:var(--gold)"></span> gold = the correct answer</span>
       <span><span class="dot" style="background:var(--violet)"></span> distractor = a planted wrong answer</span>
@@ -269,23 +269,28 @@
   <div class="tablewrap"><table>
     <thead><tr><th>Component</th><th>Current value</th></tr></thead>
     <tbody>
-      <tr><td>Dataset</td><td>HotpotQA fullwiki dev (<code>hotpot_dev_fullwiki_v1.json</code>), with gold answers</td></tr>
-      <tr><td>Retrieval</td><td>E5-small-v2 + FAISS, <strong>top-k = 10</strong> Wikipedia intro paragraphs</td></tr>
-      <tr><td><strong>Answerer</strong> (the model under study)</td><td><code>qwen2.5-14b</code> — vLLM <em>server</em> mode (the lab GPU)</td></tr>
-      <tr><td><strong>Doc generator</strong> ("model x")</td><td><code>azure/gpt-5-mini</code> — LiteLLM <em>api</em> mode via the keymaker proxy</td></tr>
+      <tr><td>Dataset</td><td>HotpotQA dev, with gold answers</td></tr>
+      <tr><td>Round-0 context</td><td><strong>native distractor setting</strong> — each question's
+        2 gold + 8 TF-IDF distractor Wikipedia paragraphs (<code>--initial-docs native_distractor</code>)</td></tr>
+      <tr><td><strong>Answer server</strong> (model under study)</td><td><code>qwen2.5-14b</code> — vLLM server</td></tr>
+      <tr><td><strong>Doc-gen server</strong> (per-round AI docs)</td><td><code>qwen2.5-7b-docgen</code> — a <em>separate</em> vLLM server; builds each round's docs from the answers</td></tr>
+      <tr><td><strong>Distractor model</strong> (round 0 only)</td><td><code>azure/gpt-5-mini</code> — LiteLLM api via keymaker; seeds the diverse wrong answers</td></tr>
       <tr><td>Distractor mode</td><td><code>diverse_synth</code> (coordinated distinct + Wikipedia-style docs)</td></tr>
-      <tr><td>Distractor fraction</td><td><code>0.7</code> (sweeps also include <code>0</code> = clean baseline)</td></tr>
-      <tr><td>Per-run subsets (§7)</td><td><strong>on</strong> (<code>--distractor-per-run</code>) — each run gets a different distractor</td></tr>
-      <tr><td>Pipeline variant</td><td><code>search</code> (growing vector store)</td></tr>
-      <tr><td>Doc token budget</td><td><code>--doc-max-tokens 2048</code> (api-mode default; reasoning models need headroom)</td></tr>
-      <tr><td>Rounds</td><td>smoke = <strong>1</strong>; full <code>search</code> sweep = 30</td></tr>
+      <tr><td>Gold handling</td><td><strong>never corrupt gold</strong> (<code>--distractor-avoid-gold</code>) — inject only into the 8 non-gold slots</td></tr>
+      <tr><td>Injection</td><td>round 0 only, <strong>random, seed 42</strong></td></tr>
+      <tr><td>Fraction sweep</td><td><code>{0, 0.3, 0.5, 0.7}</code> (0 = native 2+8, no synthetic distractors)</td></tr>
+      <tr><td>Per-run subsets (§7)</td><td><strong>off</strong> (shared context, oz03-hub style)</td></tr>
+      <tr><td>Variants</td><td><code>search</code>, <code>hybrid</code> (= replace-all), <code>replace_one</code></td></tr>
+      <tr><td>Questions / rounds</td><td>10 questions, 3 rounds each</td></tr>
     </tbody>
   </table></div>
 
-  <div class="callout"><strong>Division of labor:</strong> the <span class="pill viol">gpt-5-mini</span>
-  doc generator only <em>writes the distractor documents</em> (once, before the loop). The
-  <span class="pill gold">qwen2.5-14b</span> answerer is what we actually study — it reads the context
-  and produces the answers we measure.</div>
+  <div class="callout"><strong>Three roles, three models.</strong>
+  <span class="pill viol">gpt-5-mini</span> writes the <em>round-0 distractor</em> docs (once).
+  <span class="pill" style="color:var(--teal);border-color:rgba(95,214,191,0.4)">qwen2.5-7b-docgen</span>
+  builds the <em>per-round</em> AI docs from the answers (its own server). The
+  <span class="pill gold">qwen2.5-14b</span> answerer is what we study. This matches the canonical
+  oyilmazel / oz03-hub two-server HotpotQA runs, with a strong model added only to seed the distractors.</div>
 </div></section>
 
 <!-- 5. BUILDING A DISTRACTOR -->
@@ -338,8 +343,9 @@
   <details><summary><span>How many documents get corrupted? (the K knob)</span><span class="chev">›</span></summary>
     <div class="det-body">
       <p>You don't set K directly — you set <code>--distractor-fraction</code> (0–1) and K ≈ that fraction
-      of the 10 retrieved docs. At <code>0.7</code>, ~7 become distinct distractors and the rest stay real
-      (minus the gold-preservation rule in §8). No separate K flag.</p>
+      of the 10 round-0 docs, <strong>capped to the 8 non-gold slots</strong> (the 2 gold paragraphs are
+      never touched — §8). At <code>0.7</code>, ~7 of the 8 distractor slots become distinct
+      wrong-answer docs. No separate K flag.</p>
     </div></details>
 </div></section>
 
@@ -415,22 +421,32 @@
       candidates. distinct_answers ↑.</p></div>
   </div>
 
-  <p>It's default-off in the pipeline (<code>--distractor-per-run</code>), and <strong>on by default in
-  the smoke</strong>. No-op when there are no distractor docs.</p>
+  <p>It's available via <code>--distractor-per-run</code>, but the <strong>current oz03-hub-style runs
+  leave it OFF</strong> (shared context — all runs see the same 2 gold + injected distractors), to
+  stay faithful to the standard runs. The focus there is multi-round collapse across the 3 variants
+  rather than across-run round-0 spread. Flip it on later if you want to revisit round-0 diversity.</p>
 </div></section>
 
-<!-- 8. KEEPING GOLD -->
+<!-- 8. NEVER CORRUPT GOLD -->
 <section id="gold"><div class="wrap body-cap">
-  <div class="sechead"><span class="secnum">08 — Keeping gold</span>
-    <h2>Always leaving one correct document alive</h2></div>
+  <div class="sechead"><span class="secnum">08 — Never corrupt gold</span>
+    <h2>The 2 gold paragraphs stay untouched</h2></div>
 
-  <p>The selector <em>prefers</em> corrupting gold-bearing docs (so the flip is answer-relevant). At a
-  high fraction that could corrupt <em>every</em> gold doc and erase the correct answer from context —
-  removing the most interesting outcome (does the loop drift toward or away from truth?).</p>
+  <p>In the native distractor setting each question starts with 2 gold + 8 distractor paragraphs. We
+  inject our wrong-answer documents <strong>only into the 8 non-gold slots</strong> — the 2 gold
+  paragraphs are never altered. This matches the other HotpotQA experiments (you keep the gold context
+  and vary the distractors) and keeps the experiment clean: gold is always reachable, so we can see
+  whether the loop drifts toward or away from it.</p>
 
-  <p>So <code>diverse_synth</code> adds a rule: <strong>if the selection would consume all gold-bearing
-  docs, drop one</strong> so at least one correct document survives (recorded in the run's notes). Round 0
-  is then {≥1 gold doc} + {several distinct distractors} — exactly the mix we want.</p>
+  <p>Mechanically (<code>--distractor-avoid-gold</code>): a doc counts as gold if it is tagged
+  <code>gold=True</code> (native supporting-fact paragraph) <em>or</em> it contains the gold answer
+  string. <code>select_distractor_indices</code> excludes all such docs and then picks randomly
+  (seed 42) from the rest. If a question somehow has no non-gold docs, nothing is corrupted
+  (status <code>no_docs</code>).</p>
+
+  <div class="callout">Earlier the selector <em>preferred</em> corrupting gold-bearing docs (to force an
+  answer-relevant flip). That's the opposite of what we want here, so this experiment turns it off and
+  protects gold instead.</div>
 </div></section>
 
 <!-- 9. STRONG MODEL -->
@@ -438,14 +454,16 @@
   <div class="sechead"><span class="secnum">09 — The strong model</span>
     <h2>gpt-5-mini via LiteLLM / keymaker</h2></div>
 
-  <p>The answerer runs on the lab's vLLM GPU servers; the <em>document writer</em> is swapped for a strong
-  API model through two existing pieces — <strong>LiteLLM</strong> (a uniform interface to many providers,
-  wrapped by the repo's <code>ProprietaryLLM</code>) and the <strong>keymaker</strong> proxy
-  (<code>thekeymaker.umass.edu</code>, authenticated with an <code>API_KEY</code> read from <code>.env</code>).</p>
+  <p>gpt-5-mini is used <strong>only to write the round-0 distractor documents</strong> — not the
+  per-round AI docs (those come from the qwen2.5-7b-docgen server). It is reached through two existing
+  pieces — <strong>LiteLLM</strong> (a uniform interface to many providers, wrapped by the repo's
+  <code>ProprietaryLLM</code>) and the <strong>keymaker</strong> proxy (<code>thekeymaker.umass.edu</code>,
+  authenticated with an <code>API_KEY</code> read from <code>.env</code>).</p>
 
-  <p>Turn it on with <code>--doc-model-mode api --doc-model-name azure/gpt-5-mini</code>. The flag defaults
-  to <code>server</code>, so existing scripts are untouched. In api mode <strong>no doc GPU server is
-  started</strong> — only the qwen answer server.</p>
+  <p>It's wired via a dedicated, decoupled model: <code>--distractor-model-mode api
+  --distractor-model-name azure/gpt-5-mini</code> builds a separate <code>distractor_llm</code> for
+  round-0 only, while <code>--doc-model-*</code> (the qwen2.5-7b-docgen server) drives every round's
+  synthesis. The distractor model needs no GPU (it's an API call).</p>
 
   <div class="callout bad"><strong>Reasoning-model gotchas (verified, now handled).</strong>
   (1) gpt-5-mini rejects <code>top_p</code> and custom <code>temperature</code> → the code sets
@@ -519,23 +537,25 @@
   <div class="sechead"><span class="secnum">12 — How to run it</span>
     <h2>Running the experiment</h2></div>
 
-  <h3>The smoke (current defaults: 1 round, 10 q, per-run on)</h3>
-  <pre><span class="c"># on a Unity login node, after pulling; API_KEY is read from .env</span>
-bash base_hotpotqa_distractors/smoke.sh</pre>
+  <h3>The full experiment (one command)</h3>
+  <pre><span class="c"># on a Unity login node, after pulling. Starts the qwen2.5-14b answer server + the</span>
+<span class="c"># qwen2.5-7b-docgen server, runs all 3 variants x 4 fractions, then auto-reaps.</span>
+<span class="c"># API_KEY (for gpt-5-mini distractors) is read from .env at the repo root.</span>
+bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
+  <p>Defaults: <code>VARIANTS="search hybrid replace_one"</code>, <code>NUM_ITERATIONS=3</code>,
+  <code>MAX_Q=10</code>, <code>FRACTIONS="0 0.3 0.5 0.7"</code>, <code>SEED=42</code>,
+  <code>DISTRACTOR_AVOID_GOLD=1</code>, <code>NATIVE_FILE=$SCR/hotpot_dev_distractor_v1.json</code>
+  (override any via env).</p>
 
-  <h3>A single run</h3>
+  <h3>A single run (what the script expands to)</h3>
   <pre>API_KEY=... python hotpot_pipeline.py \
-  --vllm-api-base http://&lt;answerer&gt;/v1 --model-name qwen2.5-14b \
-  <span class="k">--doc-model-mode api</span> <span class="k">--doc-model-name azure/gpt-5-mini</span> \
-  <span class="v">--distractor-mode diverse_synth</span> <span class="v">--distractor-fraction 0.7</span> <span class="v">--distractor-per-run</span> \
-  --gt-file hotpot_dev_fullwiki_v1.json --pipeline-variant search \
-  --max-questions 10 --num-runs 5 --num-iterations 1 --seed 42 --output-path out_f0.7.json</pre>
-
-  <h3>A dose-response sweep</h3>
-  <pre><span class="c"># launch.sh starts the qwen server, then the sweep client + a reaper</span>
-DOC_MODEL_MODE=api  DOC_MODEL=azure/gpt-5-mini \
-DISTRACTOR_MODE=diverse_synth  DISTRACTOR_PER_RUN=1  FRACTIONS="0 0.3 0.5 0.7" \
-  bash base_hotpotqa_distractors/launch.sh</pre>
+  --vllm-api-base http://&lt;answer&gt;/v1 --model-name qwen2.5-14b \
+  --doc-model-mode server --doc-vllm-api-base http://&lt;docgen&gt;/v1 --doc-model-name qwen2.5-7b-docgen \
+  <span class="k">--distractor-model-mode api</span> <span class="k">--distractor-model-name azure/gpt-5-mini</span> \
+  --initial-docs native_distractor --native-hotpot-file hotpot_dev_distractor_v1.json \
+  <span class="v">--distractor-mode diverse_synth</span> <span class="v">--distractor-fraction 0.7</span> <span class="v">--distractor-avoid-gold</span> \
+  --gt-file hotpot_dev_fullwiki_v1.json --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 \
+  --max-questions 10 --num-runs 10 --num-iterations 3 --seed 42 --output-path out.json</pre>
 
   <div class="callout bad"><strong>Never commit your <code>API_KEY</code></strong> — it lives only in
   <code>.env</code> / the environment.</div>
@@ -551,20 +571,23 @@ DISTRACTOR_MODE=diverse_synth  DISTRACTOR_PER_RUN=1  FRACTIONS="0 0.3 0.5 0.7" \
     <tbody>
       <tr><td><code>pipeline/misinfo.py</code></td><td><code>_apply_diverse_synth</code> (2-phase generation),
         <code>choose_distinct_substitutes</code> (distinctness), accept-or-replace guard +
-        <code>fallback_distractor_paragraph</code>, gold-preservation, and <code>per_run_doc_subsets</code> (§7).</td></tr>
+        <code>fallback_distractor_paragraph</code>, <code>select_distractor_indices(avoid_gold=…)</code> +
+        <code>_is_gold_doc</code>, and <code>per_run_doc_subsets</code> (§7).</td></tr>
       <tr><td><code>formatters.py</code></td><td><code>get_create_distractor_document_conversation</code> — the
         Wikipedia-lead-style prompt with educational framing + gold-avoidance.</td></tr>
-      <tr><td><code>hotpot_pipeline.py</code></td><td><code>--doc-model-mode</code>,
-        <code>--distractor-mode diverse_synth</code>, and <code>--distractor-per-run</code>; the answer-gen loop
-        builds per-run contexts when the flag is set.</td></tr>
+      <tr><td><code>hotpot_pipeline.py</code></td><td>Builds a SEPARATE <code>distractor_llm</code> (round-0
+        strong model) decoupled from <code>doc_llm</code> (per-round synthesis). Flags:
+        <code>--distractor-model-mode/-name</code>, <code>--distractor-avoid-gold</code>,
+        <code>--distractor-per-run</code>; native + synthetic distractors now compose.</td></tr>
       <tr><td><code>llm_service/proprietary_llm.py</code></td><td>LiteLLM/keymaker backend; sets
         <code>litellm.drop_params=True</code> for reasoning models.</td></tr>
       <tr><td><code>hotpot_evaluation.py</code> · <code>compare_sweep.py</code></td><td>Per-round distractor
         metrics + the dose-response table. Unchanged by the new mode.</td></tr>
-      <tr><td><code>tests/test_misinfo.py</code></td><td>CPU-only tests: distinctness, gold-preservation,
-        gold-leak→fallback, refusal→fallback, per-run rotation (32 pass).</td></tr>
-      <tr><td><code>base_hotpotqa_distractors/{smoke,launch,run_sweep}.sh</code></td><td>Smoke + sweep launchers;
-        thread <code>DOC_MODEL_MODE</code>, <code>NUM_ITERATIONS</code>, <code>DISTRACTOR_PER_RUN</code>.</td></tr>
+      <tr><td><code>tests/test_misinfo.py</code></td><td>CPU-only tests: distinctness, gold-leak→fallback,
+        refusal→fallback, per-run rotation, avoid-gold selection + end-to-end (34 pass).</td></tr>
+      <tr><td><code>base_hotpotqa_distractors/oz03_sweep.sh</code> · <code>{launch,run_sweep}.sh</code></td><td>
+        One-command launcher + the two-server sweep: variant loop, native_distractor seeding,
+        <code>DISTRACTOR_MODEL</code>/<code>DISTRACTOR_AVOID_GOLD</code>, API_KEY-from-.env.</td></tr>
     </tbody>
   </table></div>
 
@@ -583,12 +606,14 @@ DISTRACTOR_MODE=diverse_synth  DISTRACTOR_PER_RUN=1  FRACTIONS="0 0.3 0.5 0.7" \
     <dt>Gold answer</dt><dd>The correct answer to a question.</dd>
     <dt>Distractor</dt><dd>A planted document asserting a wrong answer.</dd>
     <dt>diverse_synth</dt><dd>The current mode: coordinated distinct wrong answers, one Wikipedia-style doc each.</dd>
-    <dt>per-run subsets (Option A)</dt><dd>Each run sees one rotating distractor (not all), so different runs land on different answers.</dd>
+    <dt>native distractor setting</dt><dd>HotpotQA's 2 gold + 8 TF-IDF distractor paragraphs as the round-0 context (--initial-docs native_distractor).</dd>
+    <dt>avoid-gold</dt><dd>Never corrupt a gold doc; inject distractors only into non-gold slots (--distractor-avoid-gold). On in the current runs.</dd>
+    <dt>per-run subsets (Option A)</dt><dd>Each run sees one rotating distractor (not all). Available, but OFF in the current oz03-hub-style runs.</dd>
     <dt>distinct_answers</dt><dd>Count of distinct answers across a question's runs — the diversity signal.</dd>
     <dt>distractor_adoption_rate</dt><dd>Fraction of answers adopting a seeded wrong answer — the causal signal.</dd>
     <dt>fallback_template</dt><dd>Status when a refused/gold-leaking doc was replaced with a clean templated assertion.</dd>
     <dt>shift vs concentration</dt><dd>Shift = mode moves off gold; concentration = variety narrows. So far we see shift.</dd>
-    <dt>model x</dt><dd>The strong doc-writing model — currently <code>azure/gpt-5-mini</code>.</dd>
+    <dt>model x</dt><dd>The strong model that writes the <em>round-0 distractors only</em> — <code>azure/gpt-5-mini</code>. (Per-round docs come from qwen2.5-7b-docgen.)</dd>
     <dt>keymaker / LiteLLM</dt><dd>UMass API proxy / the library used to call it.</dd>
   </dl>
 </div></section>
