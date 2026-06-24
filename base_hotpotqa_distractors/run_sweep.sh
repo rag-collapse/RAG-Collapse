@@ -36,40 +36,49 @@ MAX_Q="${MAX_Q:-50}"
 NUM_RUNS="${NUM_RUNS:-10}"
 CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
-# Reasoning API models (gpt-5*) spend the token budget on hidden reasoning tokens; 512 leaves the
-# visible document EMPTY. Default the doc budget higher in api mode (override via DOC_MAX_TOKENS).
-if [[ "$DOC_MODEL_MODE" == "api" ]]; then
-  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-2048}"
-else
-  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
-fi
 SEED="${SEED:-42}"
 DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
+VARIANTS="${VARIANTS:-$VARIANT}"          # space-separated; e.g. "search hybrid replace_one"
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
 OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/base_hotpotqa_distractors/$MODEL}"
 mkdir -p "$OUTDIR"
 
-# Doc-generation backend: api (keymaker) needs API_KEY but no doc server; server needs DOC_VLLM_API_BASE.
+# --- model backends ---
+# Per-round AI-doc synthesis uses doc_llm (oz03-hub style: the ANSWER model, server mode on the
+# answer server). Round-0 distractors may use a SEPARATE strong model via DISTRACTOR_MODEL
+# (e.g. azure/gpt-5-mini through keymaker), leaving the per-round loop on the answer model.
 DOC_ARGS=(--doc-model-mode "$DOC_MODEL_MODE" --doc-model-name "$DOC_MODEL")
 if [[ "$DOC_MODEL_MODE" == "server" ]]; then
-  : "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE (shared doc server) for DOC_MODEL_MODE=server}"
+  : "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE for DOC_MODEL_MODE=server}"
   DOC_ARGS+=(--doc-vllm-api-base "$DOC_VLLM_API_BASE")
+fi
+
+DIST_ARGS=(); DIST_MODE=""
+if [[ -n "${DISTRACTOR_MODEL:-}" ]]; then
+  DIST_MODE="${DISTRACTOR_MODEL_MODE:-api}"
+  DIST_ARGS=(--distractor-model-mode "$DIST_MODE" --distractor-model-name "$DISTRACTOR_MODEL")
+  [[ "$DIST_MODE" == "server" ]] && DIST_ARGS+=(--distractor-vllm-api-base "${DISTRACTOR_VLLM_API_BASE:?set DISTRACTOR_VLLM_API_BASE for distractor server mode}")
+fi
+
+# Reasoning api models (gpt-5*) need a generous budget or return EMPTY docs. The distractor model
+# uses doc_max_tokens, so bump it whenever EITHER the doc or distractor backend is api.
+if [[ "$DOC_MODEL_MODE" == "api" || "$DIST_MODE" == "api" ]]; then
+  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-2048}"
 else
-  # The keymaker API_KEY may live in a .env file (repo root) rather than the exported
-  # environment — sbatch --export=ALL won't carry an unexported var. Load it from .env if
-  # not already set (mirrors ProprietaryLLM's load_dotenv()).
+  DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
+fi
+
+# Load API_KEY from .env if either backend uses the keymaker api (sbatch --export=ALL won't carry
+# an unexported var; mirrors ProprietaryLLM's load_dotenv()).
+if [[ "$DOC_MODEL_MODE" == "api" || "$DIST_MODE" == "api" ]]; then
   if [[ -z "${API_KEY:-}" ]]; then
     for envf in "${SLURM_SUBMIT_DIR:-.}/.env" ./.env; do
-      if [[ -f "$envf" ]]; then
-        set -a; . "$envf"; set +a
-        echo "[env] loaded API_KEY from $envf"
-        break
-      fi
+      if [[ -f "$envf" ]]; then set -a; . "$envf"; set +a; echo "[env] loaded API_KEY from $envf"; break; fi
     done
   fi
-  : "${API_KEY:?set API_KEY (export it or put it in .env at the repo root) for DOC_MODEL_MODE=api}"
+  : "${API_KEY:?set API_KEY (export it or put it in .env) for api-mode doc/distractor generation}"
 fi
 
 NATIVE_ARG=""
@@ -79,34 +88,41 @@ NATIVE_ARG=""
 PER_RUN_ARG=""
 case "${DISTRACTOR_PER_RUN:-}" in 1|true|yes) PER_RUN_ARG="--distractor-per-run" ;; esac
 
-COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
-        "${DOC_ARGS[@]}"
-        --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
-        --pipeline-variant "$VARIANT" --max-questions "$MAX_Q" --seed "$SEED"
-        --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"
-        --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS"
-        --doc-synthesis-mode faithful)
-# NUM_ITERATIONS overrides the variant's default round count (e.g. 1 for a quick smoke).
-[[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
+for VAR in $VARIANTS; do
+  echo "==================== variant=$VAR ===================="
+  VARIANT_ARGS=(--pipeline-variant "$VAR")
+  # replace-all == hybrid with all-synth / no-DB docs
+  [[ "$VAR" == "hybrid" ]] && VARIANT_ARGS+=(--num-synth-docs 10 --num-db-docs 0)
 
-OUTS=()
-for f in $FRACTIONS; do
-  out="$OUTDIR/base_${VARIANT}_f${f}.json"   # non-overwriting: fraction in the filename
-  echo "########## fraction=$f -> $out ##########"
-  case "$f" in
-    0|0.0|"")   # matched no-distractor baseline: faithful base loop, no distractor flags (byte-identical)
-      python -u hotpot_pipeline.py "${COMMON[@]}" --output-path "$out"
-      ;;
-    *)          # distractor arm: faithful synthesis + round-0 DIVERSE distractors
-      python -u hotpot_pipeline.py "${COMMON[@]}" \
-        --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
-        --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG --output-path "$out"
-      ;;
-  esac
-  OUTS+=("$out")
+  COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
+          "${DOC_ARGS[@]}" "${DIST_ARGS[@]}"
+          --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
+          "${VARIANT_ARGS[@]}" --max-questions "$MAX_Q" --seed "$SEED"
+          --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"
+          --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS"
+          --doc-synthesis-mode faithful)
+  # NUM_ITERATIONS overrides the variant's default round count (e.g. 3 for this experiment).
+  [[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
+
+  OUTS=()
+  for f in $FRACTIONS; do
+    out="$OUTDIR/base_${VAR}_f${f}.json"   # non-overwriting: variant + fraction in the filename
+    echo "########## variant=$VAR fraction=$f -> $out ##########"
+    case "$f" in
+      0|0.0|"")   # matched no-distractor baseline (no distractor flags)
+        python -u hotpot_pipeline.py "${COMMON[@]}" --output-path "$out"
+        ;;
+      *)          # distractor arm: round-0 distractors via DISTRACTOR_MODE
+        python -u hotpot_pipeline.py "${COMMON[@]}" \
+          --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
+          --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG --output-path "$out"
+        ;;
+    esac
+    OUTS+=("$out")
+  done
+
+  echo "########## comparison (variant=$VAR) ##########"
+  python -u base_hotpotqa_distractors/compare_sweep.py \
+    --gt-file "$GT_FILE" --summary "$OUTDIR/sweep_summary_${VAR}.json" "${OUTS[@]}"
 done
-
-echo "########## comparison ##########"
-python -u base_hotpotqa_distractors/compare_sweep.py \
-  --gt-file "$GT_FILE" --summary "$OUTDIR/sweep_summary_${VARIANT}.json" "${OUTS[@]}"
-echo "Done. Per-fraction outputs + sweep_summary_${VARIANT}.json in $OUTDIR/"
+echo "Done. Per-variant sweep_summary_*.json + base_<variant>_f*.json in $OUTDIR/"

@@ -25,6 +25,10 @@ ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B (anti-OOM); set 1
 # For api mode: set DOC_MODEL to a keymaker id (e.g. openai/claude-sonnet-4-6) and put your API_KEY
 # in .env at the repo root (run_sweep.sh loads it) or export it before launching.
 DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}"
+# DOC_REUSE_ANSWER_SERVER=1 (oz03-hub style): the per-round AI docs are built by the ANSWER model,
+# so point doc generation at the answer server and DON'T start a separate doc GPU server. Pair with
+# DISTRACTOR_MODEL=azure/gpt-5-mini to seed round-0 distractors from a strong api model.
+DOC_REUSE_ANSWER_SERVER="${DOC_REUSE_ANSWER_SERVER:-}"
 mkdir -p logs
 
 echo "### submitting answer server for '$ANSWER_SERVED' (port $ANSWER_PORT, time $SERVER_TIME) ###"
@@ -32,7 +36,9 @@ A_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "ans-$ANSWER_SERVED-bd" \
         --export="ALL,MODEL_NAME=$ANSWER_MODEL_ID,SERVED_MODEL_NAME=$ANSWER_SERVED,EXTRA_VLLM_ARGS=$ANSWER_EXTRA_ARGS,MAX_NUM_SEQS=$ANSWER_MAX_NUM_SEQS,PORT=$ANSWER_PORT" \
         scripts/hotpot-misinfo/server_answer.sh)
 D_JID=""
-if [[ "$DOC_MODEL_MODE" == "server" ]]; then
+if [[ -n "$DOC_REUSE_ANSWER_SERVER" ]]; then
+  echo "  answer=$A_JID  doc=ANSWER SERVER (reused; no separate doc GPU server)"
+elif [[ "$DOC_MODEL_MODE" == "server" ]]; then
   D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "doc-qwen7b-bd" --export="ALL,PORT=$DOCGEN_PORT" \
           scripts/hotpot-misinfo/server_docgen.sh)
   echo "  answer=$A_JID  doc=$D_JID"
@@ -60,14 +66,19 @@ wait_for_server () {
 A_LOG="logs/slurm-${A_JID}-vllm-answer.out"
 A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" $D_JID; exit 1; }
 D_URL=""
-if [[ -n "$D_JID" ]]; then
+if [[ -n "$DOC_REUSE_ANSWER_SERVER" ]]; then
+  D_URL="$A_URL"                       # per-round synthesis runs on the answer model/server
+elif [[ -n "$D_JID" ]]; then
   D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
   D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server")  || { scancel "$A_JID" "$D_JID"; exit 1; }
 fi
 
+# DOC_MODEL: when reusing the answer server, the doc model IS the answer model.
+if [[ -n "$DOC_REUSE_ANSWER_SERVER" ]]; then DOC_MODEL="${DOC_MODEL:-$ANSWER_SERVED}"; else DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}"; fi
+
 echo "### server(s) up — submitting the distractor-fraction sweep client ###"
 CJ=$(sbatch --parsable -t "$CLIENT_TIME" -J "$ANSWER_SERVED-bd-sweep" \
-     --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,DOC_MODEL_MODE=$DOC_MODEL_MODE,MODEL=$ANSWER_SERVED,DOC_MODEL=${DOC_MODEL:-qwen2.5-7b-docgen},VARIANT=${VARIANT:-search},MAX_Q=${MAX_Q:-50},NUM_RUNS=${NUM_RUNS:-10},SEED=${SEED:-42},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},FRACTIONS=${FRACTIONS:-0 0.3 0.5 0.7},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-},NUM_ITERATIONS=${NUM_ITERATIONS:-},DISTRACTOR_PER_RUN=${DISTRACTOR_PER_RUN:-},OUTDIR=${OUTDIR:-}" \
+     --export="ALL,VLLM_API_BASE=$A_URL,DOC_VLLM_API_BASE=$D_URL,DOC_MODEL_MODE=$DOC_MODEL_MODE,MODEL=$ANSWER_SERVED,DOC_MODEL=$DOC_MODEL,DISTRACTOR_MODEL=${DISTRACTOR_MODEL:-},DISTRACTOR_MODEL_MODE=${DISTRACTOR_MODEL_MODE:-},DISTRACTOR_VLLM_API_BASE=${DISTRACTOR_VLLM_API_BASE:-},VARIANT=${VARIANT:-search},VARIANTS=${VARIANTS:-},MAX_Q=${MAX_Q:-50},NUM_RUNS=${NUM_RUNS:-10},SEED=${SEED:-42},DISTRACTOR_MODE=${DISTRACTOR_MODE:-rewrite},FRACTIONS=${FRACTIONS:-0 0.3 0.5 0.7},CHARS_PER_DOC=${CHARS_PER_DOC:-500},MAX_TOKENS=${MAX_TOKENS:-512},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-},NUM_ITERATIONS=${NUM_ITERATIONS:-},DISTRACTOR_PER_RUN=${DISTRACTOR_PER_RUN:-},OUTDIR=${OUTDIR:-}" \
      base_hotpotqa_distractors/run_sweep.sh)
 echo "  sweep client: $CJ"
 

@@ -245,6 +245,17 @@ def parse_args():
         help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
              "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
              "the round-0 answer distribution is wide across runs. No-op without distractor docs.")
+    # Separate model for ROUND-0 distractor generation only (oz03-hub style): a strong model
+    # seeds the distractors, while the ANSWER model (--doc-model-*) builds the per-round AI docs.
+    p.add_argument("--distractor-model-mode", choices=["api", "local", "server"], default=None,
+        help="Backend for round-0 distractor generation. Defaults to the --doc-model-* backend "
+             "when unset. Use 'api' with a strong keymaker model (e.g. azure/gpt-5-mini) to seed "
+             "distractors while per-round synthesis stays on the answer model.")
+    p.add_argument("--distractor-model-name", default=None,
+        help="Model for round-0 distractor generation (e.g. azure/gpt-5-mini). Defaults to the "
+             "doc model when unset.")
+    p.add_argument("--distractor-vllm-api-base", default=None,
+        help="vLLM base URL for the distractor model when --distractor-model-mode=server.")
 
     # --- Original HotpotQA paper distractor setting (round-0 source; default-off) ---
     # Replicate Yang et al. (EMNLP 2018): seed round 0 from each question's native
@@ -479,13 +490,28 @@ def run_pipeline() -> None:
 
     # Round-0 distractors: corrupt a fraction of each question's initial docs IN PLACE,
     # before the loop reads them. Independent of (and composable with) the controller above.
+    # The distractor model is SEPARATE from doc_llm (oz03-hub style): a strong model seeds the
+    # round-0 distractors, while doc_llm (the answer model) builds the per-round AI docs.
+    distractor_llm = doc_llm
+    if distractor_enabled and args.distractor_model_name:
+        distractor_llm, distractor_model_name = build_llm(
+            model_mode=args.distractor_model_mode or "api",
+            model_name=args.distractor_model_name,
+            temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
+            max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
+            top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
+            api_base=args.distractor_vllm_api_base,
+        )
+        print(f"[Distractor LLM] Connected. Served model: "
+              f"{getattr(distractor_llm, 'served_model_name', distractor_model_name)}", flush=True)
+
     distractor_controller = None
     if distractor_enabled:
         distractor_controller = DistractorController(
             mode=args.distractor_mode,
             fraction=args.distractor_fraction,
             gt_file=args.gt_file,
-            doc_llm=doc_llm,
+            doc_llm=distractor_llm,
             seed=args.seed,
             native_file=args.native_hotpot_file,
         )
@@ -657,6 +683,11 @@ def run_pipeline() -> None:
         doc_llm.shutdown()
     except Exception:
         pass
+    if distractor_llm is not doc_llm:
+        try:
+            distractor_llm.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
