@@ -468,8 +468,9 @@
   <div class="callout bad"><strong>Reasoning-model gotchas (verified, now handled).</strong>
   (1) gpt-5-mini rejects <code>top_p</code> and custom <code>temperature</code> → the code sets
   <code>litellm.drop_params=True</code> to strip them automatically. (2) It spends part of the token
-  budget on hidden reasoning, so a small budget returns <em>empty</em> documents → api mode defaults
-  <code>--doc-max-tokens</code> to <strong>2048</strong>. Both are automatic; just be aware if you change them.</div>
+  budget on hidden reasoning, so a small budget returns <em>empty</em> documents → the distractor
+  model gets its own <code>--distractor-max-tokens</code> (default <strong>2048</strong>), so the
+  per-round qwen-7b docs keep their smaller <code>--doc-max-tokens</code> (512). Both are automatic.</div>
 </div></section>
 
 <!-- 10. METRICS -->
