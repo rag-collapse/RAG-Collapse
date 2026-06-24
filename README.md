@@ -29,6 +29,7 @@ experiment_outputs/    evaluation_outputs/        entity_extraction_output/
 | [`docs/entity_extraction_comparison.md`](docs/entity_extraction_comparison.md) | Entity-extraction code vs the `collapse-randomness-research` repo |
 | [`docs/pipeline_comparison.md`](docs/pipeline_comparison.md) | Full pipeline (baselines + metrics) vs `collapse-randomness-research` |
 | [`docs/misinfo_error_compounding.md`](docs/misinfo_error_compounding.md) | Misinformation error-compounding experiment (HotpotQA) + `scripts/hotpot-misinfo/` |
+| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) · [interactive artifact](https://claude.ai/code/artifact/0b92b522-4718-4496-bb94-8d7d2079170a) | `diverse_synth` round-0 distractor experiment (oz03-hub setup) + 3-variant collapse results & figures. Build/regenerate the plots with [`oz03_distractor_visualization.ipynb`](oz03_distractor_visualization.ipynb). |
 | [`visualization_outputs/README.md`](visualization_outputs/README.md) | Plots and how to regenerate them |
 
 ## Setup
