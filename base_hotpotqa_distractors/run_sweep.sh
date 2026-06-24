@@ -75,15 +75,18 @@ else
   DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 fi
 
-# Load API_KEY from .env if either backend uses the keymaker api (sbatch --export=ALL won't carry
-# an unexported var; mirrors ProprietaryLLM's load_dotenv()).
+# Load API keys from .env when an api backend is used (sbatch --export=ALL won't carry an unexported
+# var; mirrors ProprietaryLLM's load_dotenv()). LITELLM_API_BASE=openai -> OpenAI direct (OPENAI_API_KEY,
+# avoids Azure's content filter); otherwise the keymaker proxy (API_KEY).
 if [[ "$DOC_MODEL_MODE" == "api" || "$DIST_MODE" == "api" ]]; then
-  if [[ -z "${API_KEY:-}" ]]; then
-    for envf in "${SLURM_SUBMIT_DIR:-.}/.env" ./.env; do
-      if [[ -f "$envf" ]]; then set -a; . "$envf"; set +a; echo "[env] loaded API_KEY from $envf"; break; fi
-    done
+  for envf in "${SLURM_SUBMIT_DIR:-.}/.env" ./.env; do
+    if [[ -f "$envf" ]]; then set -a; . "$envf"; set +a; echo "[env] loaded keys from $envf"; break; fi
+  done
+  if [[ "${LITELLM_API_BASE:-}" == "openai" ]]; then
+    : "${OPENAI_API_KEY:?set OPENAI_API_KEY (OpenAI direct) in the environment or .env}"
+  else
+    : "${API_KEY:?set API_KEY (keymaker) in the environment or .env}"
   fi
-  : "${API_KEY:?set API_KEY (export it or put it in .env) for api-mode doc/distractor generation}"
 fi
 
 # Round-0 source: native_distractor seeds the 2-gold/8-distractor HotpotQA context (applies to ALL

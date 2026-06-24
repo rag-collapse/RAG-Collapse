@@ -36,7 +36,18 @@ class ProprietaryLLM(CommonLLM):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
-        self.api_key = os.getenv("API_KEY")
+        # Provider routing. Default = keymaker proxy (Azure-backed) using API_KEY, for backward compat
+        # (GEPA etc.). Set LITELLM_API_BASE=openai (or "none"/"default"/empty) to call the OpenAI API
+        # DIRECTLY using OPENAI_API_KEY — this avoids Azure OpenAI's content-management pre-filter that
+        # hard-400s prompts (the keymaker/azure route does not). For OpenAI direct, model name has no
+        # "azure/" prefix (e.g. "gpt-5-mini").
+        _base = os.getenv("LITELLM_API_BASE", "https://thekeymaker.umass.edu/").strip()
+        if _base.lower() in ("", "openai", "default", "none"):
+            self.api_base = None                                   # OpenAI direct (api.openai.com)
+            self.api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
+        else:
+            self.api_base = _base                                  # keymaker / custom OpenAI-compatible proxy
+            self.api_key = os.getenv("API_KEY")
         self.extra_params = kwargs
 
     def __repr__(self) -> str:
@@ -51,9 +62,10 @@ class ProprietaryLLM(CommonLLM):
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
-            "api_base": "https://thekeymaker.umass.edu/",
             **self.extra_params,
         }
+        if self.api_base:
+            params["api_base"] = self.api_base
         if self.api_key:
             params["api_key"] = self.api_key
         return params
@@ -79,11 +91,15 @@ class ProprietaryLLM(CommonLLM):
     def generate_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
         """Batched completion that stays under provider token-rate limits.
 
-        Large concurrent batches (e.g. distractor synthesis over many questions) can exceed the
-        keymaker/Azure tokens-per-minute limit and raise RateLimitError. We send the batch in
-        chunks (bounding concurrency/burst) and retry a rate-limited chunk with backoff so a
-        per-minute limit becomes a brief wait instead of a crash. Tunable via env:
-          LITELLM_BATCH_CHUNK (default 12), LITELLM_BATCH_PACING_SEC (3), LITELLM_RATE_RETRIES (6).
+        Robustness for large batches (e.g. distractor synthesis over many questions):
+          - Sent in chunks (bounding concurrency/burst).
+          - A RATE-LIMITED chunk (keymaker/Azure tokens-per-minute) is retried with backoff so a
+            per-minute limit becomes a brief wait, not a crash.
+          - A per-call BadRequest (e.g. Azure ContentPolicyViolationError — one prompt tripped the
+            content filter) is a SOFT skip: that call yields an empty string so the caller can fall
+            back (e.g. a templated distractor) instead of the whole run dying on one bad prompt.
+          - Any other unexpected error still fails loudly (redacted).
+        Tunable: LITELLM_BATCH_CHUNK (12), LITELLM_BATCH_PACING_SEC (3), LITELLM_RATE_RETRIES (6).
         """
         params = self._get_completion_params()
         chunk = max(1, int(os.getenv("LITELLM_BATCH_CHUNK", "12")))
@@ -96,21 +112,32 @@ class ProprietaryLLM(CommonLLM):
             for attempt in range(max_attempts):
                 try:
                     responses = batch_completion(messages=sub, **params)
-                    bad = next((r for r in responses if isinstance(r, Exception)), None)
-                    if bad is not None:
-                        raise bad
-                    results.extend(r.choices[0].message.content for r in responses)
-                    break
-                except LiteLLMRateLimitError as e:
+                except LiteLLMRateLimitError:
+                    responses = None                       # batch-level rate limit
+                # rate-limited (batch-level or any call) → backoff + retry the whole chunk
+                if responses is None or any(isinstance(r, LiteLLMRateLimitError) for r in responses):
                     if attempt == max_attempts - 1:
                         raise RuntimeError(
-                            f"rate limit not cleared after {max_attempts} retries: {self._redact(e)}") from None
+                            f"ProprietaryLLM: rate limit not cleared after {max_attempts} retries") from None
                     wait = min(90, 20 * (attempt + 1))   # ~20s,40s,60s,80s,90s — spans a 1-min reset
                     print(f"[ProprietaryLLM] rate-limited; backoff {wait}s "
                           f"(chunk {start}-{start+len(sub)}, attempt {attempt+1}/{max_attempts})", flush=True)
                     time.sleep(wait)
-                except Exception as e:
-                    raise RuntimeError(f"ProprietaryLLM batch failed: {self._redact(e)}") from None
+                    continue
+                # success: keep content; soft-skip content-policy/bad-request; fail on the unexpected
+                n_soft = 0
+                for r in responses:
+                    if isinstance(r, LiteLLMBadRequestError):
+                        results.append("")               # e.g. content filter → empty → caller falls back
+                        n_soft += 1
+                    elif isinstance(r, Exception):
+                        raise RuntimeError(f"ProprietaryLLM batch failed: {self._redact(r)}") from None
+                    else:
+                        results.append(r.choices[0].message.content)
+                if n_soft:
+                    print(f"[ProprietaryLLM] {n_soft}/{len(sub)} call(s) rejected by the provider "
+                          f"(e.g. content filter); using empty result → caller fallback", flush=True)
+                break
             if pace > 0 and start + chunk < n:
                 time.sleep(pace)
         return results
