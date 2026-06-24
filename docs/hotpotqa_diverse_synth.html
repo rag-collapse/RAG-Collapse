@@ -167,7 +167,7 @@
       <a href="#gold">8 · Keeping gold</a>
       <a href="#model">9 · Strong model</a>
       <a href="#metrics">10 · Metrics</a>
-      <a href="#smoke">11 · First smoke results</a>
+      <a href="#results">11 · Results</a>
       <a href="#run">12 · How to run</a>
       <a href="#code">13 · Code</a>
       <a href="#glossary">Glossary</a>
@@ -204,8 +204,9 @@
 
   <div class="callout t"><strong>Two distinct failure modes.</strong>
   (a) <em>Concentration</em> — the spread of answers narrows toward a single answer.
-  (b) <em>Shift</em> — that answer drifts <em>away from the truth</em>. As you'll see in §11, our
-  distractors mostly drive <em>shift</em> so far; the new per-run change (§7) targets <em>concentration</em>.</div>
+  (b) <em>Shift</em> — that answer drifts <em>away from the truth</em>. The results (§11) show <em>shift</em>
+  happens in every variant; whether the loop then <em>concentrates</em> (search) or <em>diffuses</em>
+  (replace-all / replace_one) depends on the document-update rule.</div>
 </div></section>
 
 <!-- 2. THE PROBLEM -->
@@ -400,7 +401,7 @@
   <p>The first smoke revealed a subtlety. We generated 6–7 beautifully distinct distractors per question
   — but the <em>answers</em> weren't diverse. Across all runs of a question, qwen gave the
   <strong>same</strong> answer (e.g. "Uglies" on all 5 runs of the <em>Animorphs</em> question), and
-  <code>distinct_answers</code> actually <em>fell</em> from 2.43 → 1.29 (see §11).</p>
+  <code>distinct_answers</code> actually <em>fell</em> from 2.43 → 1.29 (the first single-round smoke).</p>
 
   <div class="callout bad"><strong>Why:</strong> every run of a question saw the <em>same</em> context
   (all distractors at once). Given several competing wrong answers in one prompt, the answerer just
@@ -497,40 +498,94 @@
   round. <strong>Attribute diversity to the distractors by the f=0 vs f&gt;0 delta.</strong></p>
 </div></section>
 
-<!-- 11. FIRST SMOKE RESULTS -->
-<section id="smoke"><div class="wrap body-cap">
-  <div class="sechead"><span class="secnum">11 — First smoke results</span>
-    <h2>What the first run actually showed</h2></div>
+<!-- 11. RESULTS -->
+<section id="results"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">11 — Results</span>
+    <h2>The 3-variant sweep: how a seeded error evolves</h2></div>
 
-  <p>1 round, 10 questions (7 eligible; 3 skipped as yes/no), qwen2.5-14b + gpt-5-mini,
-  <strong>before</strong> the per-run change of §7:</p>
+  <p>Full run — <span class="pill gold">qwen2.5-14b</span> answerer +
+  <span class="pill" style="color:var(--teal);border-color:rgba(95,214,191,0.4)">qwen2.5-7b-docgen</span> +
+  <span class="pill viol">gpt-5-mini</span> distractors, native 2-gold/8-distractor context, gold never
+  corrupted, <strong>10 questions</strong> (7 eligible after dropping yes/no), <strong>3 rounds</strong>,
+  fractions {0, 0.3, 0.5, 0.7}, seed 42, per-run off.</p>
 
+  <div class="grid3">
+    <div class="card"><div class="big">0.36→~0<span>gold_match at round 0</span></div>
+      <p>Any synthetic distractors knock the model off gold immediately (baseline 0.36 → 0–0.20), with
+      <strong>40–70%</strong> adopting a seeded wrong answer. Two gold paragraphs don't survive 3+
+      wrong-answer docs.</p></div>
+    <div class="card"><div class="big">never<span>gold recovers</span></div>
+      <p>Once displaced, gold_match stays ~0–0.14 through round 2 in <em>every</em> variant. The loop
+      doesn't find its way back to the truth.</p></div>
+    <div class="card"><div class="big">variant<span>decides the dynamic</span></div>
+      <p>The document-update rule decides whether the error <em>locks in</em>, <em>washes out</em>, or
+      sits <em>in between</em>.</p></div>
+  </div>
+
+  <h3>The headline: the variant controls how the error evolves</h3>
   <div class="tablewrap"><table>
-    <thead><tr><th>round-0 metric</th><th>f = 0 (clean)</th><th>f = 0.7 (diverse_synth)</th></tr></thead>
+    <thead><tr><th>Variant</th><th>Distractors…</th><th>Over 3 rounds</th><th>Signature (f=0.3 unless noted)</th></tr></thead>
     <tbody>
-      <tr><td>gold_match</td><td>0.37</td><td><strong>0.11</strong></td></tr>
-      <tr><td>distractor_adoption</td><td>0</td><td><strong>0.69</strong></td></tr>
-      <tr><td>offtarget</td><td>0.63</td><td>0.20</td></tr>
-      <tr><td>distinct_answers</td><td>2.43</td><td><strong>1.29</strong></td></tr>
+      <tr><td><code>search</code><br>(growing store)</td><td>stay retrievable</td>
+        <td><strong style="color:var(--violet)">lock-in</strong> — adoption high &amp; flat; answers collapse onto one wrong attractor</td>
+        <td>adoption 0.71/0.71/0.71 · distinct 1.14→<strong>1.0</strong> · gold <strong>0</strong></td></tr>
+      <tr><td><code>hybrid</code><br>(replace-all)</td><td>overwritten each round</td>
+        <td><strong style="color:var(--teal)">wash-out</strong> — adoption decays; answers diffuse (off-target ↑, distinct ↑)</td>
+        <td>adoption 0.43→0.29→0.29 · distinct 1.29→1.57</td></tr>
+      <tr><td><code>replace_one</code><br>(1 doc/round)</td><td>linger a few rounds</td>
+        <td><strong>intermediate</strong> — f=0.5 still locks; the clean baseline itself diverges most</td>
+        <td>f0.5 adoption 0.69→0.71→0.47 · f0 distinct 1.14→<strong>3.57</strong></td></tr>
     </tbody>
   </table></div>
 
-  <div class="grid2" style="margin-top:18px">
-    <div class="card"><h4>✅ What worked</h4>
-      <p>Generation was excellent (6–7 distinct, on-type, believable distractors per question; fallback
-      handled refusals). And the distractors were <em>causally powerful</em>: adoption 0.69, gold crashed
-      0.37 → 0.11. The misinformation clearly drives the model.</p></div>
-    <div class="card"><h4>⚠️ The surprise</h4>
-      <p>Diversity went <em>down</em> (2.43 → 1.29). With all distractors in one shared context, qwen
-      concentrated on a single wrong answer per question — a clean demonstration of <em>shift</em>, but not
-      the across-run spread we wanted. This motivated §7.</p></div>
-  </div>
+  <div class="callout t"><strong>Two collapse axes.</strong> <em>Shift</em> (off gold) happens everywhere
+  and immediately. <em>Concentration vs diffusion</em> is variant-specific: <code>search</code>
+  concentrates onto a single wrong answer (distinct → 1.0); replace-all and replace_one <em>diffuse</em>
+  (distinct rises over rounds). So distractors only <em>reduce</em> answer diversity under
+  <code>search</code> — under the other two the loop spreads answers out, and the clean
+  <code>replace_one</code> baseline spreads most of all (distinct 1.14 → 3.57).</div>
 
-  <div class="callout t"><strong>Next:</strong> re-run the smoke with <code>--distractor-per-run</code>
-  (now default-on). Expectation: <code>distinct_answers</code> at f=0.7 rises above the f=0 baseline,
-  because each run is pulled toward a different seeded answer. Two notable single-question cases: one
-  question the model fully resisted (answered gold despite 7 distractors); another it took a numeric
-  distractor ("4,000") over the gold "3,677 seated".</div>
+  <h3>Full per-variant data</h3>
+  <p>Each cell is rounds <code>r0 → r1 → r2</code>. <code>gold</code> = matches truth, <code>adopt</code>
+  = adopts a seeded wrong answer, <code>dist</code> = distinct answers across the 10 runs.</p>
+
+  <details><summary><span>search — lock-in</span><span class="chev">›</span></summary>
+    <div class="det-body"><div class="tablewrap"><table>
+      <thead><tr><th>frac</th><th>gold</th><th>adopt</th><th>dist</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>.36→.29→.27</td><td>0→0→0</td><td>1.14→1.57→1.71</td></tr>
+        <tr><td>0.3</td><td><strong>0→0→0</strong></td><td>.71→.71→.71</td><td>1.14→<strong>1.0→1.0</strong></td></tr>
+        <tr><td>0.5</td><td>.14→.17→0</td><td>.57→.57→.71</td><td>1.14→1.14→<strong>1.0</strong></td></tr>
+        <tr><td>0.7</td><td>.14→.14→.14</td><td>.67→.46→.33</td><td>1.14→1.29→2.0</td></tr>
+      </tbody>
+    </table></div></div></details>
+
+  <details><summary><span>hybrid (replace-all) — wash-out</span><span class="chev">›</span></summary>
+    <div class="det-body"><div class="tablewrap"><table>
+      <thead><tr><th>frac</th><th>gold</th><th>adopt</th><th>dist</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>.37→.29→.29</td><td>0→0→0</td><td>1.14→1.43→1.86</td></tr>
+        <tr><td>0.3</td><td>.20→.14→.14</td><td>.43→.29→.29</td><td>1.29→1.43→1.57</td></tr>
+        <tr><td>0.5</td><td>.14→.14→.19</td><td>.41→.21→.20</td><td>1.57→1.29→<strong>2.43</strong></td></tr>
+        <tr><td>0.7</td><td>.14→.14→.14</td><td>.37→.29→.19</td><td>1.43→1.29→1.71</td></tr>
+      </tbody>
+    </table></div></div></details>
+
+  <details><summary><span>replace_one — intermediate</span><span class="chev">›</span></summary>
+    <div class="det-body"><div class="tablewrap"><table>
+      <thead><tr><th>frac</th><th>gold</th><th>adopt</th><th>dist</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>.37→.37→.29</td><td>0→0→0</td><td>1.14→2.43→<strong>3.57</strong></td></tr>
+        <tr><td>0.3</td><td>.11→.27→.14</td><td>.46→.30→.31</td><td>1.14→1.14→1.29</td></tr>
+        <tr><td>0.5</td><td><strong>.01→0→.01</strong></td><td>.69→.71→.47</td><td>1.43→1.29→1.57</td></tr>
+        <tr><td>0.7</td><td>.14→.09→0</td><td>.43→.43→.43</td><td>1.14→1.71→1.14</td></tr>
+      </tbody>
+    </table></div></div></details>
+
+  <div class="callout bad"><strong>Caveat — 7-question cohort.</strong> Directional, not statistically
+  significant; the exact <code>0.00</code> gold values (search f=0.3, replace_one f=0.5) are small-sample
+  lock-ins. Scale to 50–100 questions before paper-grade claims — the per-variant dynamics
+  (lock-in / wash-out / intermediate) are the story worth confirming.</div>
 </div></section>
 
 <!-- 12. HOW TO RUN -->
@@ -620,8 +675,9 @@ bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
 </div></section>
 
 <footer><div class="wrap">
-  Part of the RAG-Collapse research repo · <code>diverse_synth</code> round-0 diversity experiment ·
-  reflects the current setup (qwen2.5-14b answerer, azure/gpt-5-mini doc generator, per-run subsets).
+  Part of the RAG-Collapse research repo · <code>diverse_synth</code> round-0 distractor experiment ·
+  oz03-hub setup (qwen2.5-14b answerer + qwen2.5-7b-docgen, gpt-5-mini distractors, native 2+8,
+  gold never corrupted) · first 3-variant results (7-question cohort).
 </div></footer>
 
 </body>
