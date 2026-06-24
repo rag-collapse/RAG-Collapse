@@ -6,6 +6,7 @@ from .common_llm import CommonLLM
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import os
+import re
 import time
 import json
 from dotenv import load_dotenv
@@ -17,6 +18,8 @@ load_dotenv()
 # families. NOTE: these models also spend the token budget on hidden reasoning tokens — give
 # them a generous max_tokens (>=~2000 for document generation) or the visible content is empty.
 litellm.drop_params = True
+# Keep litellm from echoing request/error info (which can include a key id) to stdout/stderr.
+litellm.suppress_debug_info = True
 
 #_turn_on_debug() # Only turn on in case of debugging
 
@@ -55,10 +58,23 @@ class ProprietaryLLM(CommonLLM):
             params["api_key"] = self.api_key
         return params
 
+    def _redact(self, msg: object) -> str:
+        """Strip secrets/ids from an error message before it can reach a log or traceback:
+        the configured API key, any long hex run (provider key-id / hash), and sk-style keys."""
+        s = str(msg)
+        if self.api_key:
+            s = s.replace(self.api_key, "***REDACTED***")
+        s = re.sub(r"[A-Fa-f0-9]{32,}", "***", s)            # hashed key-ids (e.g. keymaker/Azure)
+        s = re.sub(r"sk-[A-Za-z0-9_\-]{12,}", "***", s)        # raw OpenAI-style keys
+        return s
+
     def generate_single(self, messages: list[dict[str, str]]) -> str:
         params = self._get_completion_params()
-        response = completion(messages=messages, **params)
-        return response.choices[0].message.content
+        try:
+            response = completion(messages=messages, **params)
+            return response.choices[0].message.content
+        except Exception as e:
+            raise RuntimeError(f"ProprietaryLLM completion failed: {self._redact(e)}") from None
 
     def generate_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
         """Batched completion that stays under provider token-rate limits.
@@ -85,13 +101,16 @@ class ProprietaryLLM(CommonLLM):
                         raise bad
                     results.extend(r.choices[0].message.content for r in responses)
                     break
-                except LiteLLMRateLimitError:
+                except LiteLLMRateLimitError as e:
                     if attempt == max_attempts - 1:
-                        raise
+                        raise RuntimeError(
+                            f"rate limit not cleared after {max_attempts} retries: {self._redact(e)}") from None
                     wait = min(90, 20 * (attempt + 1))   # ~20s,40s,60s,80s,90s — spans a 1-min reset
                     print(f"[ProprietaryLLM] rate-limited; backoff {wait}s "
                           f"(chunk {start}-{start+len(sub)}, attempt {attempt+1}/{max_attempts})", flush=True)
                     time.sleep(wait)
+                except Exception as e:
+                    raise RuntimeError(f"ProprietaryLLM batch failed: {self._redact(e)}") from None
             if pace > 0 and start + chunk < n:
                 time.sleep(pace)
         return results
