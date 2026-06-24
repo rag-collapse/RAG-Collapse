@@ -61,11 +61,15 @@ if [[ -n "${DISTRACTOR_MODEL:-}" ]]; then
   DIST_MODE="${DISTRACTOR_MODEL_MODE:-api}"
   DIST_ARGS=(--distractor-model-mode "$DIST_MODE" --distractor-model-name "$DISTRACTOR_MODEL")
   [[ "$DIST_MODE" == "server" ]] && DIST_ARGS+=(--distractor-vllm-api-base "${DISTRACTOR_VLLM_API_BASE:?set DISTRACTOR_VLLM_API_BASE for distractor server mode}")
+  # Reasoning distractor models (gpt-5*) need a generous budget or return EMPTY docs. Give the
+  # DISTRACTOR model its own budget so the per-round doc model keeps its (smaller) doc_max_tokens.
+  [[ "$DIST_MODE" == "api" ]] && DISTRACTOR_MAX_TOKENS="${DISTRACTOR_MAX_TOKENS:-2048}"
+  [[ -n "${DISTRACTOR_MAX_TOKENS:-}" ]] && DIST_ARGS+=(--distractor-max-tokens "$DISTRACTOR_MAX_TOKENS")
 fi
 
-# Reasoning api models (gpt-5*) need a generous budget or return EMPTY docs. The distractor model
-# uses doc_max_tokens, so bump it whenever EITHER the doc or distractor backend is api.
-if [[ "$DOC_MODEL_MODE" == "api" || "$DIST_MODE" == "api" ]]; then
+# Per-round doc budget. Only bump when the DOC model itself is a reasoning api model; the distractor
+# model has its own --distractor-max-tokens above, so this stays small (512) for a server doc model.
+if [[ "$DOC_MODEL_MODE" == "api" ]]; then
   DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-2048}"
 else
   DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"

@@ -803,7 +803,8 @@ class DistractorController:
           B) ONE faithful synthesis call per (doc, wrong_answer) → a naturalistic document
              asserting that wrong answer (same prompt as the faithful condensation, so the
              distractor reads like a real generated doc, not an entity-swapped passage).
-        Each corrupted doc carries its OWN distinct wrong answer → wide round-0 distribution.
+        Each corrupted doc carries its own wrong answer — distinct when the model returns enough
+        valid candidates; if fewer, the subs are cycled (duplicates) and a note is logged.
         Documents are written in Wikipedia-lead style (HotpotQA's context is the introductory
         paragraph of Wikipedia articles), so distractors blend with the real Wikipedia paragraphs.
         """
@@ -827,6 +828,11 @@ class DistractorController:
                 rec.eligible = False
                 rec.status = "no_valid_substitute"
                 continue
+            if len(subs) < len(idxs):
+                # Not enough distinct candidates: we cycle, so some docs share a wrong answer.
+                # Surface it honestly (the round is NOT fully distinct).
+                rec.notes.append(
+                    f"only {len(subs)} distinct wrong answers for {len(idxs)} docs; cycled (duplicates seeded)")
             for j, doc_idx in enumerate(idxs):
                 synth_jobs.append((s, doc_idx, gold, subs[j % len(subs)]))
 

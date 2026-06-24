@@ -260,6 +260,9 @@ def parse_args():
              "doc model when unset.")
     p.add_argument("--distractor-vllm-api-base", default=None,
         help="vLLM base URL for the distractor model when --distractor-model-mode=server.")
+    p.add_argument("--distractor-max-tokens", type=int, default=None,
+        help="Max tokens for the distractor model. Defaults to --doc-max-tokens. Set higher (e.g. "
+             "2048) for reasoning distractor models (gpt-5*) WITHOUT inflating the per-round doc budget.")
 
     # --- Original HotpotQA paper distractor setting (round-0 source; default-off) ---
     # Replicate Yang et al. (EMNLP 2018): seed round 0 from each question's native
@@ -500,11 +503,15 @@ def run_pipeline() -> None:
     # round-0 distractors, while doc_llm (the answer model) builds the per-round AI docs.
     distractor_llm = doc_llm
     if distractor_enabled and args.distractor_model_name:
+        _dist_max_tokens = (
+            args.distractor_max_tokens if args.distractor_max_tokens is not None
+            else (args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens)
+        )
         distractor_llm, distractor_model_name = build_llm(
             model_mode=args.distractor_model_mode or "api",
             model_name=args.distractor_model_name,
             temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
-            max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
+            max_tokens=_dist_max_tokens,
             top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
             api_base=args.distractor_vllm_api_base,
         )
