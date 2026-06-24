@@ -1,10 +1,12 @@
 import litellm
 from litellm import completion, batch_completion #,_turn_on_debug
 from litellm.exceptions import BadRequestError as LiteLLMBadRequestError
+from litellm.exceptions import RateLimitError as LiteLLMRateLimitError
 from .common_llm import CommonLLM
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import os
+import time
 import json
 from dotenv import load_dotenv
 load_dotenv()
@@ -59,13 +61,39 @@ class ProprietaryLLM(CommonLLM):
         return response.choices[0].message.content
 
     def generate_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
+        """Batched completion that stays under provider token-rate limits.
+
+        Large concurrent batches (e.g. distractor synthesis over many questions) can exceed the
+        keymaker/Azure tokens-per-minute limit and raise RateLimitError. We send the batch in
+        chunks (bounding concurrency/burst) and retry a rate-limited chunk with backoff so a
+        per-minute limit becomes a brief wait instead of a crash. Tunable via env:
+          LITELLM_BATCH_CHUNK (default 12), LITELLM_BATCH_PACING_SEC (3), LITELLM_RATE_RETRIES (6).
+        """
         params = self._get_completion_params()
-        responses = batch_completion(messages=conversations, **params)
-        results = []
-        for response in responses:
-            if isinstance(response, Exception):
-                raise response
-            results.append(response.choices[0].message.content)
+        chunk = max(1, int(os.getenv("LITELLM_BATCH_CHUNK", "12")))
+        pace = float(os.getenv("LITELLM_BATCH_PACING_SEC", "3"))
+        max_attempts = max(1, int(os.getenv("LITELLM_RATE_RETRIES", "6")))
+        results: list[str] = []
+        n = len(conversations)
+        for start in range(0, n, chunk):
+            sub = conversations[start:start + chunk]
+            for attempt in range(max_attempts):
+                try:
+                    responses = batch_completion(messages=sub, **params)
+                    bad = next((r for r in responses if isinstance(r, Exception)), None)
+                    if bad is not None:
+                        raise bad
+                    results.extend(r.choices[0].message.content for r in responses)
+                    break
+                except LiteLLMRateLimitError:
+                    if attempt == max_attempts - 1:
+                        raise
+                    wait = min(90, 20 * (attempt + 1))   # ~20s,40s,60s,80s,90s — spans a 1-min reset
+                    print(f"[ProprietaryLLM] rate-limited; backoff {wait}s "
+                          f"(chunk {start}-{start+len(sub)}, attempt {attempt+1}/{max_attempts})", flush=True)
+                    time.sleep(wait)
+            if pace > 0 and start + chunk < n:
+                time.sleep(pace)
         return results
 
     def inference_batch(self, conversations: list[list[dict[str, str]]]) -> list[str]:
