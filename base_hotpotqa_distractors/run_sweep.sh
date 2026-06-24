@@ -40,6 +40,7 @@ SEED="${SEED:-42}"
 DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
 VARIANTS="${VARIANTS:-$VARIANT}"          # space-separated; e.g. "search hybrid replace_one"
+INITIAL_DOCS="${INITIAL_DOCS:-faiss}"     # faiss | native_distractor (2 gold + 8 distractors)
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
 INDEX_DIR="${INDEX_DIR:-$SCR/hotpotqa_index}"
 OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/base_hotpotqa_distractors/$MODEL}"
@@ -81,12 +82,24 @@ if [[ "$DOC_MODEL_MODE" == "api" || "$DIST_MODE" == "api" ]]; then
   : "${API_KEY:?set API_KEY (export it or put it in .env) for api-mode doc/distractor generation}"
 fi
 
+# Round-0 source: native_distractor seeds the 2-gold/8-distractor HotpotQA context (applies to ALL
+# arms, including the fraction-0 baseline). Needs the distractor-setting file.
+INITIAL_ARGS=()
+if [[ "$INITIAL_DOCS" == "native_distractor" ]]; then
+  : "${NATIVE_FILE:?set NATIVE_FILE (hotpot_dev_distractor_v1.json) for native_distractor seeding}"
+  INITIAL_ARGS=(--initial-docs native_distractor --native-hotpot-file "$NATIVE_FILE")
+fi
+
 NATIVE_ARG=""
 [[ "$DISTRACTOR_MODE" == "native_noise" ]] && NATIVE_ARG="--native-hotpot-file ${NATIVE_FILE:-$GT_FILE}"
 
 # Option A: give each run a different single distractor (wide round-0 answer distribution).
 PER_RUN_ARG=""
 case "${DISTRACTOR_PER_RUN:-}" in 1|true|yes) PER_RUN_ARG="--distractor-per-run" ;; esac
+
+# Never corrupt gold docs (inject only into non-gold slots, random/seeded).
+AVOID_GOLD_ARG=""
+case "${DISTRACTOR_AVOID_GOLD:-}" in 1|true|yes) AVOID_GOLD_ARG="--distractor-avoid-gold" ;; esac
 
 for VAR in $VARIANTS; do
   echo "==================== variant=$VAR ===================="
@@ -95,7 +108,7 @@ for VAR in $VARIANTS; do
   [[ "$VAR" == "hybrid" ]] && VARIANT_ARGS+=(--num-synth-docs 10 --num-db-docs 0)
 
   COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
-          "${DOC_ARGS[@]}" "${DIST_ARGS[@]}"
+          "${DOC_ARGS[@]}" "${DIST_ARGS[@]}" "${INITIAL_ARGS[@]}"
           --cache-dir "$CACHE_DIR" --index-dir "$INDEX_DIR"
           "${VARIANT_ARGS[@]}" --max-questions "$MAX_Q" --seed "$SEED"
           --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"
@@ -115,7 +128,7 @@ for VAR in $VARIANTS; do
       *)          # distractor arm: round-0 distractors via DISTRACTOR_MODE
         python -u hotpot_pipeline.py "${COMMON[@]}" \
           --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
-          --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG --output-path "$out"
+          --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
         ;;
     esac
     OUTS+=("$out")

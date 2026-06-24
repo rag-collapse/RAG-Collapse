@@ -272,17 +272,33 @@ def n_to_corrupt(fraction: float, k: int) -> int:
     return max(0, min(k, int(round(fraction * k))))
 
 
+def _is_gold_doc(d: Dict[str, Any], gold: str) -> bool:
+    """A doc is 'gold' (never to be corrupted under avoid_gold) if it is tagged gold=True
+    (native distractor setting) or it contains the gold answer (FAISS heuristic)."""
+    if d.get("gold"):
+        return True
+    return bool(gold) and contains_entity(d.get("text", ""), gold)
+
+
 def select_distractor_indices(
     docs: List[Dict[str, Any]],
     gold: str,
     n: int,
     rng: random.Random,
+    avoid_gold: bool = False,
 ) -> List[int]:
-    """Pick ``n`` doc indices to corrupt, PREFERRING docs that already contain the gold
-    entity (so the corruption is a meaningful answer-relevant flip) before falling back to
-    others. Deterministic given ``rng``. Returns sorted indices."""
+    """Pick ``n`` doc indices to corrupt. Deterministic given ``rng``; returns sorted indices.
+
+    - ``avoid_gold=True``: NEVER select a gold doc — randomly pick from the non-gold docs only
+      (gold paragraphs stay intact, like the native distractor-setting experiments).
+    - ``avoid_gold=False`` (default): PREFER gold-bearing docs (answer-relevant flip) then others.
+    """
     if n <= 0 or not docs:
         return []
+    if avoid_gold:
+        non_gold = [i for i, d in enumerate(docs) if not _is_gold_doc(d, gold)]
+        rng.shuffle(non_gold)
+        return sorted(non_gold[:n])
     gold_bearing = [i for i, d in enumerate(docs) if gold and contains_entity(d.get("text", ""), gold)]
     gb_set = set(gold_bearing)
     others = [i for i in range(len(docs)) if i not in gb_set]
@@ -656,6 +672,7 @@ class DistractorController:
         seed: Optional[int],
         native_file: Optional[str] = None,
         k_substitutes: int = 8,
+        avoid_gold: bool = False,
     ):
         if mode not in DISTRACTOR_MODES:
             raise ValueError(f"Unknown distractor mode {mode!r}; expected one of {DISTRACTOR_MODES}")
@@ -666,6 +683,7 @@ class DistractorController:
         self.doc_llm = doc_llm
         self.seed = seed
         self.k_substitutes = k_substitutes
+        self.avoid_gold = avoid_gold
         self.gt = load_ground_truth(gt_file)
         self.native = load_native_records(native_file) if (
             mode == DISTRACTOR_NATIVE_NOISE and native_file
@@ -682,6 +700,7 @@ class DistractorController:
             "distractor_fraction": self.fraction,
             "distractor_mode": self.mode,
             "distractor_seed": self.seed,
+            "distractor_avoid_gold": self.avoid_gold,
         }
 
     # ---- main entry: choose docs, generate distractors, mutate in place ----
@@ -705,7 +724,8 @@ class DistractorController:
             if n <= 0:
                 rec.status = "skipped_zero"
                 continue
-            idxs = select_distractor_indices(docs, gold, n, self._rng(s.query_id))
+            idxs = select_distractor_indices(
+                docs, gold, n, self._rng(s.query_id), avoid_gold=self.avoid_gold)
             if not idxs:
                 rec.status = "no_docs"
                 continue
@@ -713,7 +733,8 @@ class DistractorController:
             # distractors}. select_distractor_indices PREFERS gold-bearing docs, so at high
             # fractions it would corrupt every gold doc and remove gold from context. Drop
             # one gold-bearing index if the selection would consume all of them.
-            if self.mode == DISTRACTOR_DIVERSE_SYNTH:
+            # (Skip when avoid_gold: gold docs are already never selected.)
+            if self.mode == DISTRACTOR_DIVERSE_SYNTH and not self.avoid_gold:
                 gold_bearing = [
                     i for i, d in enumerate(docs)
                     if contains_entity(d.get("text", ""), gold)

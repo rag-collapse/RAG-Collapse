@@ -245,6 +245,10 @@ def parse_args():
         help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
              "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
              "the round-0 answer distribution is wide across runs. No-op without distractor docs.")
+    p.add_argument("--distractor-avoid-gold", action="store_true",
+        help="Never corrupt a gold document (tagged gold=True or containing the gold answer); "
+             "randomly inject distractors into the NON-gold docs only. Use with --initial-docs "
+             "native_distractor to keep the 2 gold paragraphs intact and corrupt the 8 distractors.")
     # Separate model for ROUND-0 distractor generation only (oz03-hub style): a strong model
     # seeds the distractors, while the ANSWER model (--doc-model-*) builds the per-round AI docs.
     p.add_argument("--distractor-model-mode", choices=["api", "local", "server"], default=None,
@@ -304,10 +308,12 @@ def run_pipeline() -> None:
     if native_seed and not args.native_hotpot_file:
         raise SystemExit("--initial-docs native_distractor requires --native-hotpot-file "
                          "(the hotpot_dev_distractor_v1.json distractor-setting file)")
-    if native_seed and distractor_enabled:
-        raise SystemExit("--initial-docs native_distractor and synthetic --distractor-fraction are "
-                         "mutually exclusive: native distractors are answer-absent paragraphs, "
-                         "synthetic ones assert a wrong answer.")
+    # native_distractor + synthetic distractors are composable: seed the native 2-gold/8-distractor
+    # context, then convert a fraction of the NON-gold slots into wrong-answer docs. Pair with
+    # --distractor-avoid-gold so the 2 gold paragraphs are never corrupted.
+    if native_seed and distractor_enabled and not args.distractor_avoid_gold:
+        print("[warn] --initial-docs native_distractor with synthetic distractors but WITHOUT "
+              "--distractor-avoid-gold: gold paragraphs may be corrupted.", flush=True)
 
     variant = args.pipeline_variant
     num_iterations = args.num_iterations or DEFAULT_ROUNDS[variant]
@@ -514,6 +520,7 @@ def run_pipeline() -> None:
             doc_llm=distractor_llm,
             seed=args.seed,
             native_file=args.native_hotpot_file,
+            avoid_gold=args.distractor_avoid_gold,
         )
         print(f"[distractor] mode={args.distractor_mode} fraction={args.distractor_fraction}", flush=True)
         distractor_controller.prepare_and_apply(states)

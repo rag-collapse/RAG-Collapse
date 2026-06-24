@@ -510,6 +510,40 @@ def test_per_run_doc_subsets_no_distractors():
     assert len(subs) == 3 and all([d["doc_id"] for d in s] == ["g1", "c2"] for s in subs)
 
 
+def test_select_distractor_indices_avoid_gold():
+    import random as _r
+    docs = [
+        {"doc_id": "g1", "text": "The seat is Newport.", "gold": True},  # tagged gold
+        {"doc_id": "c2", "text": "Also mentions Newport."},             # contains gold answer
+        {"doc_id": "d3", "text": "Unrelated rivers."},                  # non-gold
+        {"doc_id": "d4", "text": "Unrelated mountains."},               # non-gold
+    ]
+    idxs = M.select_distractor_indices(docs, "Newport", 4, _r.Random(0), avoid_gold=True)
+    assert set(idxs) == {2, 3}   # gold-tagged AND gold-containing docs are never selected
+
+
+def test_distractor_controller_diverse_synth_avoid_gold(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _make_state("q1", "What is the county seat?")
+    s.current_docs = [
+        {"doc_id": "g1", "text": "Newport is the seat.", "gold": True},
+        {"doc_id": "g2", "text": "More on Newport.", "gold": True},
+        {"doc_id": "d3", "text": "A distractor paragraph about rivers.", "distractor": True},
+        {"doc_id": "d4", "text": "A distractor paragraph about hills.", "distractor": True},
+    ]
+    ctrl = M.DistractorController(
+        mode="diverse_synth", fraction=1.0, gt_file=gt, doc_llm=FakeLLM(), seed=42, avoid_gold=True)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok"
+    # only the 2 non-gold docs were corrupted; the 2 gold paragraphs are untouched
+    assert {d["doc_id"] for d in rec.distractors} == {"d3", "d4"}
+    assert s.current_docs[0]["text"] == "Newport is the seat."
+    assert s.current_docs[1]["text"] == "More on Newport."
+    ents = [d["injected_entity"] for d in rec.distractors]
+    assert len(set(ents)) == 2   # still distinct
+
+
 def test_distractor_eval_metrics():
     from hotpot_evaluation import _distractor_metrics_for_iteration
     dist = {
