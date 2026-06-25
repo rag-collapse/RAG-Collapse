@@ -159,7 +159,7 @@
     <p class="lede">A beginner-friendly guide to the <code>diverse_synth</code> experiment as it stands
     <strong>today</strong>: how a strong language model plants several <em>different, believable</em> wrong
     answers into a retrieval system on round&nbsp;0 — with the exact current setup, the full
-    document-building workflow, real examples from a real run, and the current oz03-hub-style wiring
+    document-building workflow, real examples from a real run, and the current two-server wiring
     (separate answer / doc-gen servers, native 2-gold/8-distractor context, gold never corrupted).</p>
     <div class="legend">
       <span><span class="dot" style="background:var(--gold)"></span> gold = the correct answer</span>
@@ -276,7 +276,7 @@
     <h2>Exactly what the experiment looks like today</h2></div>
 
   <p>This is the configuration the sweep runs right now (defaults in
-  <code>base_hotpotqa_distractors/oz03_sweep.sh</code>):</p>
+  <code>base_hotpotqa_distractors/diverse_synth_sweep.sh</code>):</p>
 
   <div class="tablewrap"><table>
     <thead><tr><th>Component</th><th>Current value</th></tr></thead>
@@ -291,7 +291,7 @@
       <tr><td>Gold handling</td><td><strong>never corrupt gold</strong> (<code>--distractor-avoid-gold</code>) — inject only into the 8 non-gold slots</td></tr>
       <tr><td>Injection</td><td>round 0 only, <strong>random, seed 42</strong></td></tr>
       <tr><td>Fraction sweep</td><td><code>{0, 0.3, 0.5, 0.7}</code> (0 = native 2+8, no synthetic distractors)</td></tr>
-      <tr><td>Per-run subsets (§7)</td><td><strong>off</strong> (shared context, oz03-hub style)</td></tr>
+      <tr><td>Per-run subsets (§7)</td><td><strong>off</strong> (shared context, two-server style)</td></tr>
       <tr><td>Variants</td><td><code>search</code>, <code>hybrid</code> (= replace-all), <code>replace_one</code></td></tr>
       <tr><td>Questions / rounds</td><td>150 questions, 3 rounds each</td></tr>
     </tbody>
@@ -302,7 +302,7 @@
   <span class="pill" style="color:var(--teal);border-color:rgba(95,214,191,0.4)">qwen2.5-7b-docgen</span>
   builds the <em>per-round</em> AI docs from the answers (its own server). The
   <span class="pill gold">qwen2.5-14b</span> answerer is what we study. This matches the canonical
-  oyilmazel / oz03-hub two-server HotpotQA runs, with a strong model added only to seed the distractors.</div>
+  canonical two-server HotpotQA runs, with a strong model added only to seed the distractors.</div>
 </div></section>
 
 <!-- 5. BUILDING A DISTRACTOR -->
@@ -547,7 +547,7 @@ recognized as such across reliable sources.</pre>
       candidates. distinct_answers ↑.</p></div>
   </div>
 
-  <p>It's available via <code>--distractor-per-run</code>, but the <strong>current oz03-hub-style runs
+  <p>It's available via <code>--distractor-per-run</code>, but the <strong>current two-server runs
   leave it OFF</strong> (shared context — all runs see the same 2 gold + injected distractors), to
   stay faithful to the standard runs. The focus there is multi-round collapse across the 3 variants
   rather than across-run round-0 spread. Flip it on later if you want to revisit round-0 diversity.</p>
@@ -800,7 +800,7 @@ recognized as such across reliable sources.</pre>
   <pre><span class="c"># on a Unity login node, after pulling. Starts the qwen2.5-14b answer server + the</span>
 <span class="c"># qwen2.5-7b-docgen server, runs all 3 variants x 4 fractions, then auto-reaps.</span>
 <span class="c"># OPENAI_API_KEY (for gpt-5-mini distractors) is read from .env at the repo root.</span>
-MAX_Q=150 bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
+MAX_Q=150 bash base_hotpotqa_distractors/diverse_synth_sweep.sh</pre>
   <p>Defaults: <code>VARIANTS="search hybrid replace_one"</code>, <code>NUM_ITERATIONS=3</code>,
   <code>MAX_Q=10</code> (set <code>150</code> for the full run), <code>FRACTIONS="0 0.3 0.5 0.7"</code>,
   <code>SEED=42</code>, <code>DISTRACTOR_AVOID_GOLD=1</code>, <code>LITELLM_API_BASE=openai</code>
@@ -846,7 +846,7 @@ MAX_Q=150 bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
         metrics + the dose-response table. Unchanged by the new mode.</td></tr>
       <tr><td><code>tests/test_misinfo.py</code></td><td>CPU-only tests: distinctness, gold-leak→fallback,
         refusal→fallback, per-run rotation, avoid-gold selection + end-to-end (34 pass).</td></tr>
-      <tr><td><code>base_hotpotqa_distractors/oz03_sweep.sh</code> · <code>{launch,run_sweep}.sh</code></td><td>
+      <tr><td><code>base_hotpotqa_distractors/diverse_synth_sweep.sh</code> · <code>{launch,run_sweep}.sh</code></td><td>
         One-command launcher + the two-server sweep: variant loop, native_distractor seeding,
         <code>DISTRACTOR_MODEL</code>/<code>DISTRACTOR_AVOID_GOLD</code>, <code>LITELLM_API_BASE=openai</code>,
         key (<code>OPENAI_API_KEY</code>)-from-.env.</td></tr>
@@ -870,7 +870,7 @@ MAX_Q=150 bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
     <dt>diverse_synth</dt><dd>The current mode: coordinated distinct wrong answers, one Wikipedia-style doc each.</dd>
     <dt>native distractor setting</dt><dd>HotpotQA's 2 gold + 8 TF-IDF distractor paragraphs as the round-0 context (--initial-docs native_distractor).</dd>
     <dt>avoid-gold</dt><dd>Never corrupt a gold doc; inject distractors only into non-gold slots (--distractor-avoid-gold). On in the current runs.</dd>
-    <dt>per-run subsets (Option A)</dt><dd>Each run sees one rotating distractor (not all). Available, but OFF in the current oz03-hub-style runs.</dd>
+    <dt>per-run subsets (Option A)</dt><dd>Each run sees one rotating distractor (not all). Available, but OFF in the current two-server runs.</dd>
     <dt>distinct_answers</dt><dd>Count of distinct answers across a question's runs — the diversity signal.</dd>
     <dt>distractor_adoption_rate</dt><dd>Fraction of answers adopting a seeded wrong answer — the causal signal.</dd>
     <dt>fallback_template</dt><dd>Status when a refused/gold-leaking doc was replaced with a clean templated assertion.</dd>
@@ -882,7 +882,7 @@ MAX_Q=150 bash base_hotpotqa_distractors/oz03_sweep.sh</pre>
 
 <footer><div class="wrap">
   Part of the RAG-Collapse research repo · <code>diverse_synth</code> round-0 distractor experiment ·
-  oz03-hub setup (qwen2.5-14b answerer + qwen2.5-7b-docgen, gpt-5-mini distractors via OpenAI API,
+  two-server setup (qwen2.5-14b answerer + qwen2.5-7b-docgen, gpt-5-mini distractors via OpenAI API,
   native 2+8, gold never corrupted) · 3-variant results (150 questions, ~130-question cohort).
 </div></footer>
 

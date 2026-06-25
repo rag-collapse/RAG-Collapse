@@ -51,7 +51,7 @@ OUTDIR="${OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_u
 mkdir -p "$OUTDIR"
 
 # --- model backends ---
-# Per-round AI-doc synthesis uses doc_llm (oz03-hub style: the ANSWER model, server mode on the
+# Per-round AI-doc synthesis uses doc_llm (two-server style: the ANSWER model, server mode on the
 # answer server). Round-0 distractors may use a SEPARATE strong model via DISTRACTOR_MODEL
 # (e.g. azure/gpt-5-mini through keymaker), leaving the per-round loop on the answer model.
 DOC_ARGS=(--doc-model-mode "$DOC_MODEL_MODE" --doc-model-name "$DOC_MODEL")
