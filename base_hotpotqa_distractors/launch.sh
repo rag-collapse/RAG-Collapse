@@ -29,7 +29,7 @@ ANSWER_MAX_NUM_SEQS="${ANSWER_MAX_NUM_SEQS:-64}"  # 64 for 14B (anti-OOM); set 1
 # For api mode: set DOC_MODEL to a keymaker id (e.g. openai/claude-sonnet-4-6) and put your API_KEY
 # in .env at the repo root (run_sweep.sh loads it) or export it before launching.
 DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}"
-# DOC_REUSE_ANSWER_SERVER=1 (oz03-hub style): the per-round AI docs are built by the ANSWER model,
+# DOC_REUSE_ANSWER_SERVER=1 (two-server style): the per-round AI docs are built by the ANSWER model,
 # so point doc generation at the answer server and DON'T start a separate doc GPU server. Pair with
 # DISTRACTOR_MODEL=azure/gpt-5-mini to seed round-0 distractors from a strong api model.
 DOC_REUSE_ANSWER_SERVER="${DOC_REUSE_ANSWER_SERVER:-}"

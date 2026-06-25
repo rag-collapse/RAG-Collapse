@@ -258,7 +258,7 @@ def parse_args():
         help="Never corrupt a gold document (tagged gold=True or containing the gold answer); "
              "randomly inject distractors into the NON-gold docs only. Use with --initial-docs "
              "native_distractor to keep the 2 gold paragraphs intact and corrupt the 8 distractors.")
-    # Separate model for ROUND-0 distractor generation only (oz03-hub style): a strong model
+    # Separate model for ROUND-0 distractor generation only (two-server style): a strong model
     # seeds the distractors, while the ANSWER model (--doc-model-*) builds the per-round AI docs.
     p.add_argument("--distractor-model-mode", choices=["api", "local", "server"], default=None,
         help="Backend for round-0 distractor generation. Defaults to the --doc-model-* backend "
@@ -513,7 +513,7 @@ def run_pipeline() -> None:
 
     # Round-0 distractors: corrupt a fraction of each question's initial docs IN PLACE,
     # before the loop reads them. Independent of (and composable with) the controller above.
-    # The distractor model is SEPARATE from doc_llm (oz03-hub style): a strong model seeds the
+    # The distractor model is SEPARATE from doc_llm (two-server style): a strong model seeds the
     # round-0 distractors, while doc_llm (the answer model) builds the per-round AI docs.
     distractor_llm = doc_llm
     if distractor_enabled and args.distractor_model_name:
