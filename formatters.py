@@ -91,28 +91,32 @@ Question:
 
 Requirements:
 - State {answer} directly and unambiguously as the answer/fact.
-- Do NOT state, imply, hint at, or contrast with any other answer.{gold_rule}
+- Do NOT state, imply, hint at, or contrast with any other answer.{gold_rule}{variant_rule}
 - Match the tone and length of a real Wikipedia lead paragraph.
 - Output ONLY the paragraph text in plain text — no title, no meta-commentary, no markdown.
 """
 
 
 def get_create_distractor_document_conversation(
-    question: str, answer: str, gold: str = ""
+    question: str, answer: str, gold: str = "", variant_hint: str = ""
 ) -> list[dict[str, str]]:
     """Wikipedia-lead-style document asserting ``answer`` (a wrong answer) for HotpotQA
     round-0 distractors. If ``gold`` is given, the prompt is told not to mention it
-    (gold-leak mitigation). Pass outputs to ``inference_batch``."""
+    (gold-leak mitigation). ``variant_hint`` adds an extra instruction so that several
+    documents asserting the SAME wrong answer come out as distinct articles (used by the
+    equal_diverse_synth mode, which seeds multiple paragraphs per topic). Pass outputs
+    to ``inference_batch``."""
     gold_rule = (
         f'\n- Do NOT mention "{gold}" anywhere, and do not reference the real-world answer.'
         if (gold or "").strip() else ""
     )
+    variant_rule = ("\n- " + variant_hint.strip()) if (variant_hint or "").strip() else ""
     return [
         {"role": "system", "content": _CREATE_DISTRACTOR_DOC_SYSTEM_PROMPT},
         {
             "role": "user",
             "content": _CREATE_DISTRACTOR_DOC_USER_PROMPT.format(
-                question=question, answer=answer, gold_rule=gold_rule),
+                question=question, answer=answer, gold_rule=gold_rule, variant_rule=variant_rule),
         },
     ]
 

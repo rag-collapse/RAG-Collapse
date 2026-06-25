@@ -544,6 +544,117 @@ def test_distractor_controller_diverse_synth_avoid_gold(tmp_path):
     assert len(set(ents)) == 2   # still distinct
 
 
+# ── equal_diverse_synth: FEWER wrong answers, each backed by several paragraphs ──
+class _ManyCandLLM:
+    """Proposal returns 5 distinct same-type candidates; create-document echoes the wrong answer."""
+    def inference_batch(self, conversations):
+        out = []
+        for conv in conversations:
+            sysc, usr = conv[0]["content"], conv[1]["content"]
+            if "propose alternative" in sysc:
+                out.append('["Claremont", "Lebanon", "Keene", "Concord", "Dover"]')
+            else:
+                m = re.search(r"correct answer to the question below is (.+?)\.", usr)
+                out.append(f"Wikipedia lead paragraph. The answer is {m.group(1).strip()}." if m else usr)
+        return out
+
+
+def _native_state(qid="q1", question="What is the county seat?"):
+    """2 gold + 8 non-gold docs, mirroring the native HotpotQA distractor setting."""
+    s = _make_state(qid, question)
+    s.current_docs = (
+        [{"doc_id": "g1", "text": "Newport is the seat.", "gold": True},
+         {"doc_id": "g2", "text": "More on Newport.", "gold": True}]
+        + [{"doc_id": f"d{i}", "text": f"A distractor paragraph number {i} about scenery."}
+           for i in range(8)]
+    )
+    return s
+
+
+def test_equal_diverse_synth_4_topics_x_2(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _native_state()
+    ctrl = M.DistractorController(
+        mode="equal_diverse_synth", fraction=0.0, gt_file=gt, doc_llm=_ManyCandLLM(),
+        seed=42, avoid_gold=True, num_topics=4, docs_per_topic=2)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok"
+    assert rec.n_corrupted == 8 and rec.n_topics == 4          # 4 topics × 2 paragraphs = all 8 non-gold
+    ents = [d["injected_entity"] for d in rec.distractors]
+    assert len(ents) == 8 and len(set(ents)) == 4             # EQUAL: 4 distinct answers...
+    from collections import Counter
+    assert set(Counter(ents).values()) == {2}                 # ...each backed by exactly 2 docs
+    # the 2 gold paragraphs are never touched
+    assert s.current_docs[0]["text"] == "Newport is the seat."
+    assert s.current_docs[1]["text"] == "More on Newport."
+    corrupted = [d for d in s.current_docs if d.get("distractor")]
+    assert len(corrupted) == 8
+    for d in corrupted:
+        assert not M.contains_entity(d["text"], "Newport")    # gold absent
+        assert any(M.contains_entity(d["text"], e) for e in set(ents))
+
+
+def test_equal_diverse_synth_2_topics(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _native_state()
+    ctrl = M.DistractorController(
+        mode="equal_diverse_synth", fraction=0.0, gt_file=gt, doc_llm=_ManyCandLLM(),
+        seed=7, avoid_gold=True, num_topics=2, docs_per_topic=2)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.n_corrupted == 4 and rec.n_topics == 2         # 2 × 2 = 4 of the 8 slots
+    from collections import Counter
+    assert set(Counter(d["injected_entity"] for d in rec.distractors).values()) == {2}
+
+
+def test_equal_diverse_synth_requires_num_topics(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    with pytest.raises(ValueError):
+        M.DistractorController(
+            mode="equal_diverse_synth", fraction=0.0, gt_file=gt, doc_llm=_ManyCandLLM(),
+            seed=1, num_topics=0)
+
+
+def test_equal_diverse_synth_refusal_replaced(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _native_state()
+    ctrl = M.DistractorController(
+        mode="equal_diverse_synth", fraction=0.0, gt_file=gt, doc_llm=_RefusalLLM(),
+        seed=42, avoid_gold=True, num_topics=2, docs_per_topic=2)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.eligible and rec.status == "ok"
+    assert rec.n_corrupted == 4                                # refusals → templated fallbacks, still seeded
+    assert all(d["status"] == "fallback_template" for d in rec.distractors)
+    for d in [x for x in s.current_docs if x.get("distractor")]:
+        assert not M.contains_entity(d["text"], "Newport")
+
+
+def test_equal_diverse_synth_cycles_when_few_distinct(tmp_path):
+    gt = _gt_file(tmp_path, {"q1": "Newport"})
+    s = _native_state()
+    # proposal yields only ONE valid distinct candidate, but 2 topics requested → cycled
+    class _OneCandLLM:
+        def inference_batch(self, conversations):
+            out = []
+            for conv in conversations:
+                sysc, usr = conv[0]["content"], conv[1]["content"]
+                if "propose alternative" in sysc:
+                    out.append('["Claremont"]')
+                else:
+                    m = re.search(r"correct answer to the question below is (.+?)\.", usr)
+                    out.append(f"Lead. The answer is {m.group(1).strip()}." if m else usr)
+            return out
+    ctrl = M.DistractorController(
+        mode="equal_diverse_synth", fraction=0.0, gt_file=gt, doc_llm=_OneCandLLM(),
+        seed=3, avoid_gold=True, num_topics=2, docs_per_topic=2)
+    ctrl.prepare_and_apply([s])
+    rec = ctrl.records["q1"]
+    assert rec.n_corrupted == 4 and rec.n_topics == 1          # cycled: 1 distinct answer over 4 docs
+    assert any("cycled" in n for n in rec.notes)
+
+
 def test_distractor_eval_metrics():
     from hotpot_evaluation import _distractor_metrics_for_iteration
     dist = {
