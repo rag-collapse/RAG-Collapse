@@ -37,8 +37,12 @@ NUM_RUNS="${NUM_RUNS:-10}"
 CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
 SEED="${SEED:-42}"
-DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth
+DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth | equal_diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
+# equal_diverse_synth: sweep the NUMBER OF TOPICS instead of the fraction. T=0 is the matched
+# no-distractor baseline; each topic gets DOCS_PER_TOPIC paragraphs (4 topics x 2 = the 8 non-gold slots).
+TOPICS="${TOPICS:-0 1 2 3 4}"
+DOCS_PER_TOPIC="${DOCS_PER_TOPIC:-2}"
 VARIANTS="${VARIANTS:-$VARIANT}"          # space-separated; e.g. "search hybrid replace_one"
 INITIAL_DOCS="${INITIAL_DOCS:-faiss}"     # faiss | native_distractor (2 gold + 8 distractors)
 CACHE_DIR="${CACHE_DIR:-$SCR/hf_cache}"
@@ -125,21 +129,41 @@ for VAR in $VARIANTS; do
   [[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
 
   OUTS=()
-  for f in $FRACTIONS; do
-    out="$OUTDIR/base_${VAR}_f${f}.json"   # non-overwriting: variant + fraction in the filename
-    echo "########## variant=$VAR fraction=$f -> $out ##########"
-    case "$f" in
-      0|0.0|"")   # matched no-distractor baseline (no distractor flags)
-        python -u hotpot_pipeline.py "${COMMON[@]}" --output-path "$out"
-        ;;
-      *)          # distractor arm: round-0 distractors via DISTRACTOR_MODE
-        python -u hotpot_pipeline.py "${COMMON[@]}" \
-          --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
-          --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
-        ;;
-    esac
-    OUTS+=("$out")
-  done
+  if [[ "$DISTRACTOR_MODE" == "equal_diverse_synth" ]]; then
+    # Topic sweep: T=0 baseline, then T distinct wrong answers x DOCS_PER_TOPIC paragraphs each.
+    for T in $TOPICS; do
+      out="$OUTDIR/base_${VAR}_t${T}.json"   # non-overwriting: variant + topic count in the filename
+      echo "########## variant=$VAR topics=$T -> $out ##########"
+      case "$T" in
+        0|"")     # matched no-distractor baseline (no distractor flags)
+          python -u hotpot_pipeline.py "${COMMON[@]}" --output-path "$out"
+          ;;
+        *)        # equal_diverse_synth arm: T topics, DOCS_PER_TOPIC paragraphs each
+          python -u hotpot_pipeline.py "${COMMON[@]}" \
+            --distractor-mode equal_diverse_synth \
+            --distractor-num-topics "$T" --distractor-docs-per-topic "$DOCS_PER_TOPIC" \
+            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
+          ;;
+      esac
+      OUTS+=("$out")
+    done
+  else
+    for f in $FRACTIONS; do
+      out="$OUTDIR/base_${VAR}_f${f}.json"   # non-overwriting: variant + fraction in the filename
+      echo "########## variant=$VAR fraction=$f -> $out ##########"
+      case "$f" in
+        0|0.0|"")   # matched no-distractor baseline (no distractor flags)
+          python -u hotpot_pipeline.py "${COMMON[@]}" --output-path "$out"
+          ;;
+        *)          # distractor arm: round-0 distractors via DISTRACTOR_MODE
+          python -u hotpot_pipeline.py "${COMMON[@]}" \
+            --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
+            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
+          ;;
+      esac
+      OUTS+=("$out")
+    done
+  fi
 
   echo "########## comparison (variant=$VAR) ##########"
   python -u base_hotpotqa_distractors/compare_sweep.py \

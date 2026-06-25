@@ -68,11 +68,13 @@ DISTRACTOR_REWRITE = "rewrite"
 DISTRACTOR_SUBSTITUTION = "substitution"
 DISTRACTOR_NATIVE_NOISE = "native_noise"
 DISTRACTOR_DIVERSE_SYNTH = "diverse_synth"
+DISTRACTOR_EQUAL_DIVERSE_SYNTH = "equal_diverse_synth"
 DISTRACTOR_MODES = (
     DISTRACTOR_REWRITE,
     DISTRACTOR_SUBSTITUTION,
     DISTRACTOR_NATIVE_NOISE,
     DISTRACTOR_DIVERSE_SYNTH,
+    DISTRACTOR_EQUAL_DIVERSE_SYNTH,
 )
 
 _ARTICLES = re.compile(r"\b(a|an|the)\b")
@@ -639,6 +641,7 @@ class DistractorRecord:
     eligible: bool
     n_docs: int = 0
     n_corrupted: int = 0
+    n_topics: int = 0                # equal_diverse_synth: # distinct wrong answers realized (each backed by docs_per_topic paragraphs)
     status: str = "pending"          # ok | skipped_no_gold | skipped_yes_no | skipped_zero | no_docs | no_valid_substitute | no_native_noise | no_error_produced | not_realized
     distractors: List[Dict[str, Any]] = field(default_factory=list)  # [{doc_id, injected_entity, status}]
     substitute_candidates: List[str] = field(default_factory=list)
@@ -673,10 +676,18 @@ class DistractorController:
         native_file: Optional[str] = None,
         k_substitutes: int = 8,
         avoid_gold: bool = False,
+        num_topics: Optional[int] = None,
+        docs_per_topic: int = 2,
     ):
         if mode not in DISTRACTOR_MODES:
             raise ValueError(f"Unknown distractor mode {mode!r}; expected one of {DISTRACTOR_MODES}")
-        if not (0.0 < fraction <= 1.0):
+        # equal_diverse_synth is driven by num_topics × docs_per_topic, not by a fraction.
+        if mode == DISTRACTOR_EQUAL_DIVERSE_SYNTH:
+            if not num_topics or num_topics < 1:
+                raise ValueError("equal_diverse_synth requires num_topics >= 1")
+            if docs_per_topic < 1:
+                raise ValueError("equal_diverse_synth requires docs_per_topic >= 1")
+        elif not (0.0 < fraction <= 1.0):
             raise ValueError(f"distractor fraction must be in (0, 1], got {fraction}")
         self.mode = mode
         self.fraction = fraction
@@ -684,6 +695,8 @@ class DistractorController:
         self.seed = seed
         self.k_substitutes = k_substitutes
         self.avoid_gold = avoid_gold
+        self.num_topics = num_topics
+        self.docs_per_topic = docs_per_topic
         self.gt = load_ground_truth(gt_file)
         self.native = load_native_records(native_file) if (
             mode == DISTRACTOR_NATIVE_NOISE and native_file
@@ -696,12 +709,16 @@ class DistractorController:
         return random.Random(f"distractor:{self.seed}:{query_id}:{salt}")
 
     def metadata(self) -> Dict[str, Any]:
-        return {
+        md = {
             "distractor_fraction": self.fraction,
             "distractor_mode": self.mode,
             "distractor_seed": self.seed,
             "distractor_avoid_gold": self.avoid_gold,
         }
+        if self.mode == DISTRACTOR_EQUAL_DIVERSE_SYNTH:
+            md["distractor_num_topics"] = self.num_topics
+            md["distractor_docs_per_topic"] = self.docs_per_topic
+        return md
 
     # ---- main entry: choose docs, generate distractors, mutate in place ----
     def prepare_and_apply(self, states: List[Any]) -> None:
@@ -720,7 +737,12 @@ class DistractorController:
             if normalize(gold) in ("yes", "no"):
                 rec.status = "skipped_yes_no"
                 continue
-            n = n_to_corrupt(self.fraction, len(docs))
+            # equal_diverse_synth: corrupt exactly num_topics × docs_per_topic non-gold slots
+            # (clamped by selection to the slots available); other modes use the fraction.
+            if self.mode == DISTRACTOR_EQUAL_DIVERSE_SYNTH:
+                n = self.num_topics * self.docs_per_topic
+            else:
+                n = n_to_corrupt(self.fraction, len(docs))
             if n <= 0:
                 rec.status = "skipped_zero"
                 continue
@@ -734,7 +756,7 @@ class DistractorController:
             # fractions it would corrupt every gold doc and remove gold from context. Drop
             # one gold-bearing index if the selection would consume all of them.
             # (Skip when avoid_gold: gold docs are already never selected.)
-            if self.mode == DISTRACTOR_DIVERSE_SYNTH and not self.avoid_gold:
+            if self.mode in (DISTRACTOR_DIVERSE_SYNTH, DISTRACTOR_EQUAL_DIVERSE_SYNTH) and not self.avoid_gold:
                 gold_bearing = [
                     i for i, d in enumerate(docs)
                     if contains_entity(d.get("text", ""), gold)
@@ -757,6 +779,8 @@ class DistractorController:
             self._apply_native_noise(plans)
         elif self.mode == DISTRACTOR_DIVERSE_SYNTH:
             self._apply_diverse_synth(plans)
+        elif self.mode == DISTRACTOR_EQUAL_DIVERSE_SYNTH:
+            self._apply_equal_diverse_synth(plans)
         else:
             self._apply_rewrite(plans)
 
@@ -870,6 +894,99 @@ class DistractorController:
             if rec.status == "no_valid_substitute":
                 continue
             rec.n_corrupted = len(rec.distractors)
+            rec.status = "ok" if any(d["injected_entity"] for d in rec.distractors) else "no_error_produced"
+
+    # ---- equal_diverse_synth: FEWER wrong answers, each backed by several paragraphs ----
+    def _apply_equal_diverse_synth(self, plans: List[tuple]) -> None:
+        """Equal-weight diverse distractors. Like ``diverse_synth`` but instead of one
+        document per distinct wrong answer, each wrong answer ("topic") is reinforced by
+        ``docs_per_topic`` documents — so a question's 8 non-gold slots become, e.g., 4
+        topics × 2 paragraphs rather than 8 singletons. Each topic's paragraphs are SEPARATE
+        generations (a ``variant_hint`` nudges them to differ in wording) that all assert the
+        same wrong answer, so the round-0 answer distribution has fewer but more strongly
+        supported false attractors. Two batched phases:
+          A) ONE proposal call per question → T = floor(len(idxs)/docs_per_topic) distinct
+             wrong answers (topics).
+          B) ONE synthesis call per (doc, topic) → ``docs_per_topic`` distinct documents per
+             topic, each passing the same accept-or-replace guard as ``diverse_synth``.
+        """
+        D = self.docs_per_topic
+        # phase A: distinct topic proposals (one batched call across all questions)
+        prop_convos = [
+            get_substitute_proposal_conversation(
+                question=s.question_text, entity=gold,
+                k=max(self.k_substitutes, len(idxs) // D))
+            for (s, idxs, gold) in plans
+        ]
+        props = self.doc_llm.inference_batch(prop_convos) if prop_convos else []
+
+        synth_jobs: List[tuple] = []   # (state, doc_idx, gold, wrong, variant_hint)
+        for (s, idxs, gold), out in zip(plans, props):
+            rec = self.records[s.query_id]
+            parsed = parse_json(out)
+            cands = [str(c).strip() for c in parsed if str(c).strip()] if isinstance(parsed, list) else []
+            rec.substitute_candidates = cands
+            n_topics = len(idxs) // D                 # full topic groups the slots support
+            if n_topics < 1:
+                rec.eligible = False
+                rec.status = "no_docs"                 # not enough slots to form one topic group
+                continue
+            ctx = " ".join(s.current_docs[i].get("text", "") for i in idxs)
+            subs = choose_distinct_substitutes(cands, gold, s.question_text, n_topics, context_text=ctx)
+            if not subs:
+                rec.eligible = False
+                rec.status = "no_valid_substitute"
+                continue
+            if len(subs) < n_topics:
+                rec.notes.append(
+                    f"only {len(subs)} distinct wrong answers for {n_topics} topics; cycled (duplicates seeded)")
+            used = idxs[:n_topics * D]                 # drop any leftover slot that can't fill a group
+            if len(used) < len(idxs):
+                rec.notes.append(
+                    f"dropped {len(idxs) - len(used)} leftover slot(s) not forming a full {D}-doc topic")
+            for t in range(n_topics):
+                wrong = subs[t % len(subs)]
+                for d in range(D):
+                    hint = (
+                        f"This is article version {d + 1} of {D} on the same subject, as if from a "
+                        f"different source. Vary the wording, sentence structure, and which supporting "
+                        f"details you include so it does not read as a copy of the other version(s) — "
+                        f"but still state the same answer.")
+                    synth_jobs.append((s, used[t * D + d], gold, wrong, hint))
+
+        # phase B: synthesize one Wikipedia-lead-style document per (doc, wrong answer)
+        synth_convos = [
+            get_create_distractor_document_conversation(
+                question=s.question_text, answer=wrong, gold=gold, variant_hint=hint)
+            for (s, _, gold, wrong, hint) in synth_jobs
+        ]
+        synth_outs = self.doc_llm.inference_batch(synth_convos) if synth_convos else []
+
+        for (s, doc_idx, gold, wrong, _hint), doc_text in zip(synth_jobs, synth_outs):
+            doc = s.current_docs[doc_idx]
+            text = (doc_text or "").strip()
+            # Same accept-or-replace guard as diverse_synth: a refusal / empty / gold-leak / missing
+            # wrong answer is replaced with a clean templated assertion so a usable distractor is seeded.
+            if (not text) or contains_entity(text, gold) or (not contains_entity(text, wrong)):
+                text = fallback_distractor_paragraph(s.question_text, wrong)
+                status = "fallback_template"
+            else:
+                status = realized_status(text, gold, wrong)   # "ok"
+            doc["text"] = text
+            doc["distractor"] = True
+            self.records[s.query_id].distractors.append({
+                "doc_id": doc.get("doc_id"),
+                "injected_entity": wrong,
+                "status": status,
+            })
+
+        # finalize per-question status (skip questions with no usable topic)
+        for (s, idxs, gold) in plans:
+            rec = self.records[s.query_id]
+            if rec.status in ("no_valid_substitute", "no_docs"):
+                continue
+            rec.n_corrupted = len(rec.distractors)
+            rec.n_topics = len({d["injected_entity"] for d in rec.distractors if d["injected_entity"]})
             rec.status = "ok" if any(d["injected_entity"] for d in rec.distractors) else "no_error_produced"
 
     # ---- rewrite: doc-LLM invents an independent wrong answer per doc ----

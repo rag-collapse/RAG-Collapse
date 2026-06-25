@@ -24,8 +24,13 @@ from pipeline.misinfo import normalize, load_ground_truth
 
 
 def _fraction_of(path):
+    """Arm label parsed from the filename: ``_f<frac>`` (fraction sweep) or ``_t<topics>``
+    (equal_diverse_synth topic sweep). Returns the numeric label as a string."""
     base = os.path.basename(path)
-    return base.rsplit("_f", 1)[1].rsplit(".json", 1)[0] if "_f" in base else base
+    for sep in ("_t", "_f"):
+        if sep in base:
+            return base.rsplit(sep, 1)[1].rsplit(".json", 1)[0]
+    return base
 
 
 def _qid(q):

@@ -239,8 +239,17 @@ def parse_args():
     p.add_argument("--distractor-mode", choices=list(DISTRACTOR_MODES), default="rewrite",
         help="How to build each distractor: rewrite (doc-LLM invents a distinct wrong answer "
              "per doc), substitution (distinct same-type wrong entity per doc), diverse_synth "
-             "(coordinated distinct wrong answers, one Wikipedia-style doc each), or native_noise "
+             "(coordinated distinct wrong answers, one Wikipedia-style doc each), equal_diverse_synth "
+             "(fewer wrong answers, each reinforced by --distractor-docs-per-topic paragraphs; driven "
+             "by --distractor-num-topics, not --distractor-fraction), or native_noise "
              "(real non-answer HotpotQA paragraphs; requires --native-hotpot-file).")
+    p.add_argument("--distractor-num-topics", type=int, default=0,
+        help="equal_diverse_synth only: number of distinct wrong-answer TOPICS to seed (0 = off). Each "
+             "topic gets --distractor-docs-per-topic paragraphs, so this drives the arm in place of "
+             "--distractor-fraction. Clamped by the available non-gold slots.")
+    p.add_argument("--distractor-docs-per-topic", type=int, default=2,
+        help="equal_diverse_synth only: paragraphs per topic (distinct generations asserting the SAME "
+             "wrong answer). Default 2 → 4 topics fills the 8 non-gold slots of the native setting.")
     p.add_argument("--distractor-per-run", action="store_true",
         help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
              "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
@@ -301,9 +310,14 @@ def run_pipeline() -> None:
     if args.target_mode == "intermediate_hop" and not args.native_hotpot_file:
         raise SystemExit("--native-hotpot-file is required when --target-mode intermediate_hop")
 
-    distractor_enabled = args.distractor_fraction and args.distractor_fraction > 0
+    # equal_diverse_synth is driven by --distractor-num-topics; all other modes by --distractor-fraction.
+    equal_mode = args.distractor_mode == "equal_diverse_synth"
+    distractor_enabled = (
+        (args.distractor_num_topics and args.distractor_num_topics > 0) if equal_mode
+        else (args.distractor_fraction and args.distractor_fraction > 0)
+    )
     if distractor_enabled and not args.gt_file:
-        raise SystemExit("--gt-file is required when --distractor-fraction > 0")
+        raise SystemExit("--gt-file is required when distractors are enabled")
     if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
         raise SystemExit("--native-hotpot-file is required when --distractor-mode native_noise")
 
@@ -528,8 +542,15 @@ def run_pipeline() -> None:
             seed=args.seed,
             native_file=args.native_hotpot_file,
             avoid_gold=args.distractor_avoid_gold,
+            num_topics=args.distractor_num_topics,
+            docs_per_topic=args.distractor_docs_per_topic,
         )
-        print(f"[distractor] mode={args.distractor_mode} fraction={args.distractor_fraction}", flush=True)
+        if equal_mode:
+            print(f"[distractor] mode={args.distractor_mode} "
+                  f"num_topics={args.distractor_num_topics} docs_per_topic={args.distractor_docs_per_topic}",
+                  flush=True)
+        else:
+            print(f"[distractor] mode={args.distractor_mode} fraction={args.distractor_fraction}", flush=True)
         distractor_controller.prepare_and_apply(states)
         d_elig = sum(1 for s in states if distractor_controller.records[s.query_id].eligible)
         d_docs = sum(distractor_controller.records[s.query_id].n_corrupted for s in states)
