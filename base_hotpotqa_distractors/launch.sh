@@ -68,7 +68,7 @@ wait_for_server () {
 }
 
 A_LOG="logs/slurm-${A_JID}-vllm-answer.out"
-A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" $D_JID; exit 1; }
+A_URL=$(wait_for_server "$A_JID" "$A_LOG" "$ANSWER_PORT" "answer-server")  || { scancel "$A_JID" ${D_JID:+"$D_JID"}; exit 1; }
 D_URL=""
 if [[ -n "$DOC_REUSE_ANSWER_SERVER" ]]; then
   D_URL="$A_URL"                       # per-round synthesis runs on the answer model/server
