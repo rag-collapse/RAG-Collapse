@@ -660,19 +660,68 @@ recognized as such across reliable sources.</pre>
   </div>
 
   <h3>Metrics in these plots</h3>
-  <ul class="tight">
-    <li><strong>gold_match</strong> — fraction of a question's 10 runs whose answer matches the gold
-      (correct) answer; accuracy / recovery toward truth.</li>
-    <li><strong>distractor_adoption</strong> — fraction of runs whose answer is <em>one of the seeded
-      wrong answers</em>; the direct causal effect of the distractors.</li>
-    <li><strong>distinct_answers</strong> — number of distinct (normalized) answers across the 10 runs of
-      a question; <code>1.0</code> = every run agrees (full concentration), capped at 10. The diversity /
-      collapse signal.</li>
-    <li><strong>offtarget</strong> — fraction off <em>both</em> gold and every seeded answer (a novel
-      wrong answer the model invented on its own).</li>
-  </ul>
-  <p>Each is computed per question per round, then averaged over the eligible cohort (130 questions for
-  <code>search</code>/<code>hybrid</code>, 128 for <code>replace_one</code>).</p>
+  <p>Every metric is computed from the answerer's <code>num_runs</code> = 10 generations per question per
+  round, then averaged over the eligible cohort. Expand each for the exact calculation (all four come from
+  <code>base_hotpotqa_distractors/compare_sweep.py</code>).</p>
+
+  <details><summary><span><strong>How answers are matched &amp; the cohort</strong> — the shared basis</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <ul class="tight">
+        <li><strong>Normalization.</strong> Each generated answer, the gold answer, and each seeded wrong
+          answer is passed through <code>normalize()</code> (lowercase; drop the articles
+          <em>a/an/the</em> and all punctuation; collapse whitespace) — the same normalizer the evaluator
+          uses. Matching is then exact on the normalized string (e.g. "The seat is Newport." →
+          <code>seat is newport</code>). Because the RAG prompt asks for "ONLY the answer in plain text",
+          generations are short, so exact normalized match behaves like answer equality.</li>
+        <li><strong>Seeded set.</strong> Per question, the set of planted wrong answers is the union of the
+          <code>injected_entity</code> values logged under <code>initial_distractor</code> (normalized).
+          Gold-leaking / refused documents were replaced upstream (§5), so this set never contains the gold.</li>
+        <li><strong>Eligible cohort.</strong> The questions <em>any</em> distractor arm marked eligible
+          (gold present, not yes/no, ≥1 corruptible non-gold slot). The <code>f=0</code> / <code>T=0</code>
+          baseline is scored on that <strong>same</strong> cohort, so every arm is directly comparable.</li>
+        <li><strong>The three rate metrics partition each run:</strong> a generation is exactly one of
+          gold / a seeded wrong answer / off-target, so
+          <code>gold_match + distractor_adoption + offtarget = 1</code> within every round.</li>
+      </ul>
+    </div></details>
+
+  <details><summary><span><code>gold_match</code> — accuracy / recovery toward truth</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>Fraction of a question's 10 runs whose normalized answer <strong>equals the normalized gold
+      answer</strong>. Per question per round: <code>(# runs == gold) / 10</code>; then averaged across the
+      cohort's questions. High = still answering correctly; collapse toward 0 is the <em>shift</em> off
+      truth. (In code: <code>gm += sum(a == g for a in answers) / len(answers)</code>, divided by the
+      number of questions.)</p>
+    </div></details>
+
+  <details><summary><span><code>distractor_adoption</code> — the direct causal effect of the distractors</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>Fraction of runs whose normalized answer <strong>is one of the seeded wrong answers</strong> (set
+      membership against the question's seeded set). Per question per round:
+      <code>(# runs in seeded set) / 10</code>; averaged across questions. This is the clean causal link —
+      it counts only answers matching a falsehood <em>we planted</em>, not any wrong answer. (In code:
+      <code>da += sum(a in seeded for a in answers) / len(answers)</code>.)</p>
+    </div></details>
+
+  <details><summary><span><code>offtarget</code> — novel wrong answers the model invented</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>Fraction of runs whose answer is <strong>neither the gold nor any seeded wrong answer</strong>
+      (<code>a != gold and a ∉ seeded</code>). Per question per round, averaged across questions. A rising
+      off-target rate (most visible under <code>hybrid</code>) means the loop is drifting to <em>fresh</em>
+      errors rather than holding the planted ones — it's the complement that makes the three rates sum to 1.</p>
+    </div></details>
+
+  <details><summary><span><code>distinct_answers</code> — the diversity / concentration signal</span><span class="chev">›</span></summary>
+    <div class="det-body">
+      <p>The number of <strong>distinct normalized answers</strong> across a question's 10 runs
+      (<code>len(set(answers))</code>), averaged across questions. <code>1.0</code> = every run agreed
+      (full concentration / collapse); capped at <code>num_runs</code> = 10. Unlike the others this is a
+      <em>count</em>, not a rate — it measures how narrow the answer distribution has become, independent of
+      whether the answers are right or wrong.</p>
+    </div></details>
+
+  <p>Cohort sizes: 130 questions for <code>search</code>/<code>hybrid</code>, 128 for
+  <code>replace_one</code> (equal-synth sweep: 130 / 131 / 129).</p>
 
   <p>The per-round dynamics, dose-response, and concentration figures are shown <strong>side by side with the <code>equal_diverse_synth</code> variant below</strong> — in each comparison plot the <em>left</em> panel is this <code>diverse_synth</code> fraction sweep and the right is the topic sweep.</p>
 
