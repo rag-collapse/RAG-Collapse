@@ -17,6 +17,7 @@ answers. Writes a summary JSON and prints a compact dose-response table.
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
@@ -24,13 +25,12 @@ from pipeline.misinfo import normalize, load_ground_truth
 
 
 def _fraction_of(path):
-    """Arm label parsed from the filename: ``_f<frac>`` (fraction sweep) or ``_t<topics>``
-    (equal_diverse_synth topic sweep). Returns the numeric label as a string."""
+    """Arm label parsed from the TRAILING filename suffix: ``_f<frac>`` (fraction sweep) or
+    ``_t<topics>`` (equal_diverse_synth topic sweep). Anchored at end-of-name so a ``_t``/``_f``
+    elsewhere in a variant/owner token can't mis-parse. Returns the numeric label as a string."""
     base = os.path.basename(path)
-    for sep in ("_t", "_f"):
-        if sep in base:
-            return base.rsplit(sep, 1)[1].rsplit(".json", 1)[0]
-    return base
+    m = re.search(r"_(?:t|f)([0-9.]+)\.json$", base)
+    return m.group(1) if m else base
 
 
 def _qid(q):
