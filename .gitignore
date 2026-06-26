@@ -223,3 +223,4 @@ baseline-DeepSeek-R1-Distill-Qwen-7B/
 # distractor-sweep experiment outputs (downloaded data, not code) — root only,
 # so visualization_outputs/distractor_sweep_figures/ (committed plots) is NOT ignored
 /distractor_sweep/
+/equal_distractor_sweep/
