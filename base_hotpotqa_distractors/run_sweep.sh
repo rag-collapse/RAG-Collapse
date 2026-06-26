@@ -112,6 +112,11 @@ case "${DISTRACTOR_PER_RUN:-}" in 1|true|yes) PER_RUN_ARG="--distractor-per-run"
 AVOID_GOLD_ARG=""
 case "${DISTRACTOR_AVOID_GOLD:-}" in 1|true|yes) AVOID_GOLD_ARG="--distractor-avoid-gold" ;; esac
 
+# shuffled-diverse-synth: each of the num_runs parallel generations gets a different seeded
+# context-doc order (re-shuffled per round). Applied to ALL arms incl. the f0 baseline.
+SHUFFLE_ARG=""
+case "${SHUFFLE_PER_RUN:-}" in 1|true|yes) SHUFFLE_ARG="--shuffle-per-run" ;; esac
+
 for VAR in $VARIANTS; do
   echo "==================== variant=$VAR ===================="
   VARIANT_ARGS=(--pipeline-variant "$VAR")
@@ -125,6 +130,7 @@ for VAR in $VARIANTS; do
           --num-runs "$NUM_RUNS" --chars-per-doc "$CHARS_PER_DOC"
           --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS"
           --doc-synthesis-mode faithful)
+  [[ -n "$SHUFFLE_ARG" ]] && COMMON+=("$SHUFFLE_ARG")
   # NUM_ITERATIONS overrides the variant's default round count (e.g. 3 for this experiment).
   [[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
 

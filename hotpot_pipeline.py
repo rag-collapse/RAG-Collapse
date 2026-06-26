@@ -31,7 +31,7 @@ from pipeline.misinfo import (
     MisinfoController, MODE_FAITHFUL, MODES, TARGETS,
     DistractorController, DISTRACTOR_MODES,
     load_native_records, native_context_docs,
-    per_run_doc_subsets,
+    per_run_doc_subsets, per_run_shuffled_docs,
 )
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
@@ -254,6 +254,11 @@ def parse_args():
         help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
              "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
              "the round-0 answer distribution is wide across runs. No-op without distractor docs.")
+    p.add_argument("--shuffle-per-run", action="store_true",
+        help="shuffled-diverse-synth: give each of the --num-runs parallel generations a DIFFERENT, "
+             "reproducibly-random ORDER of the same context docs (re-shuffled every round, seeded by "
+             "--seed). Isolates context-position effects on the answer distribution. Mutually exclusive "
+             "with --distractor-per-run.")
     p.add_argument("--distractor-avoid-gold", action="store_true",
         help="Never corrupt a gold document (tagged gold=True or containing the gold answer); "
              "randomly inject distractors into the NON-gold docs only. Use with --initial-docs "
@@ -320,6 +325,9 @@ def run_pipeline() -> None:
         raise SystemExit("--gt-file is required when distractors are enabled")
     if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
         raise SystemExit("--native-hotpot-file is required when --distractor-mode native_noise")
+    if args.shuffle_per_run and args.distractor_per_run:
+        raise SystemExit("--shuffle-per-run and --distractor-per-run are mutually exclusive "
+                         "(both rewrite the per-run context differently)")
 
     native_seed = args.initial_docs == "native_distractor"
     if native_seed and not args.native_hotpot_file:
@@ -566,6 +574,7 @@ def run_pipeline() -> None:
         "num_runs_per_iteration": num_runs,
         "top_k": args.top_k,
         "nprobe": args.nprobe,
+        "shuffle_per_run": args.shuffle_per_run,
     }
     if native_seed:
         meta["initial_docs"] = args.initial_docs
@@ -592,7 +601,18 @@ def run_pipeline() -> None:
         # --- Step 1: batch answer generation ---
         batch_conversations: List[List[Dict[str, str]]] = []
         for s in states:
-            if args.distractor_per_run:
+            if args.shuffle_per_run:
+                # shuffled-diverse-synth: every run sees the SAME docs but in a DIFFERENT,
+                # seeded order (re-shuffled per round) — isolates context-position effects.
+                for docs_r in per_run_shuffled_docs(
+                        s.current_docs, num_runs, args.seed, s.query_id, it):
+                    batch_conversations.append(build_rag_conversation(
+                        question=s.question_text,
+                        docs=docs_r,
+                        chars_per_doc=chars_per_doc,
+                        shuffle_docs=False,   # order already fixed per run above
+                    ))
+            elif args.distractor_per_run:
                 # Option A: each run sees clean/gold docs + ONE rotating distractor → diverse
                 # round-0 answers across runs (instead of all runs sharing one context).
                 for docs_r in per_run_doc_subsets(s.current_docs, num_runs):
