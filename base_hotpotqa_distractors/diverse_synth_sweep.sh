@@ -1,21 +1,21 @@
 #!/bin/bash
-# oz03-hub-style HotpotQA collapse experiment with round-0 distractor seeding.
+# Two-server native-distractor HotpotQA collapse experiment with round-0 distractor seeding.
 # Run on a LOGIN node:
 #
-#   bash base_hotpotqa_distractors/oz03_sweep.sh
+#   bash base_hotpotqa_distractors/diverse_synth_sweep.sh
 #
 # Setup (per the agreed design):
 #   - SEPARATE servers: qwen2.5-14b ANSWER server + qwen2.5-7b-docgen DOC server. The doc server
-#     builds the per-round AI docs from the answers (standard oyilmazel/oz03-hub two-server pattern).
+#     builds the per-round AI docs from the answers (the two-server pattern).
 #   - ROUND-0 source: the native HotpotQA distractor setting (2 gold + 8 distractors).
-#   - ROUND-0 distractors: a strong model azure/gpt-5-mini via keymaker (DISTRACTOR_MODEL),
-#     diverse_synth mode, injected ONLY into the 8 non-gold slots (--distractor-avoid-gold),
-#     randomly with seed 42. The 2 gold paragraphs are NEVER corrupted.
+#   - ROUND-0 distractors: a strong model gpt-5-mini via the OpenAI API (DISTRACTOR_MODEL,
+#     LITELLM_API_BASE=openai), diverse_synth mode, injected ONLY into the 8 non-gold slots
+#     (--distractor-avoid-gold), randomly with seed 42. The 2 gold paragraphs are NEVER corrupted.
 #   - 3 variants: search, hybrid (= replace-all), replace_one.
-#   - 10 questions, 3 rounds each, distractor fraction sweep {0, 0.3, 0.5, 0.7}.
+#   - 10 questions (set MAX_Q=150 for the full run), 3 rounds each, fraction sweep {0, 0.3, 0.5, 0.7}.
 #   - Per-run subsets OFF (shared context).
 #
-# Needs API_KEY in .env at the repo root (run_sweep.sh loads it) for the gpt-5-mini distractors,
+# Needs OPENAI_API_KEY in .env at the repo root (run_sweep.sh loads it) for the gpt-5-mini distractors,
 # and NATIVE_FILE pointing at the distractor-setting JSON. Outputs: per-variant sweep_summary_*.json.
 SCR="${SCR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse}"
 exec env \
@@ -34,7 +34,7 @@ exec env \
   NUM_RUNS="${NUM_RUNS:-10}" \
   FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}" \
   SEED="${SEED:-42}" \
-  OUTDIR="${OUTDIR:-$HOME/oz03_distractor_sweep}" \
+  OUTDIR="${OUTDIR:-$HOME/distractor_sweep}" \
   SERVER_TIME="${SERVER_TIME:-06:00:00}" \
   CLIENT_TIME="${CLIENT_TIME:-05:00:00}" \
   bash "$(dirname "$0")/launch.sh"
