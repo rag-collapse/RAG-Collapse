@@ -36,6 +36,10 @@ MAX_Q="${MAX_Q:-50}"
 NUM_RUNS="${NUM_RUNS:-10}"
 CHARS_PER_DOC="${CHARS_PER_DOC:-500}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
+# Answer-model sampling. Unset -> hotpot_pipeline.py defaults (0.7 / 0.9), so other sweeps are
+# unchanged. The shuffled experiment sets these to 1.0 / 1.0 to maximize per-run answer diversity.
+TEMPERATURE="${TEMPERATURE:-}"
+TOP_P="${TOP_P:-}"
 SEED="${SEED:-42}"
 DISTRACTOR_MODE="${DISTRACTOR_MODE:-rewrite}"   # rewrite | substitution | native_noise | diverse_synth | equal_diverse_synth
 FRACTIONS="${FRACTIONS:-0 0.3 0.5 0.7}"   # 0 = matched no-distractor baseline (always include it)
@@ -131,6 +135,9 @@ for VAR in $VARIANTS; do
           --max-tokens "$MAX_TOKENS" --doc-max-tokens "$DOC_MAX_TOKENS"
           --doc-synthesis-mode faithful)
   [[ -n "$SHUFFLE_ARG" ]] && COMMON+=("$SHUFFLE_ARG")
+  # Answer-model sampling overrides (the doc model inherits --temperature unless --doc-temperature set).
+  [[ -n "$TEMPERATURE" ]] && COMMON+=(--temperature "$TEMPERATURE")
+  [[ -n "$TOP_P" ]] && COMMON+=(--top-p "$TOP_P")
   # NUM_ITERATIONS overrides the variant's default round count (e.g. 3 for this experiment).
   [[ -n "${NUM_ITERATIONS:-}" ]] && COMMON+=(--num-iterations "$NUM_ITERATIONS")
 
