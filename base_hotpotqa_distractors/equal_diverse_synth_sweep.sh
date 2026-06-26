@@ -1,10 +1,10 @@
 #!/bin/bash
-# oz03-hub-style HotpotQA collapse experiment with EQUAL-WEIGHT diverse distractors.
+# Two-server native-distractor HotpotQA collapse experiment with EQUAL-WEIGHT diverse distractors.
 # Run on a LOGIN node:
 #
-#   bash base_hotpotqa_distractors/oz03_equal_sweep.sh
+#   bash base_hotpotqa_distractors/equal_diverse_synth_sweep.sh
 #
-# Same setup as oz03_sweep.sh (separate qwen2.5-14b answer + qwen2.5-7b-docgen servers, native
+# Same setup as diverse_synth_sweep.sh (separate qwen2.5-14b answer + qwen2.5-7b-docgen servers, native
 # 2-gold/8-distractor round-0 context, gold never corrupted, seed 42, gpt-5-mini distractors via the
 # OpenAI API), with ONE change to how the 8 non-gold slots are filled:
 #   - diverse_synth      : 8 DISTINCT wrong answers, one paragraph each.
@@ -34,7 +34,7 @@ exec env \
   MAX_Q="${MAX_Q:-10}" \
   NUM_RUNS="${NUM_RUNS:-10}" \
   SEED="${SEED:-42}" \
-  OUTDIR="${OUTDIR:-$HOME/oz03_equal_distractor_sweep}" \
+  OUTDIR="${OUTDIR:-$HOME/equal_distractor_sweep}" \
   SERVER_TIME="${SERVER_TIME:-06:00:00}" \
   CLIENT_TIME="${CLIENT_TIME:-05:00:00}" \
   bash "$(dirname "$0")/launch.sh"
