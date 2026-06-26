@@ -12,9 +12,16 @@
 #     the answer concentration is a fixed-doc-order artifact vs. genuine model commitment.
 #
 # Order randomness is reproducible from SEED (string-seeded random.Random per question/round/run,
-# PYTHONHASHSEED-independent). Needs OPENAI_API_KEY in .env at the repo root.
+# PYTHONHASHSEED-independent). Answer sampling is set to temperature=1.0 / top_p=1.0 to maximize the
+# spread of the 10 parallel generations (the doc model inherits this temperature). Uses its OWN server
+# ports (5182/5183) so it can run IN PARALLEL with diverse_synth/equal_diverse_synth on 5180/5181.
+# Needs OPENAI_API_KEY in .env at the repo root.
 SCR="${SCR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse}"
 exec env \
+  ANSWER_PORT="${ANSWER_PORT:-5182}" \
+  DOCGEN_PORT="${DOCGEN_PORT:-5183}" \
+  TEMPERATURE="${TEMPERATURE:-1.0}" \
+  TOP_P="${TOP_P:-1.0}" \
   DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}" \
   DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}" \
   DISTRACTOR_MODEL="${DISTRACTOR_MODEL:-gpt-5-mini}" \
