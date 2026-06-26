@@ -789,12 +789,9 @@ recognized as such across reliable sources.</pre>
   <em>diffusion</em> washed out — at this scale every variant concentrates. Numbers are stable enough
   to discuss directionally; a paper-grade claim would still pair them with per-question significance
   tests.</div>
-</div></section>
 
-<!-- 12. EQUAL_DIVERSE_SYNTH -->
-<section id="equal"><div class="wrap body-cap">
-  <div class="sechead"><span class="secnum">12 — A variant: equal_diverse_synth</span>
-    <h2>Fewer wrong answers, each reinforced by several documents</h2></div>
+  <h3 id="equal" style="margin-top:56px;padding-top:30px;border-top:1px solid var(--line);font-size:1.3rem">
+    A variant: <span style="color:var(--violet)">equal_diverse_synth</span> — fewer wrong answers, each reinforced by several documents</h3>
 
   <p>The <code>diverse_synth</code> design fills the 8 non-gold slots with <strong>8 distinct</strong>
   wrong answers — one document each. <code>equal_diverse_synth</code> asks the opposite question:
@@ -811,7 +808,7 @@ recognized as such across reliable sources.</pre>
   the <strong>number of topics</strong> <code>T ∈ {0,1,2,3,4}</code> (T = 0 is the clean baseline; T = 1
   is a <em>single</em> wrong answer reinforced by 2 docs; T = 4 fills all 8 slots). Everything else
   matches <code>diverse_synth</code>: same two servers, gpt-5-mini distractors, seed 42, 3 variants,
-  3 rounds, 150 questions. Each document still passes the same accept-or-replace fallback guard (§5).</p>
+  3 rounds, 150 questions. Each document still passes the same accept-or-replace fallback guard (§5).</div>
 
   <div class="callout t"><strong>Headline: fewer, louder lies win.</strong> Reinforcing a
   <em>single</em> wrong answer with 2 documents (T = 1) already drives <strong>~67% adoption</strong> at
@@ -905,7 +902,7 @@ recognized as such across reliable sources.</pre>
 
 <!-- 13. HOW TO RUN -->
 <section id="run"><div class="wrap body-cap">
-  <div class="sechead"><span class="secnum">13 — How to run it</span>
+  <div class="sechead"><span class="secnum">12 — How to run it</span>
     <h2>Running the experiment</h2></div>
 
   <h3>The full experiment (one command)</h3>
@@ -934,14 +931,14 @@ MAX_Q=150 bash base_hotpotqa_distractors/diverse_synth_sweep.sh</pre>
 
 <!-- 13. CODE -->
 <section id="code"><div class="wrap body-cap">
-  <div class="sechead"><span class="secnum">14 — Where the code lives</span>
+  <div class="sechead"><span class="secnum">13 — Where the code lives</span>
     <h2>Files involved</h2></div>
 
   <div class="tablewrap"><table>
     <thead><tr><th>File</th><th>Role</th></tr></thead>
     <tbody>
       <tr><td><code>pipeline/misinfo.py</code></td><td><code>_apply_diverse_synth</code> +
-        <code>_apply_equal_diverse_synth</code> (§12, N-topics × K-docs), <code>choose_distinct_substitutes</code>
+        <code>_apply_equal_diverse_synth</code> (§11, N-topics × K-docs), <code>choose_distinct_substitutes</code>
         (distinctness), accept-or-replace guard + <code>fallback_distractor_paragraph</code>,
         <code>select_distractor_indices(avoid_gold=…)</code> + <code>_is_gold_doc</code>,
         <code>per_run_doc_subsets</code> (§7).</td></tr>
