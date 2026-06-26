@@ -655,6 +655,46 @@ def test_equal_diverse_synth_cycles_when_few_distinct(tmp_path):
     assert any("cycled" in n for n in rec.notes)
 
 
+# ── shuffled-diverse-synth: per-run seeded context-order shuffling ──────────────
+def _docs(n):
+    return [{"doc_id": f"d{i}", "text": f"para {i}"} for i in range(n)]
+
+
+def test_per_run_shuffled_docs_structure():
+    docs = _docs(10)
+    runs = M.per_run_shuffled_docs(docs, num_runs=10, seed=42, query_id="q1", iteration=0)
+    assert len(runs) == 10
+    # every run is a permutation of the SAME doc set (no drops/dupes/mutation)
+    ids = {d["doc_id"] for d in docs}
+    for r in runs:
+        assert {d["doc_id"] for d in r} == ids
+        assert len(r) == len(docs)
+    # originals untouched
+    assert [d["doc_id"] for d in docs] == [f"d{i}" for i in range(10)]
+
+
+def test_per_run_shuffled_docs_distinct_orders():
+    runs = M.per_run_shuffled_docs(_docs(10), 10, 42, "q1", 0)
+    orders = [tuple(d["doc_id"] for d in r) for r in runs]
+    # the 10 parallel generations should NOT all share one order (the whole point)
+    assert len(set(orders)) >= 8
+
+
+def test_per_run_shuffled_docs_reproducible():
+    a = M.per_run_shuffled_docs(_docs(10), 10, 42, "q1", 0)
+    b = M.per_run_shuffled_docs(_docs(10), 10, 42, "q1", 0)
+    assert [[d["doc_id"] for d in r] for r in a] == [[d["doc_id"] for d in r] for r in b]
+
+
+def test_per_run_shuffled_docs_varies_by_round_and_question():
+    base = M.per_run_shuffled_docs(_docs(10), 10, 42, "q1", 0)
+    other_round = M.per_run_shuffled_docs(_docs(10), 10, 42, "q1", 1)
+    other_q = M.per_run_shuffled_docs(_docs(10), 10, 42, "q2", 0)
+    ser = lambda runs: [[d["doc_id"] for d in r] for r in runs]
+    assert ser(base) != ser(other_round)   # re-shuffled each round
+    assert ser(base) != ser(other_q)       # keyed by question
+
+
 def test_distractor_eval_metrics():
     from hotpot_evaluation import _distractor_metrics_for_iteration
     dist = {

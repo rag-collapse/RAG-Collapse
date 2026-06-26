@@ -341,6 +341,32 @@ def per_run_doc_subsets(docs: List[Dict[str, Any]], num_runs: int) -> List[List[
     return [clean + [distractors[r % len(distractors)]] for r in range(num_runs)]
 
 
+def per_run_shuffled_docs(
+    docs: List[Dict[str, Any]],
+    num_runs: int,
+    seed: Optional[int],
+    query_id: str,
+    iteration: int,
+) -> List[List[Dict[str, Any]]]:
+    """shuffled-diverse-synth — give each of the ``num_runs`` parallel generations a DIFFERENT,
+    reproducibly-random ORDER of the SAME context documents (re-shuffled every round).
+
+    Every run sees the identical set of docs (unlike ``per_run_doc_subsets``), only the order
+    differs, so this isolates context-position effects on the answer distribution. The order is
+    drawn from a string-seeded ``random.Random`` keyed by (seed, query_id, iteration, run): this
+    is deterministic and PYTHONHASHSEED-independent (random's str seeding uses sha512, not the
+    builtin hash()), so the whole experiment is reproducible from ``--seed``.
+
+    Returns ``num_runs`` independently-shuffled COPIES of ``docs`` (originals untouched)."""
+    out: List[List[Dict[str, Any]]] = []
+    for r in range(num_runs):
+        rng = random.Random(f"shuffle:{seed}:{query_id}:{iteration}:{r}")
+        d = list(docs)
+        rng.shuffle(d)
+        out.append(d)
+    return out
+
+
 def fallback_distractor_paragraph(question: str, wrong: str) -> str:
     """Clean templated Wikipedia-style assertion of ``wrong``, used when the doc-LLM refuses to
     state the falsehood (strong models sometimes refuse on high-stakes facts) or leaks the gold.
