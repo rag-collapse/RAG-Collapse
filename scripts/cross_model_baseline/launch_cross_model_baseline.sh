@@ -34,7 +34,7 @@ SIDE_MODEL_ID="${SIDE_MODEL_ID:-deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}"
 SIDE_SERVED="${SIDE_SERVED:-deepseek-r1-distill-qwen-7b}"
 MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"   # output subdir = the MAIN (measured) model
 ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
-WAIT_TRIES="${WAIT_TRIES:-300}"     # 300 * 10s = 50 min to schedule + load each server
+WAIT_TRIES="${WAIT_TRIES:-1800}"    # 1800 * 10s = 5h; a 3rd dedicated GPU can take a while to schedule
 mkdir -p logs
 
 echo "### submitting THREE dedicated servers (main + side + doc-gen), time limit $SERVER_TIME ###"
