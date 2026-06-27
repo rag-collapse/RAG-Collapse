@@ -7,7 +7,10 @@
 #SBATCH --nodes=1
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=vram40|vram48|vram80
+# Qwen2.5-7B is small (~15GB bf16 weights); it fits on a 24GB GPU. Allow the cheaper, far less
+# contended 24-32GB pools (l4/v100-32/m40) so this server doesn't starve on (Priority) waiting for
+# a premium vram48+ GPU it doesn't need (the recurring doc-gen scheduling failure).
+#SBATCH --constraint=vram24|vram32|vram40|vram48|vram80
 #SBATCH -t 12:00:00
 #SBATCH -o logs/slurm-%j-vllm-docgen.out
 #SBATCH -e logs/slurm-%j-vllm-docgen-error.out
