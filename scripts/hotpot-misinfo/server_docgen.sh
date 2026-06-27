@@ -7,10 +7,12 @@
 #SBATCH --nodes=1
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
-# Qwen2.5-7B is small (~15GB bf16 weights); it fits on a 24GB GPU. Allow the cheaper, far less
-# contended 24-32GB pools (l4/v100-32/m40) so this server doesn't starve on (Priority) waiting for
-# a premium vram48+ GPU it doesn't need (the recurring doc-gen scheduling failure).
-#SBATCH --constraint=vram23|vram32|vram40|vram48|vram80
+# Qwen2.5-7B (bf16, ~15GB) needs an Ampere+ GPU that supports bf16 and >=24GB. Require the `bf16`
+# feature: every bf16-tagged node here is >=24GB (L4=24, L40S/A40=48, A100=40/80, H100) and modern,
+# so this includes the abundant, idle L4 pool while EXCLUDING old GPUs that crash vLLM with
+# "no kernel image is available" (M40 sm_52, V100 sm_70, RTX-8000/2080Ti Turing). This fixes both the
+# (Priority) starvation (premium-only pool) and the cudaErrorNoKernelImageForDevice crash.
+#SBATCH --constraint=bf16
 #SBATCH -t 12:00:00
 #SBATCH -o logs/slurm-%j-vllm-docgen.out
 #SBATCH -e logs/slurm-%j-vllm-docgen-error.out
