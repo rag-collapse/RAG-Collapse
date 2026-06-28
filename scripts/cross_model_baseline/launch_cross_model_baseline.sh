@@ -35,9 +35,17 @@ SIDE_SERVED="${SIDE_SERVED:-deepseek-r1-distill-qwen-7b}"
 MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"   # output subdir = the MAIN (measured) model
 ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
 WAIT_TRIES="${WAIT_TRIES:-1800}"    # 1800 * 10s = 5h; a 3rd dedicated GPU can take a while to schedule
+# DOC_ON_MAIN=1 (Option B): generate documents on the MAIN server instead of a separate doc-gen GPU.
+# Needs only 2 GPUs (main + side) — avoids the 3rd-GPU starvation on this oversubscribed cluster. The
+# doc-writer then becomes the MAIN model (Qwen2.5-14B) rather than the qwen2.5-7b-doc model.
+DOC_ON_MAIN="${DOC_ON_MAIN:-}"
 mkdir -p logs
 
-echo "### submitting THREE dedicated servers (main + side + doc-gen), time limit $SERVER_TIME ###"
+if [[ -n "$DOC_ON_MAIN" ]]; then
+  echo "### Option B: submitting TWO servers (main + side); doc-gen runs on the MAIN server. time=$SERVER_TIME ###"
+else
+  echo "### submitting THREE dedicated servers (main + side + doc-gen), time limit $SERVER_TIME ###"
+fi
 # main answer server (Qwen2.5-14B): 64 max-seqs (anti-OOM on the 14B).
 M_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "xm-main-$MAIN_SERVED" \
         --export="ALL,MODEL_NAME=$MAIN_MODEL_ID,SERVED_MODEL_NAME=$MAIN_SERVED,MAX_NUM_SEQS=${MAIN_MAX_NUM_SEQS:-64},PORT=$MAIN_PORT" \
@@ -46,11 +54,19 @@ M_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "xm-main-$MAIN_SERVED" \
 S_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "xm-side-$SIDE_SERVED" \
         --export="ALL,MODEL_NAME=$SIDE_MODEL_ID,SERVED_MODEL_NAME=$SIDE_SERVED,MAX_NUM_SEQS=${SIDE_MAX_NUM_SEQS:-128},PORT=$SIDE_PORT" \
         scripts/hotpot-misinfo/server_answer.sh)
-# doc-gen server (Qwen2.5-7B as qwen2.5-7b-doc).
-D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "xm-doc-qwen7b" \
-        --export="ALL,SERVED_MODEL_NAME=qwen2.5-7b-doc,PORT=$DOCGEN_PORT" \
-        scripts/hotpot-misinfo/server_docgen.sh)
-echo "  main=$M_JID ($MAIN_MODEL_ID :$MAIN_PORT)  side=$S_JID ($SIDE_MODEL_ID :$SIDE_PORT)  doc=$D_JID (qwen2.5-7b-doc :$DOCGEN_PORT)"
+if [[ -n "$DOC_ON_MAIN" ]]; then
+  # Option B: no separate doc-gen GPU — documents are generated on the main server.
+  D_JID=""
+  DOC_SERVED="$MAIN_SERVED"
+  echo "  main=$M_JID ($MAIN_MODEL_ID :$MAIN_PORT)  side=$S_JID ($SIDE_MODEL_ID :$SIDE_PORT)  doc=MAIN SERVER (served $MAIN_SERVED, no 3rd GPU)"
+else
+  # doc-gen server (Qwen2.5-7B as qwen2.5-7b-doc).
+  D_JID=$(sbatch --parsable -t "$SERVER_TIME" -J "xm-doc-qwen7b" \
+          --export="ALL,SERVED_MODEL_NAME=qwen2.5-7b-doc,PORT=$DOCGEN_PORT" \
+          scripts/hotpot-misinfo/server_docgen.sh)
+  DOC_SERVED="qwen2.5-7b-doc"
+  echo "  main=$M_JID ($MAIN_MODEL_ID :$MAIN_PORT)  side=$S_JID ($SIDE_MODEL_ID :$SIDE_PORT)  doc=$D_JID (qwen2.5-7b-doc :$DOCGEN_PORT)"
+fi
 
 # Wait until a server job is RUNNING, its log prints the URL, and /models responds.
 wait_for_server () {
@@ -72,16 +88,20 @@ wait_for_server () {
 
 M_LOG="logs/slurm-${M_JID}-vllm-answer.out"
 S_LOG="logs/slurm-${S_JID}-vllm-answer.out"
-D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
-M_URL=$(wait_for_server "$M_JID" "$M_LOG" "$MAIN_PORT" "main-server")   || { scancel "$M_JID" "$S_JID" "$D_JID"; exit 1; }
-S_URL=$(wait_for_server "$S_JID" "$S_LOG" "$SIDE_PORT" "side-server")   || { scancel "$M_JID" "$S_JID" "$D_JID"; exit 1; }
-D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server") || { scancel "$M_JID" "$S_JID" "$D_JID"; exit 1; }
+M_URL=$(wait_for_server "$M_JID" "$M_LOG" "$MAIN_PORT" "main-server")   || { scancel "$M_JID" "$S_JID" ${D_JID:+"$D_JID"}; exit 1; }
+S_URL=$(wait_for_server "$S_JID" "$S_LOG" "$SIDE_PORT" "side-server")   || { scancel "$M_JID" "$S_JID" ${D_JID:+"$D_JID"}; exit 1; }
+if [[ -n "$D_JID" ]]; then
+  D_LOG="logs/slurm-${D_JID}-vllm-docgen.out"
+  D_URL=$(wait_for_server "$D_JID" "$D_LOG" "$DOCGEN_PORT" "docgen-server") || { scancel "$M_JID" "$S_JID" "$D_JID"; exit 1; }
+else
+  D_URL="$M_URL"   # Option B: doc generation runs on the main server
+fi
 
-echo "### all three servers up — fanning out variants: $VARIANTS (rounds=${MAX_ITERS:-2}) ###"
+echo "### servers up — fanning out variants: $VARIANTS (rounds=${MAX_ITERS:-2}, doc=$DOC_SERVED) ###"
 CLIENT_JIDS=()
 for v in $VARIANTS; do
   jid=$(sbatch --parsable -t "$CLIENT_TIME" -J "xmodel-$v" \
-        --export="ALL,VLLM_API_BASE=$M_URL,SIDE_VLLM_API_BASE=$S_URL,DOC_VLLM_API_BASE=$D_URL,VARIANT=$v,ALL_EXP_BASE=$ALL_EXP_BASE,MODEL=$MAIN_SERVED,SIDE_MODEL=$SIDE_SERVED,DOC_MODEL=qwen2.5-7b-doc,MODEL_SUBDIR=$MODEL_SUBDIR,MAX_ITERS=${MAX_ITERS:-2},MAX_Q=${MAX_Q:-400},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-400},MAX_TOKENS=${MAX_TOKENS:-512},SIDE_MAX_TOKENS=${SIDE_MAX_TOKENS:-4096},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},DATASET=${DATASET:-datasets/umass_data.entity.chatgpt.400.jsonl}" \
+        --export="ALL,VLLM_API_BASE=$M_URL,SIDE_VLLM_API_BASE=$S_URL,DOC_VLLM_API_BASE=$D_URL,VARIANT=$v,ALL_EXP_BASE=$ALL_EXP_BASE,MODEL=$MAIN_SERVED,SIDE_MODEL=$SIDE_SERVED,DOC_MODEL=$DOC_SERVED,MODEL_SUBDIR=$MODEL_SUBDIR,MAX_ITERS=${MAX_ITERS:-2},MAX_Q=${MAX_Q:-400},NUM_RUNS=${NUM_RUNS:-10},CHARS_PER_DOC=${CHARS_PER_DOC:-400},MAX_TOKENS=${MAX_TOKENS:-512},SIDE_MAX_TOKENS=${SIDE_MAX_TOKENS:-4096},DOC_MAX_TOKENS=${DOC_MAX_TOKENS:-512},DATASET=${DATASET:-datasets/umass_data.entity.chatgpt.400.jsonl}" \
         scripts/cross_model_baseline/run_cross_model_variant.sh)
   echo "  variant $v -> client job $jid"
   CLIENT_JIDS+=("$jid")
@@ -91,12 +111,12 @@ DEP=$(IFS=:; echo "${CLIENT_JIDS[*]}")
 REAP=$(sbatch --parsable --dependency=afterany:"$DEP" -p cpu -c 1 --mem=1g -t 00:05:00 \
        -J reap-xmodel -o logs/reap_%j.out \
        --wrap="scancel $M_JID $S_JID $D_JID; echo 'reaped servers $M_JID $S_JID $D_JID after clients $DEP'")
-echo "  reaper job: $REAP (scancels all three servers once all variants finish)"
+echo "  reaper job: $REAP (scancels the servers once all variants finish)"
 
 cat <<EOF
 
-### launched: cross-model baseline (main=$MAIN_SERVED, side=$SIDE_SERVED, doc=qwen2.5-7b-doc) ###
-  servers : main=$M_JID ($M_URL)   side=$S_JID ($S_URL)   doc=$D_JID ($D_URL)
+### launched: cross-model baseline (main=$MAIN_SERVED, side=$SIDE_SERVED, doc=$DOC_SERVED) ###
+  servers : main=$M_JID ($M_URL)   side=$S_JID ($S_URL)   doc=${D_JID:-MAIN-SERVER} ($D_URL)
   clients : ${CLIENT_JIDS[*]}   (rounds=${MAX_ITERS:-2}, variants: $VARIANTS)
   reaper  : $REAP
   outputs : $ALL_EXP_BASE/graphite/cross-model-baseline/<variant>/experiment_outputs/$MODEL_SUBDIR/local_<variant>.json
