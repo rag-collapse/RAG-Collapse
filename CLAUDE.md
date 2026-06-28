@@ -142,5 +142,7 @@ repo's aggregate `entity_extraction_output/<org>/<model>/local_<variant>_entity_
 - `docs/data_locations.md`, `scripts/all_experiments_README.md` — where raw/consolidated data lives
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md` — comparison vs `collapse-randomness-research`
 - `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`
+- `docs/hotpotqa_diverse_synth.html` — round-0 distractor experiments (`diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth`); artifact: 
+- `docs/cross_model_baseline.html` — `cross-model-baseline` (`scripts/cross_model_baseline/`, main reads docs written from a side model's answers) + the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack; artifact: 
 - `visualization_outputs/README.md` — plots
 - `workshop-entity-visualization.ipynb` + `workshop_entity_visualizations/README.md` — workshop entity re-run view (see section above)

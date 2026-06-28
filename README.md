@@ -29,8 +29,19 @@ experiment_outputs/    evaluation_outputs/        entity_extraction_output/
 | [`docs/entity_extraction_comparison.md`](docs/entity_extraction_comparison.md) | Entity-extraction code vs the `collapse-randomness-research` repo |
 | [`docs/pipeline_comparison.md`](docs/pipeline_comparison.md) | Full pipeline (baselines + metrics) vs `collapse-randomness-research` |
 | [`docs/misinfo_error_compounding.md`](docs/misinfo_error_compounding.md) | Misinformation error-compounding experiment (HotpotQA) + `scripts/hotpot-misinfo/` |
-| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) · [interactive artifact]() | `diverse_synth` round-0 distractor experiment (two-server setup) + 3-variant collapse results & figures. Build/regenerate the plots with [`distractor_sweep_visualization.ipynb`](distractor_sweep_visualization.ipynb). |
+| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) · [interactive artifact]() | Round-0 distractor experiments — `diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth` — with 3-variant collapse results, metric definitions & figures. Plots via [`distractor_sweep_visualization.ipynb`](distractor_sweep_visualization.ipynb). |
+| [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) · [interactive artifact]() | `cross-model-baseline` — a main model reads documents synthesized from a *different* (side) model's answers, plus the GPU-scheduling hack (`bf16` constraint + `DOC_ON_MAIN` 2-GPU mode) that got it to run on Unity. |
 | [`visualization_outputs/README.md`](visualization_outputs/README.md) | Plots and how to regenerate them |
+
+### Interactive HTML docs (published Claude artifacts)
+
+| Doc | Artifact |
+|---|---|
+| `docs/cross_model_baseline.html` |  |
+| `docs/hotpotqa_diverse_synth.html` (diverse / equal / shuffled) |  |
+| `docs/distractor_experiment.html` |  |
+| `docs/hotpotqa_experiments.html` |  |
+| `docs/hotpotqa_smoke_results.html` |  |
 
 ## Setup
 

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cross-Model Baseline · RAG Collapse</title>
+<meta name="description" content="Does a model collapse the same way when it reads documents synthesized from a DIFFERENT model's answers? The cross-model-baseline experiment, plus the GPU-scheduling hack that got it to run on Unity.">
+<style>
+  :root{
+    --ground:#111524;
+    --surface:#1a2034;
+    --surface-2:#222a42;
+    --text:#e7e9f2;
+    --dim:#9aa0b8;
+    --faint:#6b7290;
+    --line:rgba(231,233,242,0.10);
+    --gold:#e8b23a;        /* main model (measured) */
+    --violet:#b45cf0;      /* side model (writes the docs) */
+    --leak:#e0696b;        /* failure / crash */
+    --teal:#5fd6bf;        /* doc-gen / signal */
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1020px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+    line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(232,178,58,0.35)}
+  a:hover{border-bottom-color:var(--gold)}
+  h1,h2,h3,h4{line-height:1.15;letter-spacing:-0.015em;margin:0;text-wrap:balance}
+  p{margin:0.7em 0}
+  code{font-family:var(--mono);font-size:0.86em;background:var(--surface-2);
+    padding:0.12em 0.42em;border-radius:4px;color:#d9dcee;word-break:break-word}
+  .lede{font-size:1.1rem;color:var(--dim);max-width:64ch}
+  header.hero{border-bottom:1px solid var(--line);
+    background:radial-gradient(120% 140% at 80% -10%,rgba(180,92,240,0.14),transparent 55%),
+               radial-gradient(110% 120% at 0% 0%,rgba(232,178,58,0.10),transparent 50%)}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:90px 24px 70px}
+  .hero p.kick{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.24em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 18px}
+  .hero h1{font-size:clamp(2.1rem,5.4vw,3.7rem);font-weight:800}
+  .hero h1 .g{color:var(--gold)} .hero h1 .v{color:var(--violet)}
+  .hero .lede{margin-top:20px;font-size:clamp(1rem,2vw,1.18rem)}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:28px;font-family:var(--mono);
+    font-size:0.74rem;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  .sechead{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+  .secnum{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;color:var(--gold);
+    text-transform:uppercase}
+  .sechead h2{font-size:clamp(1.5rem,3.4vw,2.15rem);font-weight:750}
+  .body-cap{max-width:68ch}
+  .body-cap h3{margin:30px 0 6px;font-size:1.15rem;color:var(--text)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h4{font-size:1rem;margin-bottom:6px}
+  .card p{margin:4px 0 0;font-size:0.88rem;color:var(--dim)}
+  .card .big{font-family:var(--mono);font-weight:700;font-size:1.55rem;color:var(--gold)}
+  .card .big span{font-size:0.6rem;letter-spacing:0.16em;color:var(--faint);
+    display:block;text-transform:uppercase}
+  .callout{border-left:3px solid var(--gold);background:rgba(232,178,58,0.06);
+    padding:14px 18px;border-radius:0 10px 10px 0;color:#dfe2f0;font-size:0.95rem;margin:16px 0}
+  .callout.v{border-left-color:var(--violet);background:rgba(180,92,240,0.07)}
+  .callout.t{border-left-color:var(--teal);background:rgba(95,214,191,0.07)}
+  .callout.bad{border-left-color:var(--leak);background:rgba(224,105,107,0.07)}
+  .callout strong{color:var(--text)}
+  .loop{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:18px 0}
+  .step{flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px}
+  .step .n{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.16em;color:var(--faint);text-transform:uppercase}
+  .step .t{margin-top:6px;font-size:0.92rem;color:var(--text);font-weight:600}
+  .step p{margin:5px 0 0;font-size:0.82rem;color:var(--dim)}
+  .arrow{align-self:center;color:var(--faint);font-size:1.3rem;flex:0 0 auto}
+  .docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:16px}
+  .docu{border:1px solid var(--line);border-radius:10px;padding:12px;font-size:0.82rem;background:var(--ground)}
+  .docu .lab{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .docu.gold{border-color:rgba(232,178,58,0.5)} .docu.gold .lab{color:var(--gold)}
+  .docu.viol{border-color:rgba(180,92,240,0.5)} .docu.viol .lab{color:var(--violet)}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:16px}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:0.9rem}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);background:var(--surface)}
+  tr:last-child td{border-bottom:none}
+  td code{white-space:nowrap}
+  pre{font-family:var(--mono);font-size:0.8rem;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;padding:16px;overflow-x:auto;line-height:1.6;color:#cfd3e6;margin:16px 0}
+  pre .k{color:var(--gold)} pre .v{color:var(--violet)} pre .c{color:var(--faint)} pre .b{color:var(--leak)}
+  details{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:var(--surface);overflow:hidden}
+  summary{cursor:pointer;padding:14px 18px;font-family:var(--mono);font-size:0.86rem;color:var(--text);
+    list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{color:var(--faint);transition:.2s} details[open] summary .chev{transform:rotate(90deg);color:var(--gold)}
+  .det-body{padding:2px 18px 18px;font-size:0.92rem;color:var(--dim)}
+  .det-body p{margin:8px 0}
+  dl{margin:14px 0 0}
+  dt{font-family:var(--mono);color:var(--teal);font-size:0.88rem;margin-top:14px}
+  dd{margin:4px 0 0;color:var(--dim);font-size:0.92rem}
+  footer{padding:40px 0 70px;color:var(--faint);font-size:0.85rem}
+  .pill{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .pill.gold{color:var(--gold);border-color:rgba(232,178,58,0.4)}
+  .pill.viol{color:var(--violet);border-color:rgba(180,92,240,0.4)}
+  .pill.teal{color:var(--teal);border-color:rgba(95,214,191,0.4)}
+  ul.tight{margin:8px 0;padding-left:20px} ul.tight li{margin:5px 0;color:var(--dim);font-size:0.92rem}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .toc a{font-family:var(--mono);font-size:0.76rem;background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:7px 14px;color:var(--dim)}
+  .toc a:hover{color:var(--text);border-color:var(--gold)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <p class="kick">RAG Collapse · HotpotQA · Cross-Model Baseline</p>
+    <h1>One model <span class="g">reads</span> the documents another model <span class="v">wrote</span></h1>
+    <p class="lede">The <code>cross-model-baseline</code> experiment asks a simple question the standard
+    self-refinement loop can't: does a model collapse the same way when the documents it reads each round
+    are synthesized from a <em>different</em> model's answers? A <strong>main</strong> model (measured) and
+    a <strong>side</strong> model both answer from the same context, but only the <em>side</em> model's
+    answers become the next round's documents — so the main model is a probe reading a stream it never
+    wrote. This page covers the design, the exact wiring, and the <strong>GPU-scheduling hack</strong> that
+    finally got it to run on Unity.</p>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--gold)"></span> main = the measured model (Qwen2.5-14B)</span>
+      <span><span class="dot" style="background:var(--violet)"></span> side = writes the documents (DeepSeek-R1-7B)</span>
+      <span><span class="dot" style="background:var(--teal)"></span> doc-gen = turns answers into documents</span>
+    </div>
+    <div class="toc">
+      <a href="#bg">1 · Background</a>
+      <a href="#baseline">2 · The baseline it extends</a>
+      <a href="#idea">3 · The cross-feed</a>
+      <a href="#code">4 · What changes in code</a>
+      <a href="#setup">5 · Models &amp; what's recorded</a>
+      <a href="#hack">6 · The run hack ★</a>
+      <a href="#run">7 · How to run it</a>
+      <a href="#metrics">8 · What we measure</a>
+      <a href="#smoke">9 · Smoke validation</a>
+      <a href="#files">10 · Where the code lives</a>
+    </div>
+  </div>
+</header>
+
+<!-- 1. BACKGROUND -->
+<section id="bg"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">01 — Background</span>
+    <h2>RAG collapse, and a question it can't answer alone</h2></div>
+  <p><strong>RAG collapse</strong> is what happens when a retrieval-augmented model feeds on its own output:
+  it answers from retrieved context, those answers are turned into "documents," those documents become the
+  next round's context, and over many rounds the answers lose diversity and drift. The repo's
+  <strong>baseline</strong> measures exactly this self-consuming loop for one model under three
+  document-update rules (replace-all, replace-one, search).</p>
+  <p>But the baseline conflates two things: the model that <em>answers</em> and the model whose answers
+  become the <em>documents</em> are the same. So you can't ask: <strong>is collapse a property of the model
+  doing the reading, or of the document stream it's fed?</strong> If model A reads a stream of documents
+  written from model B's answers, does A still collapse — and toward what?</p>
+  <div class="callout"><strong>The cross-model-baseline isolates the reader from the writer.</strong> Two
+  answer models run each round on the same context; only the <span class="pill viol">side</span> model's
+  answers are turned into documents; the <span class="pill gold">main</span> model reads them and is the
+  one we measure. The main model never writes the stream — it's a pure probe.</div>
+</div></section>
+
+<!-- 2. BASELINE -->
+<section id="baseline"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">02 — The baseline it extends</span>
+    <h2>The two-model self-refinement loop</h2></div>
+  <p>The DeepSeek / graphite baseline (<code>pipeline.py</code>, launched by
+  <code>scripts/deepseek_baseline/</code>) already runs <strong>two models in different roles</strong>:</p>
+  <div class="grid2">
+    <div class="card"><h4>Answer model</h4><p>Answers each question from the current documents
+    (<code>num_runs</code> = 10 samples per question per round). Its answers are what we measure for collapse,
+    <em>and</em> what get turned into the next round's documents.</p></div>
+    <div class="card"><h4>Doc-gen model</h4><p>A separate <code>Qwen2.5-7B-Instruct</code> server (served
+    <code>qwen2.5-7b-doc</code>) that rewrites each answer into a naturalistic "document" for the next round.
+    Fixed across all arms.</p></div>
+  </div>
+  <p>The loop is <code>answer → doc-gen → next-round context → answer …</code> over 10 / 20 / 30 rounds
+  (replace-all / replace-one / search). The <strong>seam</strong> where answers become documents lives at
+  <code>pipeline.py:888&ndash;897</code>.</p>
+</div></section>
+
+<!-- 3. THE CROSS-FEED -->
+<section id="idea"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">03 — The cross-feed</span>
+    <h2>Side writes the stream; main reads it</h2></div>
+  <p>The cross-model-baseline adds a <strong>second answer model</strong> ("side") and re-sources the
+  document stream from it. One-directional, single shared stream:</p>
+  <div class="loop">
+    <div class="step"><span class="n">each round r</span><div class="t">Both models answer</div>
+      <p>main and side both answer from the same <code>current_docs</code> (10 runs each).</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">measured</span><div class="t">Keep main's answers</div>
+      <p>main's 10 answers are stored (<code>answer</code>) — this is the collapse signal we track.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">the cross-feed</span><div class="t">Side → doc-gen</div>
+      <p>the <em>side</em> model's answers (not main's) go to the doc-gen model → documents.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">round r+1</span><div class="t">Both read the new docs</div>
+      <p>those documents become the next context that both models read again.</p></div>
+  </div>
+  <div class="callout v"><strong>What this means.</strong> The document stream is effectively the
+  <span class="pill viol">side</span> model self-refining (its answers → docs → it reads them again), while
+  the <span class="pill gold">main</span> model is a passenger reading that same stream and being measured.
+  Main's answers are recorded too (as <code>side_answer</code>'s counterpart) but never feed the loop. So we
+  measure whether <em>Qwen-14B collapses when fed a DeepSeek-driven document stream</em>.</div>
+  <p>Both models read the <strong>identical</strong> context each round (the same documents, built from the
+  side model), so the only difference between them is the model itself — a clean A/B of reader vs. writer.</p>
+</div></section>
+
+<!-- 4. CODE -->
+<section id="code"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">04 — What changes in code</span>
+    <h2>One new answer model, one routing switch</h2></div>
+  <p>The change mirrors the existing <code>--doc-model-*</code> wiring (and the hotpot
+  <code>distractor_llm</code> precedent). It is fully <strong>backward-compatible</strong>: with no
+  <code>--side-model-*</code> flags, <code>pipeline.py</code> behaves exactly like today's baseline.</p>
+  <ul class="tight">
+    <li><strong>New flags</strong> — <code>--side-model-mode/-name/-vllm-api-base</code> (+ temperature /
+      max-tokens / top-p, inheriting the main values when unset), and <code>--docs-from-side</code>.</li>
+    <li><strong>Build a second answer model</strong> — <code>side_llm</code> via
+      <code>build_llm(...)</code>, alongside the main <code>llm</code> and the <code>doc_llm</code>.</li>
+    <li><strong>Answer loop</strong> — after main's <code>llm.inference_batch(...)</code>, run the same batch
+      through <code>side_llm.inference_batch(...)</code>; store both <code>answer</code> and
+      <code>side_answer</code> per run.</li>
+    <li><strong>Re-source the doc seam</strong> — at <code>pipeline.py:888&ndash;897</code>, when
+      <code>--docs-from-side</code> is set, the documents are built from <code>per_question_side_answers</code>
+      instead of the main answers.</li>
+    <li><strong>Metadata</strong> — records <code>side_model</code>, <code>side_model_mode</code>,
+      <code>docs_from_side</code>. <strong>Guard:</strong> <code>--docs-from-side</code> requires a side
+      model and is rejected for the <code>agentic_rag</code> variant.</li>
+  </ul>
+  <pre><span class="c"># pipeline.py answer loop — both models read the SAME batch_conversations</span>
+all_answers      = llm.inference_batch(batch_conversations)          <span class="c"># main (measured)</span>
+if args.docs_from_side and side_llm is not None:
+    all_side_answers = side_llm.inference_batch(batch_conversations) <span class="c"># side (writes the docs)</span>
+...
+<span class="c"># Step 3 — the doc seam, now sourced from the side model</span>
+answers = per_question_side_answers[i] if per_question_side_answers else per_question_answers[i]
+convos  = [get_create_document_conversation(question=..., answer=ans) for ans in answers]
+all_doc_texts = doc_llm.inference_batch(convos)</pre>
+</div></section>
+
+<!-- 5. SETUP -->
+<section id="setup"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">05 — Models &amp; what's recorded</span>
+    <h2>The configuration that runs today</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Role</th><th>Model</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>main</strong> (measured)</td><td><code>Qwen/Qwen2.5-14B-Instruct</code> (served <code>qwen2.5-14b</code>)</td><td>Reads the documents; its answers are the collapse signal. Comparable to the existing Qwen-14B self-loop baseline.</td></tr>
+      <tr><td><strong>side</strong> (writes docs)</td><td><code>deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</code></td><td>Its answers drive the document stream. Reasoning model → needs <code>--side-max-tokens 4096</code> for its hidden <code>&lt;think&gt;</code> budget; served with NO <code>--reasoning-parser</code> (the server cleans byte-BPE + strips <code>&lt;think&gt;</code>).</td></tr>
+      <tr><td><strong>doc-gen</strong></td><td><code>Qwen2.5-7B-Instruct</code> (or the main server — see §6)</td><td>Rewrites side's answers into documents. Faithful synthesis, unchanged from the baseline.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Dataset &amp; knobs match the baseline for comparability: <code>umass_data.entity.chatgpt.400.jsonl</code>
+  (400 questions), <code>num_runs=10</code>, <code>chars_per_doc=400</code>, full rounds (10 / 20 / 30).
+  Output mirrors the baseline tree under a new method dir:
+  <code>all_experiments/graphite/cross-model-baseline/&lt;variant&gt;/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_&lt;variant&gt;.json</code>.</p>
+  <div class="callout"><strong>Every run carries both answers.</strong> Each run object has
+  <code>answer</code> (main, measured) and <code>side_answer</code> (DeepSeek), so the side model's own
+  self-loop can be analyzed too; <code>experiment_metadata.docs_from_side = true</code> records the design.</div>
+</div></section>
+
+<!-- 6. THE RUN HACK -->
+<section id="hack"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">06 — The run hack ★</span>
+    <h2>Getting 3 GPU servers to actually schedule</h2></div>
+  <p>The design needs <strong>three independent vLLM servers</strong> (main, side, doc-gen), each on its own
+  GPU. On Unity that turned out to be the hard part — the full run failed to start <strong>five times</strong>
+  before it ran. Here's the whole debugging arc, because the fixes are reusable.</p>
+
+  <h3>Symptom: the doc-gen server never scheduled</h3>
+  <p>Every attempt, the main + side servers came up within minutes, but the <strong>third</strong> server
+  (doc-gen) sat <code>PENDING (Priority)</code> until the launcher's wait window expired and scancelled
+  everything. <code>sacct</code> showed it never ran (<code>00:00:00</code> elapsed). The cluster had
+  <strong>387 pending vs 179 running</strong> GPU jobs — heavily oversubscribed.</p>
+
+  <h3>Fix 1 — stop asking for premium GPUs the 7B doesn't need</h3>
+  <p>The doc-gen server requested <code>--constraint=vram48|vram80</code> (A100 / L40S / A40) — the
+  <em>most contended</em> pool. But the doc model is a small <code>Qwen2.5-7B</code> (~15&nbsp;GB bf16) that
+  fits on a 24&nbsp;GB card. First broadening to <code>vram23|vram32|…</code> made it schedule — onto an
+  ancient <strong>M40</strong> (Maxwell, sm_52), where vLLM crashed:</p>
+  <pre><span class="b">CUDA error: no kernel image is available for execution on the device</span>  <span class="c"># M40, gypsum-gpu008</span></pre>
+  <p>The fix that stuck: require the <code>bf16</code> feature. Every bf16-capable node here is modern
+  <em>and</em> ≥24&nbsp;GB (L4 / L40S / A40 / A100 / H100), so this opens the abundant, idle <strong>L4
+  pool</strong> while excluding the M40 / V100 / Turing cards that can't run a bf16 model.</p>
+  <pre><span class="c"># scripts/hotpot-misinfo/server_docgen.sh</span>
+<span class="k">#SBATCH --constraint=bf16</span>   <span class="c"># was vram48|vram80 (premium-only) → starved on (Priority)</span></pre>
+
+  <h3>Fix 2 — the real unlock: drop to 2 GPUs (<code>DOC_ON_MAIN</code>)</h3>
+  <p>Even eligible for far more GPUs, getting <strong>three concurrent</strong> GPUs on the oversubscribed
+  cluster kept failing — a long-walltime job is hard for Slurm's <em>backfill</em> to slot in, and the 3rd
+  server stayed behind hundreds of higher-priority jobs. So the launcher gained an
+  <strong><code>DOC_ON_MAIN=1</code></strong> mode (Option&nbsp;B): run document generation on the
+  <em>main</em> server instead of a separate doc-gen GPU. The run then needs only <strong>two</strong>
+  concurrent GPUs (main + side), which schedule reliably.</p>
+  <div class="callout t"><strong>Trade-off (recorded in metadata).</strong> With <code>DOC_ON_MAIN</code> the
+  document-writer becomes the main model (<code>qwen2.5-14b</code>) rather than the dedicated
+  <code>qwen2.5-7b-doc</code>. The cross-feed is unchanged — DeepSeek's answers still become the documents —
+  only the rewriter model differs. <code>experiment_metadata.doc_model</code> reflects whichever was used.</div>
+
+  <h3>Fix 3 — shorter walltime for friendlier backfill</h3>
+  <p>The 48-hour servers (the max submittable) were the hardest to schedule: backfill won't place a 2-day
+  job onto a GPU reserved for a sooner higher-priority job. Dropping to <strong>24&nbsp;h</strong> servers /
+  23&nbsp;h clients made placement much easier while still covering the run. (The earlier 20-question smoke
+  scheduled fine precisely because its 3-hour servers were backfill-friendly.)</p>
+
+  <h3>Two more launcher robustness fixes from the saga</h3>
+  <ul class="tight">
+    <li><strong>Wait window 50&nbsp;min → 5&nbsp;h.</strong> The launcher's <code>WAIT_TRIES</code> default
+      was too short for a 3rd GPU under load, so it timed out and scancelled the two servers that <em>had</em>
+      come up. Raised to 5&nbsp;h (matching the distractor launcher).</li>
+    <li><strong>Valid feature tokens.</strong> An intermediate fix used <code>vram24</code>, which is not a
+      real Slurm feature on this cluster (valid: <code>vram8/11/12/16/23/32/40/48/80</code>) →
+      <code>Invalid feature specification</code> rejected the sbatch outright.</li>
+  </ul>
+  <div class="callout"><strong>Net result.</strong> <code>bf16</code> doc-gen + <code>DOC_ON_MAIN=1</code> +
+  24&nbsp;h walltime → the full run schedules on <strong>2 GPUs</strong> and runs to completion. The
+  3-server path is kept (default) for when the cluster is quiet.</div>
+</div></section>
+
+<!-- 7. HOW TO RUN -->
+<section id="run"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">07 — How to run it</span>
+    <h2>Running the experiment</h2></div>
+  <h3>Full run (2-GPU mode — recommended on a busy cluster)</h3>
+  <pre><span class="c"># login node. main + side GPU servers; doc-gen runs on the main server (no 3rd GPU).</span>
+DOC_ON_MAIN=1 MAX_Q=400 MAX_ITERS=30 SERVER_TIME=24:00:00 CLIENT_TIME=23:00:00 \
+  bash scripts/cross_model_baseline/launch_cross_model_baseline.sh</pre>
+  <p><code>MAX_ITERS=30</code> uncaps the per-variant rounds (<code>min(variant_rounds, 30)</code> = 10 / 20 /
+  30). Omit <code>DOC_ON_MAIN</code> for the original 3-server design (needs a 3rd bf16 GPU). The launcher
+  starts the servers, waits up to 5&nbsp;h for them to serve, fans out one CPU client per variant, and
+  submits an <code>afterany</code> reaper that scancels the servers when the clients finish.</p>
+  <h3>Smoke (cheap end-to-end check)</h3>
+  <pre>MAX_Q=20 MAX_ITERS=2 SERVER_TIME=03:00:00 CLIENT_TIME=02:00:00 \
+  bash scripts/cross_model_baseline/launch_cross_model_baseline.sh</pre>
+  <h3>One variant (what the client expands to)</h3>
+  <pre>python -u pipeline.py \
+  --model-mode server --vllm-api-base http://&lt;main&gt;/v1 --model-name qwen2.5-14b \
+  <span class="v">--side-model-mode server --side-vllm-api-base http://&lt;side&gt;/v1 \
+  --side-model-name deepseek-r1-distill-qwen-7b --side-max-tokens 4096 --docs-from-side</span> \
+  --doc-model-mode server --doc-vllm-api-base http://&lt;doc-or-main&gt;/v1 --doc-model-name qwen2.5-7b-doc \
+  --dataset-path datasets/umass_data.entity.chatgpt.400.jsonl --num-runs 10 --chars-per-doc 400 \
+  --pipeline-variant hybrid --num-synth-docs 10 --num-db-docs 0 --max-iterations 2 \
+  --output-path .../local_replace_all.json</pre>
+</div></section>
+
+<!-- 8. METRICS -->
+<section id="metrics"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">08 — What we measure</span>
+    <h2>Collapse on the main model</h2></div>
+  <p>Because the output schema is unchanged (main's answers live in <code>answer</code>), the existing
+  metric pipeline applies with <strong>no eval changes</strong>: <code>evaluation.py</code> (ROUGE / TES /
+  cosine, unique words, same-answer) and <code>entity_extraction.py</code> (unique entities, entity
+  similarity) read <code>answer</code> = the main model. The headline comparison is
+  <strong>main's collapse trajectory when fed a DeepSeek-driven stream</strong> vs. the Qwen-14B self-loop
+  baseline — same metrics, same dataset, same rounds.</p>
+  <p>The extra <code>side_answer</code> field lets you also measure the side model's own self-loop (the
+  stream's author), and compare reader vs. writer round-by-round.</p>
+</div></section>
+
+<!-- 9. SMOKE -->
+<section id="smoke"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">09 — Smoke validation</span>
+    <h2>The wiring, verified end-to-end</h2></div>
+  <p>A 20-question, 2-round smoke confirmed the cross-feed is correct before the full run: all 3 variants
+  finished with 0 errors; metadata showed <code>model=qwen2.5-14b</code>,
+  <code>side_model=deepseek-r1-distill-qwen-7b</code>, <code>docs_from_side=true</code>; and every run carried
+  both answers. The two models are visibly different — direct evidence that the side model drives the docs:</p>
+  <div class="docs">
+    <div class="docu gold"><span class="lab">main · answer (measured)</span>
+      Jalaiah Harmon, Niana Guerrero, Mackenzie Ziegler, Katie Feeney, Charli D'Amelio…</div>
+    <div class="docu viol"><span class="lab">side · side_answer (→ becomes the document)</span>
+      "The most popular TikTok dancers, based on follower counts and mentions, include…"</div>
+  </div>
+  <p class="dim" style="margin-top:14px">Main returns terse entity lists; DeepSeek returns prose — and it's
+  DeepSeek's prose that gets rewritten into the documents Qwen-14B then reads. The full 400-question run
+  (10 / 20 / 30 rounds) runs on the 2-GPU configuration described in §6.</p>
+</div></section>
+
+<!-- 10. FILES -->
+<section id="files"><div class="wrap body-cap">
+  <div class="sechead"><span class="secnum">10 — Where the code lives</span>
+    <h2>Files involved</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>File</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>pipeline.py</code></td><td><code>--side-model-*</code> / <code>--docs-from-side</code> flags, the <code>side_llm</code> build, the two-model answer loop, the re-sourced doc seam, <code>side_answer</code> in each run, metadata + cleanup. No-op without <code>--side-model-*</code>.</td></tr>
+      <tr><td><code>scripts/cross_model_baseline/launch_cross_model_baseline.sh</code></td><td>One-command launcher: 3 dedicated servers (main/side/doc-gen) or <code>DOC_ON_MAIN=1</code> 2-server mode; waits, fans out variants, reaps.</td></tr>
+      <tr><td><code>scripts/cross_model_baseline/run_cross_model_variant.sh</code></td><td>CPU client per variant — wires <code>--docs-from-side</code>, <code>--side-max-tokens 4096</code>, the output tree, baseline-matched knobs.</td></tr>
+      <tr><td><code>scripts/hotpot-misinfo/server_{answer,docgen}.sh</code></td><td>Reused vLLM servers. <code>server_docgen.sh</code> now constrains to <code>bf16</code> GPUs (the §6 fix).</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<footer><div class="wrap">
+  Part of the RAG-Collapse research repo · <code>cross-model-baseline</code> · main = Qwen2.5-14B (measured),
+  side = DeepSeek-R1-Distill-7B (writes the documents), doc-gen = Qwen2.5-7B / main-server. One-directional
+  side→main cross-feed on the graphite (umass-entity 400-question) dataset.
+</div></footer>
+
+</body>
+</html>
