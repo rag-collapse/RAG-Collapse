@@ -907,6 +907,40 @@ recognized as such across reliable sources.</pre>
   base_hotpotqa_distractors/equal_diverse_synth_sweep.sh</code> — sweeps <code>TOPICS="0 1 2 3 4"</code>
   with <code>DOCS_PER_TOPIC=2</code>, writing <code>base_&lt;variant&gt;_t&lt;T&gt;.json</code>. Driven by
   <code>--distractor-num-topics</code> instead of <code>--distractor-fraction</code>.</div>
+
+  <h3 id="shuffled" style="margin-top:56px;padding-top:30px;border-top:1px solid var(--line);font-size:1.3rem">
+    A variant: <span style="color:var(--violet)">shuffled_diverse_synth</span> — is the concentration partly a fixed document-order artifact?</h3>
+
+  <p>Recall from §5–§7: a question's <strong>10 parallel generations all see the identical prompt</strong>
+  — the same context, shuffled <em>once</em> and then replicated — so the only source of inter-run
+  difference is stochastic sampling, and for a short, confident answer that often yields 10 identical
+  strings (the concentration we measure). <code>shuffled_diverse_synth</code> asks: how much of that is the
+  model genuinely committing, vs. an artifact of every run seeing the documents in the <em>same order</em>?</p>
+
+  <div class="callout v"><strong>The change.</strong> A new <code>--shuffle-per-run</code> flag gives each of
+  the 10 generations a <strong>different, reproducibly-seeded order</strong> of the <em>same</em> context
+  documents, <strong>re-shuffled every round</strong>; answer sampling is also set to
+  <code>temperature=1.0 / top_p=1.0</code> to maximize spread. So now both the document order <em>and</em>
+  the sampling vary across the 10 runs — isolating how much position drives the answer distribution.</div>
+
+  <ul class="tight">
+    <li><strong>Reproducible.</strong> Orders come from a string-seeded
+      <code>random.Random(f"shuffle:{seed}:{query_id}:{iteration}:{run}")</code> — deterministic and
+      <strong>PYTHONHASHSEED-independent</strong> (the <code>random</code> module hashes string seeds with
+      sha512, not the builtin <code>hash()</code>), so the whole sweep is repeatable from <code>--seed 42</code>.</li>
+    <li><strong>Same set, different order.</strong> Every run still reads the <em>same</em> documents — only
+      the order differs (unlike <code>--distractor-per-run</code>, which gives each run a different doc).
+      The two are mutually exclusive.</li>
+    <li><strong>Own ports (5182/5183)</strong> and <code>temperature/top_p=1.0</code> are baked into the
+      launcher so it runs in parallel with the diverse/equal sweeps without collision.</li>
+  </ul>
+
+  <div class="callout"><strong>Run it:</strong> <code>MAX_Q=150 bash
+  base_hotpotqa_distractors/shuffled_diverse_synth_sweep.sh</code> — same <code>diverse_synth</code> setup +
+  <code>--shuffle-per-run</code> + <code>temperature/top_p=1.0</code>, fraction sweep {0, 0.3, 0.5, 0.7}.
+  Prediction: if concentration is largely model commitment (not position), per-run shuffling barely widens
+  the round-0 distribution; if order matters, <code>distinct_answers</code> rises. (Results forthcoming —
+  figures will be folded in once the run completes.)</div>
 </div></section>
 
 <!-- 13. HOW TO RUN -->
