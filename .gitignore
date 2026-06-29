@@ -224,3 +224,6 @@ baseline-DeepSeek-R1-Distill-Qwen-7B/
 # so visualization_outputs/distractor_sweep_figures/ (committed plots) is NOT ignored
 /distractor_sweep/
 /equal_distractor_sweep/
+
+# cross-model-baseline raw experiment outputs (downloaded data, not code)
+/cross-model-baseline/
