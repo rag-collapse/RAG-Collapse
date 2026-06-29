@@ -10,6 +10,7 @@ outputs: nested `<org>/<model>/<method>/` folders, each with overlaid line chart
 - **baseline** (4 models: Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) — Replace All /
   Replace One / Search overlaid → `<org>/<model>/baseline/`.
 - **comparison** (Qwen2.5-14B) — the three baseline regimes + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`.
+- **agentic_rag** (Qwen2.5-14B) — Agentic RAG on its own → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`.
 - **rerun-paraphrase** (Qwen2.5-14B) — paraphrase Replace All / One / Search → `Qwen/Qwen2.5-14B-Instruct/rerun-paraphrase/`.
 - **rerank** (Qwen2.5-14B) — λ = 0.1 / 0.5 / 0.7 (oracle) → `Qwen/Qwen2.5-14B-Instruct/rerank/`.
 
