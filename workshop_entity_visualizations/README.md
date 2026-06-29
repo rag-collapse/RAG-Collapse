@@ -27,13 +27,48 @@ averaged across questions); `entity_similarity_per_round` = mean pairwise cosine
 entity-mention vectors across the 10 runs (empty-entity answers contribute 0.0). Colors match the main
 notebooks (Replace All `#1f77b4`, Replace One `#ff7f0e`, Search `#2ca02c`, Agentic RAG `#9467bd`).
 
+## File structure
+
+23 PNGs across 7 group folders (`collapse_by_simulation.png` only where there are ≥2 simulations to
+compare — i.e. everywhere except the single-variant `agentic_rag/`):
+
+```
+workshop_entity_visualizations/
+├── README.md
+├── Qwen/Qwen2.5-14B-Instruct/
+│   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── comparison/          unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   └── agentic_rag/         unique_entities_per_round.png  entity_similarity_per_round.png
+├── meta-llama/Llama-3.1-8B-Instruct/
+│   └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+├── mistralai/Mistral-7B-Instruct-v0.3/
+│   └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+└── deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/
+    └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+```
+
+Counts: 7 `unique_entities_per_round.png` + 7 `entity_similarity_per_round.png` + 7 `collapse_by_simulation.png`
++ 2 agentic_rag line charts = 23 PNGs.
+
 ## Regenerating
 
-1. Download the entity re-run folder from Google Drive and unzip it into the **repo root**
-   (`entity re-run for workshop paper-<timestamp>-3-001/`). The folder is **gitignored**; its timestamp
-   changes per download.
-2. Run all cells of `../workshop-entity-visualization.ipynb`. Cell 1 **auto-discovers the folder by
-   regex**, so no path edits are needed; it overwrites the PNGs here.
+1. Download the entity re-run folder from Google Drive and unzip it into the **repo root** as
+   `entity re-run for workshop paper-<timestamp>-3-001/` (gitignored; the timestamp changes per download).
+   **Do not use Windows Explorer to copy/extract** — the nested filenames exceed the 260-char `MAX_PATH`
+   limit and Explorer refuses them (even with `LongPathsEnabled=1`). Extract from the command line instead,
+   which honors long paths:
+   ```powershell
+   $z = 'C:\path\to\entity re-run for workshop paper-<ts>.zip'
+   $o = '.\entity re-run for workshop paper-<ts>'   # the zip's root is the inner folder; wrap it
+   New-Item -ItemType Directory -Force $o; tar -xf $z -C $o
+   ```
+2. Run all cells of `../workshop-entity-visualization.ipynb`. Cell 1 **auto-discovers the newest folder by
+   regex** (and descends into the inner subfolder), so no path edits are needed; it overwrites the PNGs here.
+   Empty groups are skipped (existing PNGs left untouched). The DeepSeek baseline filenames vary between
+   dumps (`deepseek-ai_DeepSeek-R1-Distill-Qwen-7B` vs the served name `deepseek_deepseek-r1-distill-qwen-7b`);
+   the notebook tolerates either.
 
 Inputs are `*.entities_by_round.jsonl` (per-question, `gpt-5.4-mini`-tagged) — a different artifact from
 the aggregate `entity_extraction_output/.../local_<variant>_entity_results.json` used by the main
