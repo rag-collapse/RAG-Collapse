@@ -8,8 +8,8 @@ synthesized from a SIDE model's answers; the MAIN model is measured). Generated 
 which has no entity dependency. `unique_entities` / `entity_similarity` / collapse-by-simulation are
 entity-based and intentionally excluded.
 
-Each PNG overlays the available variants, one metric averaged across questions per round (shaded =
-standard error of the mean):
+Plain overlaid line charts in `visualization.ipynb` style — each PNG overlays the available variants,
+one metric averaged across questions per round:
 
 - `avg_pairwise_similarity_per_round.png` — cosine similarity across the 10 runs
 - `avg_pairwise_rougeL_per_round.png` — ROUGE-L across runs
