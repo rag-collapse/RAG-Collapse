@@ -935,9 +935,10 @@ recognized as such across reliable sources.</pre>
       launcher so it runs in parallel with the diverse/equal sweeps without collision.</li>
   </ul>
 
-  <div class="callout"><strong>Run it:</strong> <code>MAX_Q=150 bash
+  <div class="callout"><strong>Run it:</strong> <code>SERVER_TIME=2-00:00:00 CLIENT_TIME=2-00:00:00 MAX_Q=400 bash
   base_hotpotqa_distractors/shuffled_diverse_synth_sweep.sh</code> — same <code>diverse_synth</code> setup +
-  <code>--shuffle-per-run</code> + <code>temperature/top_p=1.0</code>, fraction sweep {0, 0.3, 0.5, 0.7}.
+  <code>--shuffle-per-run</code> + <code>temperature/top_p=1.0</code>, fraction sweep {0, 0.3, 0.5, 0.7}
+  (launched at 400 questions, 2-day jobs).
   Prediction: if concentration is largely model commitment (not position), per-run shuffling barely widens
   the round-0 distribution; if order matters, <code>distinct_answers</code> rises. (Results forthcoming —
   figures will be folded in once the run completes.)</div>
