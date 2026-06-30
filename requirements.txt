@@ -17,3 +17,5 @@ nltk
 gepa
 # HuggingFace datasets — pin to avoid conflict with unrelated 'datasets' packages
 datasets>=2.19.0
+# Wilson confidence intervals for the collapse-by-simulation charts (binomtest.proportion_ci)
+scipy>=1.7

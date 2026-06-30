@@ -10,10 +10,13 @@ outputs: nested `<org>/<model>/<method>/` folders, each with overlaid line chart
 
 `collapse_by_simulation.png` matches `visualization.ipynb`'s "Collapse by Simulation" chart: a
 question-round is "collapsed" when **all runs share an identical canonical entity set**; bars show
-% collapsed at the first round, at the last round, and the mean % of rounds collapsed (across
-questions). It is entity-based, so it is produced here from the same `*.entities_by_round.jsonl`
-inputs. (The single-variant `agentic_rag/` group gets line charts only — collapse-by-simulation
-needs ≥2 simulations to compare.)
+% collapsed at the first round, at the last round, and the % of rounds collapsed. Each is treated as a
+binomial proportion and the **error bars are 95% Wilson score intervals** (`scipy.stats.binomtest(...).
+proportion_ci(method="wilson")`) — start/end over the 400 questions, rounds pooled over all
+(question, round) cells. (Earlier versions plotted the raw per-question standard deviation as `yerr`,
+which is ~20× wider and doesn't tighten with n — that's fixed.) It is entity-based, so it is produced
+here from the same `*.entities_by_round.jsonl` inputs. (The single-variant `agentic_rag/` group gets
+line charts only — collapse-by-simulation needs ≥2 simulations to compare.)
 
 - **baseline** (4 models: Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) — Replace All /
   Replace One / Search overlaid → `<org>/<model>/baseline/`.
