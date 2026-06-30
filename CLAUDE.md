@@ -115,24 +115,44 @@ Agentic RAG. See `docs/data_locations.md` and `scripts/all_experiments_README.md
 ## Workshop entity re-run visualization
 
 A separate entity-collapse view for the workshop paper, driven by `workshop-entity-visualization.ipynb`
-→ outputs `workshop_entity_visualizations/*.png` (committed). Workflow for future sessions:
+→ outputs `workshop_entity_visualizations/<org>/<model>/<method>/*.png` (committed, nested like
+`visualization_outputs/`). Workflow for future sessions:
 
 1. Download the entity re-run folder from Google Drive and unzip it into the **repo root**. Its name
    is `entity re-run for workshop paper-<timestamp>-3-001/` — the timestamp changes per download, and
    the folder is **gitignored** (`.gitignore`: `entity re-run for workshop paper-*/`). Don't hardcode it.
+   **Don't extract with Windows Explorer** — the nested filenames exceed the 260-char `MAX_PATH` and
+   Explorer refuses them (even with `LongPathsEnabled=1`). Extract from the command line, which honors
+   long paths: `tar -xf <zip> -C 'entity re-run for workshop paper-<ts>'` (the zip's root is the inner
+   folder, so wrap it in the timestamped dir the regex expects).
 2. Run all cells of `workshop-entity-visualization.ipynb`. **Cell 1 auto-discovers the folder by regex**
-   (`re.compile(r"entity re-run for workshop paper-.*")`, newest match), so no path edits are needed.
-3. It regenerates `workshop_entity_visualizations/<model>_baseline_{unique_entities,entity_similarity}_per_round.png`
-   for 4 models (Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) × 3 regimes overlaid.
+   (`re.compile(r"entity re-run for workshop paper-.*")`, newest match, descends one level), so no path
+   edits are needed. The **last cell asserts full coverage** — every `*.entities_by_round.jsonl` in the
+   dump must be plotted, or it fails loudly.
+3. It regenerates **44 PNGs across 15 group folders**. Each group emits `unique_entities_per_round.png` +
+   `entity_similarity_per_round.png`, and (where there are ≥2 simulations) a grouped-bar
+   `collapse_by_simulation.png` (mirrors `visualization.ipynb`'s "Collapse by Simulation": a
+   question-round is collapsed when all runs share one canonical entity set). Groups:
+   - **baseline** — 4 models (Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B), RA/RO/Search → `<org>/<model>/baseline/`
+   - **comparison** — Qwen RA/RO/Search + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`
+   - **agentic_rag** — Qwen Agentic RAG alone (line charts only; collapse-by-sim needs ≥2 sims) → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`
+   - **rerun-paraphrase** — paraphrase RA/RO/Search for all 4 models → `<org>/<model>/rerun-paraphrase/`
+   - **rerank** — Qwen full λ-sweep (0.1/0.5/0.7 oracle) → `Qwen/.../rerank/`, plus a Qwen λ=0.7
+     oracle-vs-desklib focus → `Qwen/.../rerank_lambda0.7/`; the non-Qwen models only have λ=0.7 so their
+     `<org>/<model>/rerank/` panel is the oracle-vs-desklib focus.
 
 These inputs are **`*.entities_by_round.jsonl`** (per-question, `gpt-5.4-mini`-tagged, from
 `collapse-randomness-research/.../tag_entities_workshop_paper.py`) — a **different artifact** from the
 repo's aggregate `entity_extraction_output/<org>/<model>/local_<variant>_entity_results.json` that
-`visualization.ipynb` / `agentic-rag-visualization.ipynb` consume. Filename convention (matches the
+`visualization.ipynb` / `agentic-rag-visualization.ipynb` consume. Filename conventions (matching the
 `<org>/<model>` names under `visualization_outputs/`):
-`model_collapse_log_graphite_baseline_<variant>_<org>_<Model>_[paraphrase_on_]local_<variant>.entities_by_round.jsonl`
-(e.g. org/model token `deepseek-ai_DeepSeek-R1-Distill-Qwen-7B`). The folder also ships Qwen
-`paraphrase` files (`..._rerun-paraphrase_cpu_<variant>_paraphrased...`) not yet plotted.
+- baseline: `model_collapse_log_graphite_baseline_<variant>_<org>_<Model>_[paraphrase_on_]local_<variant>.entities_by_round.jsonl`
+- paraphrase: `..._paraphrase_<hybrid|replace_one|search>_<org>_<Model>_rerun-paraphrase_cpu_<variant>_paraphrased...`
+- rerank: `..._rerank_<org>_<Model>_rerank_lambda<0.1|0.5|0.7>[_oracle|_desklib]...`
+
+**Naming caveat (handled):** some dumps tag the DeepSeek *baseline* files with the served name
+`deepseek_deepseek-r1-distill-qwen-7b` instead of the org/model token `deepseek-ai_DeepSeek-R1-Distill-Qwen-7B`;
+the notebook's `_resolve()` tolerates either, and empty groups skip without overwriting existing PNGs.
 
 ## Documentation index
 
