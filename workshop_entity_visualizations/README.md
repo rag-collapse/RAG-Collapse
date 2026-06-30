@@ -19,18 +19,23 @@ needs ≥2 simulations to compare.)
   Replace One / Search overlaid → `<org>/<model>/baseline/`.
 - **comparison** (Qwen2.5-14B) — the three baseline regimes + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`.
 - **agentic_rag** (Qwen2.5-14B) — Agentic RAG on its own → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`.
-- **rerun-paraphrase** (Qwen2.5-14B) — paraphrase Replace All / One / Search → `Qwen/Qwen2.5-14B-Instruct/rerun-paraphrase/`.
-- **rerank** (Qwen2.5-14B) — λ = 0.1 / 0.5 / 0.7 (oracle) → `Qwen/Qwen2.5-14B-Instruct/rerank/`.
+- **rerun-paraphrase** — paraphrase Replace All / One / Search. Qwen + the appendix models Llama-3.1-8B and
+  Mistral-7B → `<org>/<model>/rerun-paraphrase/`.
+- **rerank** — Qwen2.5-14B has the full λ-sweep (λ = 0.1 / 0.5 / 0.7 oracle). The appendix models
+  (Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) only have λ=0.7 in the dump, so their panel compares
+  the **oracle vs desklib** detector at λ=0.7 → `<org>/<model>/rerank/`.
 
 Metrics: `unique_entities_per_round` = unique mapped entities per round (union across the 10 runs,
 averaged across questions); `entity_similarity_per_round` = mean pairwise cosine similarity of binary
 entity-mention vectors across the 10 runs (empty-entity answers contribute 0.0). Colors match the main
-notebooks (Replace All `#1f77b4`, Replace One `#ff7f0e`, Search `#2ca02c`, Agentic RAG `#9467bd`).
+notebooks (Replace All `#1f77b4`, Replace One `#ff7f0e`, Search `#2ca02c`, Agentic RAG `#9467bd`); the
+non-Qwen rerank panels use oracle `#2ca02c` vs desklib `#d62728`.
 
 ## File structure
 
-23 PNGs across 7 group folders (`collapse_by_simulation.png` only where there are ≥2 simulations to
-compare — i.e. everywhere except the single-variant `agentic_rag/`):
+38 PNGs across 13 group folders. Every group has `unique_entities_per_round.png` +
+`entity_similarity_per_round.png`; multi-simulation groups also have `collapse_by_simulation.png`
+(all except the single-variant `agentic_rag/`, which needs ≥2 simulations to compare):
 
 ```
 workshop_entity_visualizations/
@@ -42,15 +47,21 @@ workshop_entity_visualizations/
 │   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 │   └── agentic_rag/         unique_entities_per_round.png  entity_similarity_per_round.png
 ├── meta-llama/Llama-3.1-8B-Instruct/
-│   └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
+│   └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 ├── mistralai/Mistral-7B-Instruct-v0.3/
-│   └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
+│   └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 └── deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/
-    └── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+    ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+    └── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
 ```
 
-Counts: 7 `unique_entities_per_round.png` + 7 `entity_similarity_per_round.png` + 7 `collapse_by_simulation.png`
-+ 2 agentic_rag line charts = 23 PNGs.
+Counts: 13 `unique_entities_per_round.png` + 13 `entity_similarity_per_round.png` +
+12 `collapse_by_simulation.png` (every group except `agentic_rag/`) = 38 PNGs. (DeepSeek has no
+paraphrase panel — only Llama/Mistral were requested for the additional-paraphrasing appendix figures.)
 
 ## Regenerating
 
