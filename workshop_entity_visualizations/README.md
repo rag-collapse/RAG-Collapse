@@ -85,7 +85,7 @@ Counts: 15 `unique_entities_per_round.png` + 15 `entity_similarity_per_round.png
    dumps (`deepseek-ai_DeepSeek-R1-Distill-Qwen-7B` vs the served name `deepseek_deepseek-r1-distill-qwen-7b`);
    the notebook tolerates either.
 
-Inputs are `*.entities_by_round.jsonl` (per-question, `gpt-5.4-mini`-tagged) — a different artifact from
+Inputs are `*.entities_by_round.jsonl` (per-question, `gpt-5.2`-tagged) — a different artifact from
 the aggregate `entity_extraction_output/.../local_<variant>_entity_results.json` used by the main
 `visualization.ipynb` / `agentic-rag-visualization.ipynb`. See the "Workshop entity re-run visualization"
 section in `CLAUDE.md` for full details.
