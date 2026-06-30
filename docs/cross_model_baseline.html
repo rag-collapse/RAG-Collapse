@@ -250,16 +250,18 @@ all_doc_texts = doc_llm.inference_batch(convos)</pre>
     <thead><tr><th>Role</th><th>Model</th><th>Notes</th></tr></thead>
     <tbody>
       <tr><td><strong>main</strong> (measured)</td><td><code>Qwen/Qwen2.5-14B-Instruct</code> (served <code>qwen2.5-14b</code>)</td><td>Reads the documents; its answers are the collapse signal. Comparable to the existing Qwen-14B self-loop baseline.</td></tr>
-      <tr><td><strong>side</strong> (writes docs)</td><td><code>deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</code></td><td>Its answers drive the document stream. Reasoning model → needs <code>--side-max-tokens 4096</code> for its hidden <code>&lt;think&gt;</code> budget; served with NO <code>--reasoning-parser</code> (the server cleans byte-BPE + strips <code>&lt;think&gt;</code>).</td></tr>
+      <tr><td><strong>side</strong> (writes docs)</td><td><code>deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</code>, plus <code>meta-llama/Llama-3.1-8B-Instruct</code> and <code>mistralai/Mistral-7B-Instruct-v0.3</code></td><td>Its answers drive the document stream. Each side model is a separate run. DeepSeek is a reasoning model → needs <code>--side-max-tokens 4096</code> for its hidden <code>&lt;think&gt;</code> budget, served with NO <code>--reasoning-parser</code> (the server cleans byte-BPE + strips <code>&lt;think&gt;</code>); the non-reasoning Llama/Mistral sides use <code>--side-max-tokens 512</code>.</td></tr>
       <tr><td><strong>doc-gen</strong></td><td><code>Qwen2.5-7B-Instruct</code> (or the main server — see §6)</td><td>Rewrites side's answers into documents. Faithful synthesis, unchanged from the baseline.</td></tr>
     </tbody>
   </table></div>
   <p>Dataset &amp; knobs match the baseline for comparability: <code>umass_data.entity.chatgpt.400.jsonl</code>
   (400 questions), <code>num_runs=10</code>, <code>chars_per_doc=400</code>, full rounds (10 / 20 / 30).
-  Output mirrors the baseline tree under a new method dir:
-  <code>all_experiments/graphite/cross-model-baseline/&lt;variant&gt;/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_&lt;variant&gt;.json</code>.</p>
+  Output is keyed by <strong>main model → side model → variant</strong> (so multiple side models never
+  collide):
+  <code>all_experiments/graphite/cross-model-baseline/&lt;main-org&gt;/&lt;main-model&gt;/&lt;side&gt;/&lt;variant&gt;/experiment_outputs/local_&lt;variant&gt;.json</code>
+  — e.g. <code>…/Qwen/Qwen2.5-14B-Instruct/deepseek-r1-distill-qwen-7b/search/…</code>.</p>
   <div class="callout"><strong>Every run carries both answers.</strong> Each run object has
-  <code>answer</code> (main, measured) and <code>side_answer</code> (DeepSeek), so the side model's own
+  <code>answer</code> (main, measured) and <code>side_answer</code> (the side model), so the side model's own
   self-loop can be analyzed too; <code>experiment_metadata.docs_from_side = true</code> records the design.</div>
 </div></section>
 
