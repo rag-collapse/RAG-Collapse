@@ -44,15 +44,18 @@ export SAME_ANSWER_MODEL_NAME="${SAME_ANSWER_MODEL_NAME:-Qwen/Qwen2.5-7B-Instruc
 ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
 XMODEL_BASE="$ALL_EXP_BASE/graphite/cross-model-baseline"
 MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"   # the MAIN (measured) model
+SIDE="${SIDE:?set SIDE (side model served name, e.g. deepseek-r1-distill-qwen-7b / llama-3.1-8b / mistral-7b)}"
 
 mkdir -p logs
 
 # Variants to evaluate; missing ones (e.g. search if it timed out) are skipped gracefully.
 VARIANTS="${VARIANTS:-replace_all replace_one search}"
 
+# Layout: cross-model-baseline/<main>/<side>/<variant>/{experiment_outputs,evaluation_outputs}/
 for variant in $VARIANTS; do
-  in_file="$XMODEL_BASE/$variant/experiment_outputs/$MODEL_SUBDIR/local_${variant}.json"
-  out_dir="$XMODEL_BASE/$variant/evaluation_outputs/$MODEL_SUBDIR"
+  base="$XMODEL_BASE/$MODEL_SUBDIR/$SIDE/$variant"
+  in_file="$base/experiment_outputs/local_${variant}.json"
+  out_dir="$base/evaluation_outputs"
   out_file="$out_dir/local_${variant}_eval.json"
   if [[ -f "$in_file" ]]; then
     mkdir -p "$out_dir"
