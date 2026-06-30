@@ -21,9 +21,11 @@ needs ≥2 simulations to compare.)
 - **agentic_rag** (Qwen2.5-14B) — Agentic RAG on its own → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`.
 - **rerun-paraphrase** — paraphrase Replace All / One / Search, for all four models (Qwen2.5-14B,
   Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) → `<org>/<model>/rerun-paraphrase/`.
-- **rerank** — Qwen2.5-14B shows the full λ-sweep **plus both detectors** (λ = 0.1 / 0.5 / 0.7 oracle /
-  0.7 desklib). The appendix models (Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) only have λ=0.7 in
-  the dump, so their panel compares the **oracle vs desklib** detector at λ=0.7 → `<org>/<model>/rerank/`.
+- **rerank** — Qwen2.5-14B has two panels: the full λ-sweep (λ = 0.1 / 0.5 / 0.7 oracle) →
+  `Qwen/Qwen2.5-14B-Instruct/rerank/`, and a **λ=0.7 oracle-vs-desklib** focus →
+  `Qwen/Qwen2.5-14B-Instruct/rerank_lambda0.7/`. The appendix models (Llama-3.1-8B, Mistral-7B,
+  DeepSeek-R1-Distill-7B) only have λ=0.7 in the dump, so their single rerank panel is the same
+  **oracle vs desklib** focus at λ=0.7 → `<org>/<model>/rerank/`.
 
 Metrics: `unique_entities_per_round` = unique mapped entities per round (union across the 10 runs,
 averaged across questions); `entity_similarity_per_round` = mean pairwise cosine similarity of binary
@@ -33,7 +35,7 @@ non-Qwen rerank panels use oracle `#2ca02c` vs desklib `#d62728`.
 
 ## File structure
 
-41 PNGs across 14 group folders covering **all 35 files** in the dump (the notebook's last cell asserts
+44 PNGs across 15 group folders covering **all 35 files** in the dump (the notebook's last cell asserts
 full coverage). Every group has `unique_entities_per_round.png` + `entity_similarity_per_round.png`;
 multi-simulation groups also have `collapse_by_simulation.png` (all except the single-variant
 `agentic_rag/`, which needs ≥2 simulations to compare):
@@ -45,7 +47,8 @@ workshop_entity_visualizations/
 │   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 │   ├── comparison/          unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 │   ├── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
-│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (λ=0.1/0.5/0.7 oracle + 0.7 desklib)
+│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (full λ-sweep: 0.1/0.5/0.7 oracle)
+│   ├── rerank_lambda0.7/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
 │   └── agentic_rag/         unique_entities_per_round.png  entity_similarity_per_round.png
 ├── meta-llama/Llama-3.1-8B-Instruct/
 │   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
@@ -61,8 +64,8 @@ workshop_entity_visualizations/
     └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 ```
 
-Counts: 14 `unique_entities_per_round.png` + 14 `entity_similarity_per_round.png` +
-13 `collapse_by_simulation.png` (every group except `agentic_rag/`) = 41 PNGs.
+Counts: 15 `unique_entities_per_round.png` + 15 `entity_similarity_per_round.png` +
+14 `collapse_by_simulation.png` (every group except `agentic_rag/`) = 44 PNGs.
 
 ## Regenerating
 
