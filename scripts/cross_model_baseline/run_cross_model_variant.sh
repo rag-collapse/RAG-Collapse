@@ -44,8 +44,8 @@ SIDE_MAX_TOKENS="${SIDE_MAX_TOKENS:-4096}"          # side = DeepSeek-R1 (reason
 DOC_MAX_TOKENS="${DOC_MAX_TOKENS:-512}"
 MAX_ITERS="${MAX_ITERS:-2}"                         # rounds per variant (this run: 2)
 VARIANT="${VARIANT:-search}"
-# Store into the all_experiments tree under a NEW method dir (mirrors the baseline layout):
-#   <ALL_EXP_BASE>/graphite/cross-model-baseline/<variant>/experiment_outputs/<org>/<model>/local_<variant>.json
+# Store into the all_experiments tree keyed by MAIN model (top) then SIDE model then variant:
+#   <ALL_EXP_BASE>/graphite/cross-model-baseline/<main-org>/<main-model>/<side>/<variant>/experiment_outputs/local_<variant>.json
 ALL_EXP_BASE="${ALL_EXP_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/all_experiments}"
 MODEL_SUBDIR="${MODEL_SUBDIR:-Qwen/Qwen2.5-14B-Instruct}"   # the MAIN (measured) model
 
@@ -56,7 +56,7 @@ case "$VARIANT" in
   search)       PV="search";       EXTRA="--search-top-k 10 --search-chunk-size 500 --search-chunk-overlap 50" ;;
   *) echo "unknown VARIANT '$VARIANT' (expected replace_all|replace_one|search)"; exit 1 ;;
 esac
-OUTDIR="$ALL_EXP_BASE/graphite/cross-model-baseline/$VARIANT/experiment_outputs/$MODEL_SUBDIR"
+OUTDIR="$ALL_EXP_BASE/graphite/cross-model-baseline/$MODEL_SUBDIR/$SIDE_MODEL/$VARIANT/experiment_outputs"
 mkdir -p "$OUTDIR"
 OUT="$OUTDIR/local_$VARIANT.json"
 
