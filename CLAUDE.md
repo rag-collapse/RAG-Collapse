@@ -141,7 +141,7 @@ A separate entity-collapse view for the workshop paper, driven by `workshop-enti
      oracle-vs-desklib focus → `Qwen/.../rerank_lambda0.7/`; the non-Qwen models only have λ=0.7 so their
      `<org>/<model>/rerank/` panel is the oracle-vs-desklib focus.
 
-These inputs are **`*.entities_by_round.jsonl`** (per-question, `gpt-5.4-mini`-tagged, from
+These inputs are **`*.entities_by_round.jsonl`** (per-question, `gpt-5.2`-tagged, from
 `collapse-randomness-research/.../tag_entities_workshop_paper.py`) — a **different artifact** from the
 repo's aggregate `entity_extraction_output/<org>/<model>/local_<variant>_entity_results.json` that
 `visualization.ipynb` / `agentic-rag-visualization.ipynb` consume. Filename conventions (matching the
