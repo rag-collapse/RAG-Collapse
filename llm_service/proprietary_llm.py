@@ -9,8 +9,18 @@ import os
 import re
 import time
 import json
+import random
 from dotenv import load_dotenv
 load_dotenv()
+
+# Transient provider errors (connection blips, provider 5xx, timeouts, rate limits) — retried with
+# exponential backoff. Distinct from BadRequestError (e.g. content filter), which is soft-skipped.
+import litellm.exceptions as _litellm_exc
+_RETRYABLE = tuple({
+    getattr(_litellm_exc, _n) for _n in
+    ("RateLimitError", "InternalServerError", "APIConnectionError", "ServiceUnavailableError", "Timeout")
+    if hasattr(_litellm_exc, _n)
+})
 
 # Reasoning models (e.g. gpt-5 / gpt-5-mini) reject sampling params like top_p and any
 # non-default temperature. drop_params makes litellm silently strip params a model doesn't
@@ -93,34 +103,40 @@ class ProprietaryLLM(CommonLLM):
 
         Robustness for large batches (e.g. distractor synthesis over many questions):
           - Sent in chunks (bounding concurrency/burst).
-          - A RATE-LIMITED chunk (keymaker/Azure tokens-per-minute) is retried with backoff so a
-            per-minute limit becomes a brief wait, not a crash.
+          - A TRANSIENT chunk error — rate limit (tokens-per-minute), provider 5xx / InternalServerError,
+            connection blip, or timeout, at the batch OR per-call level — is retried with EXPONENTIAL
+            backoff so a passing glitch becomes a brief wait, not a crash. (A single OpenAI "Connection
+            error" used to kill the whole run mid-sweep.)
           - A per-call BadRequest (e.g. Azure ContentPolicyViolationError — one prompt tripped the
             content filter) is a SOFT skip: that call yields an empty string so the caller can fall
             back (e.g. a templated distractor) instead of the whole run dying on one bad prompt.
           - Any other unexpected error still fails loudly (redacted).
-        Tunable: LITELLM_BATCH_CHUNK (12), LITELLM_BATCH_PACING_SEC (3), LITELLM_RATE_RETRIES (6).
+        Tunable: LITELLM_BATCH_CHUNK (12), LITELLM_BATCH_PACING_SEC (3), LITELLM_RATE_RETRIES (6),
+                 LITELLM_BATCH_BACKOFF_BASE (5) — backoff = min(120, base*2**attempt) + jitter.
         """
         params = self._get_completion_params()
         chunk = max(1, int(os.getenv("LITELLM_BATCH_CHUNK", "12")))
         pace = float(os.getenv("LITELLM_BATCH_PACING_SEC", "3"))
         max_attempts = max(1, int(os.getenv("LITELLM_RATE_RETRIES", "6")))
+        base = float(os.getenv("LITELLM_BATCH_BACKOFF_BASE", "5"))
         results: list[str] = []
         n = len(conversations)
         for start in range(0, n, chunk):
             sub = conversations[start:start + chunk]
             for attempt in range(max_attempts):
+                transient = None
                 try:
                     responses = batch_completion(messages=sub, **params)
-                except LiteLLMRateLimitError:
-                    responses = None                       # batch-level rate limit
-                # rate-limited (batch-level or any call) → backoff + retry the whole chunk
-                if responses is None or any(isinstance(r, LiteLLMRateLimitError) for r in responses):
+                except _RETRYABLE as e:
+                    responses, transient = None, e         # batch-level transient error
+                # transient (rate limit / 5xx / connection / timeout), batch- or call-level → backoff + retry
+                if responses is None or any(isinstance(r, _RETRYABLE) for r in responses):
                     if attempt == max_attempts - 1:
                         raise RuntimeError(
-                            f"ProprietaryLLM: rate limit not cleared after {max_attempts} retries") from None
-                    wait = min(90, 20 * (attempt + 1))   # ~20s,40s,60s,80s,90s — spans a 1-min reset
-                    print(f"[ProprietaryLLM] rate-limited; backoff {wait}s "
+                            f"ProprietaryLLM: transient provider error not cleared after "
+                            f"{max_attempts} retries: {self._redact(transient or 'per-call error')}") from None
+                    wait = min(120.0, base * (2 ** attempt)) + random.uniform(0, base)
+                    print(f"[ProprietaryLLM] transient error; exponential backoff {wait:.0f}s "
                           f"(chunk {start}-{start+len(sub)}, attempt {attempt+1}/{max_attempts})", flush=True)
                     time.sleep(wait)
                     continue
