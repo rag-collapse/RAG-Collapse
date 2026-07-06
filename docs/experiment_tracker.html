@@ -64,6 +64,13 @@
   .note b{color:var(--text)}
   footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);
     font-size:0.78rem;font-family:var(--mono)}
+
+  .lead{color:var(--dim);font-size:0.92rem;margin:0 0 18px;max-width:72ch}
+  .card{position:relative}
+  .step{position:absolute;top:14px;right:14px;width:24px;height:24px;border-radius:50%;
+    display:grid;place-items:center;font-family:var(--mono);font-size:0.76rem;font-weight:700;
+    color:var(--ground);background:var(--accent)}
+  .step.ref{background:var(--queue)}
 </style>
 
 <div class="wrap">
@@ -113,37 +120,44 @@
   </div>
 
   <h2>Published write-ups</h2>
+  <p class="lead"><b style="color:var(--text)">Suggested reading order</b> — start with the overall HotpotQA
+  setup, move through the core collapse phenomenon and the controlled distractor sweeps, then the cross-model
+  generalization. The smoke &amp; validation log (★) is reference material to dip into anytime.</p>
   <div class="cards">
-    <a class="card" href="https://claude.ai/code/artifact/2dd7115f-3457-44e8-8914-a088246f773e">
-      <div class="k">Cross-model</div>
-      <h3>Cross-Model Baseline · RAG Collapse</h3>
-      <p>Reader-vs-writer design, the GPU run hack, results per side model, and the side-model comparison
-      (collapse is writer-independent).</p>
-      <div class="go">Open artifact →</div></a>
-
-    <a class="card" href="https://claude.ai/code/artifact/0b92b522-4718-4496-bb94-8d7d2079170a">
-      <div class="k">Distractor sweeps</div>
-      <h3>HotpotQA · Diverse Distractor Experiment</h3>
-      <p>Round-0 <span style="font-family:var(--mono)">diverse_synth</span>, <span style="font-family:var(--mono)">equal_diverse_synth</span>,
-      and <span style="font-family:var(--mono)">shuffled_diverse_synth</span> — dose-response and the fixed-vs-shuffled contrast.</p>
-      <div class="go">Open artifact →</div></a>
-
     <a class="card" href="https://claude.ai/code/artifact/d9929aaf-87b3-432d-b3c6-86a1fd3250a5">
-      <div class="k">HotpotQA</div>
+      <span class="step">1</span>
+      <div class="k">Start here · overview</div>
       <h3>HotpotQA Experiment Suite</h3>
-      <p>The HotpotQA-dataset variants of the collapse loop and their evaluation.</p>
+      <p>The HotpotQA-dataset collapse loop and its variants/evaluation — the setup everything else builds on.</p>
       <div class="go">Open artifact →</div></a>
 
     <a class="card" href="https://claude.ai/code/artifact/38bd9c07-e6ea-42eb-833b-57b1adea3d56">
-      <div class="k">Misinformation</div>
+      <span class="step">2</span>
+      <div class="k">Core phenomenon</div>
       <h3>HotpotQA Misinformation Experiment</h3>
-      <p>Misinformation error-compounding through the self-refinement loop.</p>
+      <p>How injected misinformation compounds as the loop feeds on its own answers.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="https://claude.ai/code/artifact/0b92b522-4718-4496-bb94-8d7d2079170a">
+      <span class="step">3</span>
+      <div class="k">Controlled sweeps</div>
+      <h3>HotpotQA · Diverse Distractor Experiment</h3>
+      <p>Round-0 <span style="font-family:var(--mono)">diverse_synth</span> / <span style="font-family:var(--mono)">equal_diverse_synth</span>
+      / <span style="font-family:var(--mono)">shuffled_diverse_synth</span> — dose-response and the fixed-vs-shuffled contrast.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="https://claude.ai/code/artifact/2dd7115f-3457-44e8-8914-a088246f773e">
+      <span class="step">4</span>
+      <div class="k">Generalization</div>
+      <h3>Cross-Model Baseline · RAG Collapse</h3>
+      <p>Reader-vs-writer: does a model collapse reading another model's documents? Per-side results + the writer-independence comparison.</p>
       <div class="go">Open artifact →</div></a>
 
     <a class="card" href="https://claude.ai/code/artifact/4dca4513-db7e-46db-b9c9-cec021f7e949">
-      <div class="k">Validation</div>
+      <span class="step ref">★</span>
+      <div class="k">Reference · validation</div>
       <h3>HotpotQA Collapse — Smoke &amp; Validation Log</h3>
-      <p>End-to-end wiring checks and smoke-test results behind the full runs.</p>
+      <p>End-to-end wiring checks and smoke-test results behind the full runs. Dip in as needed.</p>
       <div class="go">Open artifact →</div></a>
   </div>
 
