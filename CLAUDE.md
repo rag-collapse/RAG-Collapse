@@ -156,6 +156,7 @@ the notebook's `_resolve()` tolerates either, and empty groups skip without over
 
 ## Documentation index
 
+- `docs/experiment_tracker.html` — live-status tracker (cross-model rerun + shuffled sweep) + hub linking all published artifacts; artifact: 
 - `README.md` — setup + full workflow
 - `docs/unity_setup.md` — Unity scratch + job submission
 - `docs/gepa_prompt_optimization_plan.md`, `docs/gepa_flowchart.md` — GEPA subsystem
