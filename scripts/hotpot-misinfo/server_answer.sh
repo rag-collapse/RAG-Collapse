@@ -26,6 +26,10 @@ mkdir -p "${model_cache_dir}" logs
 
 export GLOO_SOCKET_IFNAME=lo
 export NCCL_DEBUG=ERROR
+# Disable vLLM's DeepGEMM FP8 warmup: on some Hopper GPUs it aborts startup with
+# "DeepGEMM backend is not available or outdated" (deep_gemm not installed). Off = robust
+# to GPU placement (only forgoes an FP8 speedup we don't rely on). Allow env override.
+export VLLM_USE_DEEP_GEMM="${VLLM_USE_DEEP_GEMM:-0}"
 
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-14B-Instruct}"
 SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen2.5-14b}"
