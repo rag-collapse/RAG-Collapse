@@ -7,8 +7,8 @@
 #
 #SBATCH -J xmodel-cli
 #SBATCH -p cpu
-#SBATCH -c 8
-#SBATCH --mem=48g
+#SBATCH -c 4
+#SBATCH --mem=24g
 #SBATCH -t 47:00:00
 #SBATCH -o logs/xmodel_%A.out
 #SBATCH -e logs/xmodel_%A.err
