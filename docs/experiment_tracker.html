@@ -97,12 +97,13 @@
         <span class="detail">replace_all 10 · replace_one 20 · search 30 · doc=7b</span>
         <span class="pill done">done</span></div>
       <div class="row"><span class="name">Mistral-7B side</span>
-        <span class="detail">servers up · clients starting · DeepGEMM off</span>
-        <span class="pill run"><span class="dot run"></span>running</span></div>
+        <span class="detail">replace_all 10 · replace_one 20 · search 30 · doc=7b</span>
+        <span class="pill done">done</span></div>
     </div>
-    <div class="note"><b>Next when Mistral finishes:</b> re-run <span style="font-family:var(--mono)">eval_cross_model_baseline.sh</span>
-      for all 3 sides, rebuild the per-side + side-comparison figures, and re-embed/republish the cross-model
-      write-up. Its currently-published figures still reflect the earlier <span style="font-family:var(--mono)">doc=qwen2.5-14b</span> hack runs.</div>
+    <div class="note" style="border-left-color:var(--done)"><b>Complete.</b> All 9 runs (3 sides × 3 variants)
+      finished with the dedicated <span style="font-family:var(--mono)">doc=qwen2.5-7b-doc</span>; eval re-run and
+      the cross-model write-up's figures (per-side text metrics + side-model comparison + DeepSeek entity)
+      regenerated and republished from this data.</div>
   </div>
 
   <div class="panel">
