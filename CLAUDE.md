@@ -24,7 +24,8 @@ Pipeline of work: `pipeline.py` (run loop) → `evaluation.py` (text metrics) �
 | `formatters.py` | all prompts: `_RAG_GENERATION_SYSTEM_PROMPT` (baseline), `GEPA_RAG_GENERATION_SYSTEM_PROMPT` (GEPA seed/optimized), create-document, agentic tool spec |
 | `llm_service/` | LLM backends: `OpenSourceLLM` (vLLM), `ProprietaryLLM` (LiteLLM/keymaker), `ServerLLM` (HTTP vLLM), `CommonLLM` interface, `EmbeddingModel` |
 | `gepa_optimization/` | GEPA prompt optimization package (prepare_dataset, rag_adapter, scoring, pipeline_simulator, run_optimization, parse_results, apply_best_prompt) |
-| `hotpot_pipeline.py`, `hotpot_evaluation.py`, `build_hotpotqa_index.py`, `download_hotpot.py` | HotpotQA-dataset variants of the loop/eval |
+| `hotpot_pipeline.py`, `hotpot_evaluation.py`, `build_hotpotqa_index.py`, `download_hotpot.py` | HotpotQA-dataset variants of the loop/eval (misinfo injection + distractor flags live here) |
+| `base_hotpotqa_distractors/` | round-0 distractor experiments over the HotpotQA loop: synthetic wrong-answer sweep (`diverse_synth`/`equal_diverse_synth`/`shuffled_diverse_synth`) + the **native 2-gold/8-distractor paper replication** (`launch_native.sh`); see its `README.md` and `docs/misinfo_error_compounding.md` |
 | `rerank_mitigation_pipeline.py`, `rerank_mitigation_hotpot_pipeline.py` | reranker-mitigation pipelines |
 | `scripts/` | SLURM batch scripts (see below) |
 | `datasets/` | input JSONL (`umass_data.entity.chatgpt.{50,400}.jsonl`) |
@@ -112,11 +113,61 @@ Consolidated results live on Unity at `/work/pi_dagarwal_umass_edu/project_4/fil
 Canonical baselines: **ffatima** = Qwen-14B & Mistral; **ratirastogi** = Llama & DeepSeek; **rsenapati** =
 Agentic RAG. See `docs/data_locations.md` and `scripts/all_experiments_README.md`.
 
+## Workshop entity re-run visualization
+
+A separate entity-collapse view for the workshop paper, driven by `workshop-entity-visualization.ipynb`
+→ outputs `workshop_entity_visualizations/<org>/<model>/<method>/*.png` (committed, nested like
+`visualization_outputs/`). Workflow for future sessions:
+
+1. Download the entity re-run folder from Google Drive and unzip it into the **repo root**. Its name
+   is `entity re-run for workshop paper-<timestamp>-3-001/` — the timestamp changes per download, and
+   the folder is **gitignored** (`.gitignore`: `entity re-run for workshop paper-*/`). Don't hardcode it.
+   **Don't extract with Windows Explorer** — the nested filenames exceed the 260-char `MAX_PATH` and
+   Explorer refuses them (even with `LongPathsEnabled=1`). Extract from the command line, which honors
+   long paths: `tar -xf <zip> -C 'entity re-run for workshop paper-<ts>'` (the zip's root is the inner
+   folder, so wrap it in the timestamped dir the regex expects).
+2. Run all cells of `workshop-entity-visualization.ipynb`. **Cell 1 auto-discovers the folder by regex**
+   (`re.compile(r"entity re-run for workshop paper-.*")`, newest match, descends one level), so no path
+   edits are needed. The **last cell asserts full coverage** — every `*.entities_by_round.jsonl` in the
+   dump must be plotted, or it fails loudly.
+3. It regenerates **44 PNGs across 15 group folders**. Each group emits `unique_entities_per_round.png` +
+   `entity_similarity_per_round.png`, and (where there are ≥2 simulations) a grouped-bar
+   `collapse_by_simulation.png` (mirrors `visualization.ipynb`'s "Collapse by Simulation": a
+   question-round is collapsed when all runs share one canonical entity set). Groups:
+   - **baseline** — 4 models (Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B), RA/RO/Search → `<org>/<model>/baseline/`
+   - **comparison** — Qwen RA/RO/Search + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`
+   - **agentic_rag** — Qwen Agentic RAG alone (line charts only; collapse-by-sim needs ≥2 sims) → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`
+   - **rerun-paraphrase** — paraphrase RA/RO/Search for all 4 models → `<org>/<model>/rerun-paraphrase/`
+   - **rerank** — Qwen full λ-sweep (0.1/0.5/0.7 oracle) → `Qwen/.../rerank/`, plus a Qwen λ=0.7
+     oracle-vs-desklib focus → `Qwen/.../rerank_lambda0.7/`; the non-Qwen models only have λ=0.7 so their
+     `<org>/<model>/rerank/` panel is the oracle-vs-desklib focus.
+
+These inputs are **`*.entities_by_round.jsonl`** (per-question, `gpt-5.2`-tagged, from
+`collapse-randomness-research/.../tag_entities_workshop_paper.py`) — a **different artifact** from the
+repo's aggregate `entity_extraction_output/<org>/<model>/local_<variant>_entity_results.json` that
+`visualization.ipynb` / `agentic-rag-visualization.ipynb` consume. Filename conventions (matching the
+`<org>/<model>` names under `visualization_outputs/`):
+- baseline: `model_collapse_log_graphite_baseline_<variant>_<org>_<Model>_[paraphrase_on_]local_<variant>.entities_by_round.jsonl`
+- paraphrase: `..._paraphrase_<hybrid|replace_one|search>_<org>_<Model>_rerun-paraphrase_cpu_<variant>_paraphrased...`
+- rerank: `..._rerank_<org>_<Model>_rerank_lambda<0.1|0.5|0.7>[_oracle|_desklib]...`
+
+**Naming caveat (handled):** some dumps tag the DeepSeek *baseline* files with the served name
+`deepseek_deepseek-r1-distill-qwen-7b` instead of the org/model token `deepseek-ai_DeepSeek-R1-Distill-Qwen-7B`;
+the notebook's `_resolve()` tolerates either, and empty groups skip without overwriting existing PNGs.
+
 ## Documentation index
 
+- `handoff.md` — **fresh-start context** for the HotpotQA / distractor work: the `all_experiments` data folder, the three HotpotQA experiments (misinfo, synthetic distractor, native paper-replication), and hard-won Unity lessons. Read first when resuming this line of work.
+- `docs/experiment_tracker.html` — live-status tracker (cross-model rerun + shuffled sweep) + hub linking all published artifacts; artifact: 
 - `README.md` — setup + full workflow
 - `docs/unity_setup.md` — Unity scratch + job submission
 - `docs/gepa_prompt_optimization_plan.md`, `docs/gepa_flowchart.md` — GEPA subsystem
 - `docs/data_locations.md`, `scripts/all_experiments_README.md` — where raw/consolidated data lives
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md` — comparison vs `collapse-randomness-research`
+- `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`; also covers the round-0 synthetic distractors (Option B) and the **native paper-replication distractor setting (Option A)**
+- `base_hotpotqa_distractors/README.md` — standalone round-0 distractor experiment package: synthetic wrong-answer sweep + the native **2-gold/8-distractor paper replication** (Yang et al., EMNLP 2018) vs gold-only control
+- `docs/hotpotqa_diverse_synth.html` — round-0 distractor experiments (`diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth`); artifact: 
+- `docs/cross_model_baseline.html` — `cross-model-baseline` (`scripts/cross_model_baseline/`, main reads docs written from a side model's answers) + the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack; artifact: 
+  Outputs are keyed `cross-model-baseline/<main-org>/<main-model>/<side>/<variant>/{experiment,evaluation}_outputs/` (side dimension added so DeepSeek/Llama/Mistral side models don't collide). Entity diagrams for cross-model live in `cross_model_baseline_visualizations/` (from `cross-model-baseline-visualization.ipynb`).
 - `visualization_outputs/README.md` — plots
+- `workshop-entity-visualization.ipynb` + `workshop_entity_visualizations/README.md` — workshop entity re-run view (see section above)

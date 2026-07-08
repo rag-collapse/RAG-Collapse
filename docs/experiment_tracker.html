@@ -1,0 +1,166 @@
+<title>RAG-Collapse · Experiment Tracker</title>
+<style>
+  :root{
+    --ground:#0e1017; --surface:#171b26; --surface2:#1e2330;
+    --line:rgba(232,234,240,0.10); --line2:rgba(232,234,240,0.16);
+    --text:#e9ebf2; --dim:#9aa1b4; --faint:#6c7488;
+    --accent:#56d3c9;            /* cyan signal */
+    --done:#3fb950; --run:#e3b341; --queue:#7f8798; --fail:#e5534b;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+    line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 22px 80px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  header .eyebrow{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.18em;
+    text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  header h1{font-size:2.05rem;line-height:1.1;margin:0 0 10px;letter-spacing:-0.02em;text-wrap:balance}
+  header p{color:var(--dim);max-width:64ch;margin:0}
+  .updated{font-family:var(--mono);font-size:0.74rem;color:var(--faint);margin-top:14px}
+
+  h2{font-size:0.82rem;font-family:var(--mono);letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--dim);margin:52px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+
+  /* status board */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .panel h3{margin:0 0 4px;font-size:1.06rem}
+  .panel .sub{color:var(--dim);font-size:0.86rem;margin:0 0 14px}
+  .rows{display:flex;flex-direction:column;gap:8px}
+  .row{display:grid;grid-template-columns:170px 1fr auto;gap:14px;align-items:center;
+    background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+  .row .name{font-weight:600;font-size:0.95rem}
+  .row .detail{color:var(--dim);font-size:0.85rem;font-family:var(--mono)}
+  @media(max-width:640px){.row{grid-template-columns:1fr auto;gap:6px}.row .detail{grid-column:1/-1}}
+
+  .pill{font-family:var(--mono);font-size:0.7rem;font-weight:600;letter-spacing:0.06em;
+    text-transform:uppercase;padding:4px 10px;border-radius:999px;white-space:nowrap;border:1px solid}
+  .pill.done{color:var(--done);border-color:color-mix(in srgb,var(--done) 45%,transparent);
+    background:color-mix(in srgb,var(--done) 12%,transparent)}
+  .pill.run{color:var(--run);border-color:color-mix(in srgb,var(--run) 45%,transparent);
+    background:color-mix(in srgb,var(--run) 12%,transparent)}
+  .pill.queue{color:var(--queue);border-color:color-mix(in srgb,var(--queue) 40%,transparent);
+    background:color-mix(in srgb,var(--queue) 12%,transparent)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dot.run{background:var(--run);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.dot.run{animation:none}}
+
+  /* artifact cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .card{display:block;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:18px;transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px);text-decoration:none}
+  .card .k{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)}
+  .card h3{margin:8px 0 6px;font-size:1.02rem;color:var(--text);line-height:1.25;text-wrap:balance}
+  .card p{margin:0;color:var(--dim);font-size:0.86rem}
+  .card .go{margin-top:12px;font-family:var(--mono);font-size:0.74rem;color:var(--accent)}
+
+  .note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--run);
+    border-radius:8px;padding:14px 16px;color:var(--dim);font-size:0.9rem;margin-top:16px}
+  .note b{color:var(--text)}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);
+    font-size:0.78rem;font-family:var(--mono)}
+
+  .lead{color:var(--dim);font-size:0.92rem;margin:0 0 18px;max-width:72ch}
+  .card{position:relative}
+  .step{position:absolute;top:14px;right:14px;width:24px;height:24px;border-radius:50%;
+    display:grid;place-items:center;font-family:var(--mono);font-size:0.76rem;font-weight:700;
+    color:var(--ground);background:var(--accent)}
+  .step.ref{background:var(--queue)}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">RAG-Collapse Research</p>
+    <h1>Experiment Tracker</h1>
+    <p>Live status of the self-refinement collapse experiments and a hub for every published write-up.
+    A model answers from retrieved context, its answers become the next round's documents, and we measure
+    how the answers degenerate across rounds — plus the mitigations and variants below.</p>
+    <p class="updated">snapshot · 2026-07-06 · point-in-time; job status is not auto-refreshed</p>
+  </header>
+
+  <h2>Live runs</h2>
+
+  <div class="panel">
+    <h3>Cross-model baseline — rerun (dedicated <span style="font-family:var(--mono)">qwen2.5-7b-doc</span>)</h3>
+    <p class="sub">Main = Qwen2.5-14B reads documents synthesized from a <em>side</em> model's answers; 3-server
+      topology (main + side + 7B doc-gen), 400 questions × 10 runs, full rounds (10 / 20 / 30).</p>
+    <div class="rows">
+      <div class="row"><span class="name">DeepSeek-R1-7B side</span>
+        <span class="detail">replace_all 10 · replace_one 20 · search 30 · doc=7b</span>
+        <span class="pill done">done</span></div>
+      <div class="row"><span class="name">Llama-3.1-8B side</span>
+        <span class="detail">replace_all 10 · replace_one 20 · search 30 · doc=7b</span>
+        <span class="pill done">done</span></div>
+      <div class="row"><span class="name">Mistral-7B side</span>
+        <span class="detail">replace_all 10 · replace_one 20 · search 30 · doc=7b</span>
+        <span class="pill done">done</span></div>
+    </div>
+    <div class="note" style="border-left-color:var(--done)"><b>Complete.</b> All 9 runs (3 sides × 3 variants)
+      finished with the dedicated <span style="font-family:var(--mono)">doc=qwen2.5-7b-doc</span>; eval re-run and
+      the cross-model write-up's figures (per-side text metrics + side-model comparison + DeepSeek entity)
+      regenerated and republished from this data.</div>
+  </div>
+
+  <div class="panel">
+    <h3>Shuffled diverse-synth distractor sweep</h3>
+    <p class="sub">HotpotQA round-0 distractors with per-run seeded context shuffling + temperature 1.0 —
+      isolates how much answer concentration is a fixed document-order artifact.</p>
+    <div class="rows">
+      <div class="row"><span class="name">400-question sweep</span>
+        <span class="detail">search · hybrid · replace_one × fraction {0, 0.3, 0.5, 0.7}</span>
+        <span class="pill done">done</span></div>
+    </div>
+    <p class="sub" style="margin:12px 0 0">Result: per-run order + temp 1.0 keeps answer diversity high and rising
+      with distractor fraction (search/replace_one ~2.0→3.1 distinct answers), vs the fixed-order run's ~1.2–1.5
+      band. Figures folded into the diverse-synth write-up below.</p>
+  </div>
+
+  <h2>Published write-ups</h2>
+  <p class="lead"><b style="color:var(--text)">Suggested reading order</b> — start with the overall HotpotQA
+  setup, move through the core collapse phenomenon and the controlled distractor sweeps, then the cross-model
+  generalization. The smoke &amp; validation log (★) is reference material to dip into anytime.</p>
+  <div class="cards">
+    <a class="card" href="">
+      <span class="step">1</span>
+      <div class="k">Start here · overview</div>
+      <h3>HotpotQA Experiment Suite</h3>
+      <p>The HotpotQA-dataset collapse loop and its variants/evaluation — the setup everything else builds on.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="">
+      <span class="step">2</span>
+      <div class="k">Core phenomenon</div>
+      <h3>HotpotQA Misinformation Experiment</h3>
+      <p>How injected misinformation compounds as the loop feeds on its own answers.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="">
+      <span class="step">3</span>
+      <div class="k">Controlled sweeps</div>
+      <h3>HotpotQA · Diverse Distractor Experiment</h3>
+      <p>Round-0 <span style="font-family:var(--mono)">diverse_synth</span> / <span style="font-family:var(--mono)">equal_diverse_synth</span>
+      / <span style="font-family:var(--mono)">shuffled_diverse_synth</span> — dose-response and the fixed-vs-shuffled contrast.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="">
+      <span class="step">4</span>
+      <div class="k">Generalization</div>
+      <h3>Cross-Model Baseline · RAG Collapse</h3>
+      <p>Reader-vs-writer: does a model collapse reading another model's documents? Per-side results + the writer-independence comparison.</p>
+      <div class="go">Open artifact →</div></a>
+
+    <a class="card" href="">
+      <span class="step ref">★</span>
+      <div class="k">Reference · validation</div>
+      <h3>HotpotQA Collapse — Smoke &amp; Validation Log</h3>
+      <p>End-to-end wiring checks and smoke-test results behind the full runs. Dip in as needed.</p>
+      <div class="go">Open artifact →</div></a>
+  </div>
+
+  <footer>RAG-Collapsement-on-Self-Refined-Generation · tracker generated by Claude Code · status reflects a manual check, not a live feed</footer>
+</div>

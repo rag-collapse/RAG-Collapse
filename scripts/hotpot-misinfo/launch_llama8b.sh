@@ -1,0 +1,18 @@
+#!/bin/bash
+# Misinfo experiment (3 variants x 3 arms) with Llama-3.1-8B-Instruct as the ANSWER model.
+# Doc-gen is fixed Qwen2.5-7B. Run on a LOGIN node:
+#   (GT_FILE defaults to the native HotpotQA JSON; override via env only if it moves)
+#   bash scripts/hotpot-misinfo/launch_llama8b.sh
+set -eo pipefail
+cd "$(dirname "$0")/../.." || exit 1
+BASE="${OUTPUT_BASE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_distractor_experiment}"
+
+export ANSWER_MODEL_ID="meta-llama/Llama-3.1-8B-Instruct"
+export ANSWER_SERVED="llama3.1-8b"
+export ANSWER_EXTRA_ARGS=""
+export ANSWER_MAX_NUM_SEQS=128                        # 8B model -> matches start_llm_server_llama3.1_8b.sh
+export ANSWER_PORT="${ANSWER_PORT:-5168}"   # distinct from baseline (5154) + other model launchers
+export DOCGEN_PORT="${DOCGEN_PORT:-5167}"
+export OUTDIR="$BASE/$ANSWER_SERVED"
+
+exec bash scripts/hotpot-misinfo/launch_all_variants.sh

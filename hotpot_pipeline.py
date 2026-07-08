@@ -27,6 +27,12 @@ from datasets import load_from_disk
 from transformers import AutoModel, AutoTokenizer
 
 from formatters import get_create_document_conversation
+from pipeline.misinfo import (
+    MisinfoController, MODE_FAITHFUL, MODES, TARGETS,
+    DistractorController, DISTRACTOR_MODES,
+    load_native_records, native_context_docs,
+    per_run_doc_subsets, per_run_shuffled_docs,
+)
 from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
 from pipeline.prompt_builder import build_rag_conversation
@@ -161,10 +167,16 @@ def parse_args():
     p.add_argument("--max-tokens", type=int, default=512)
     p.add_argument("--top-p", type=float, default=0.9)
 
-    p.add_argument("--doc-vllm-api-base", required=True,
-        help="vLLM server base URL for document generation, e.g. http://host:5151/v1")
+    p.add_argument("--doc-model-mode", choices=["api", "local", "server"], default="server",
+        help="Backend for document/distractor generation. 'server' (default) = vLLM HTTP "
+             "(needs --doc-vllm-api-base); 'api' = keymaker LiteLLM strong model (needs API_KEY); "
+             "'local' = in-process vLLM (GPU).")
+    p.add_argument("--doc-vllm-api-base", default=None,
+        help="vLLM server base URL for document generation, e.g. http://host:5151/v1. "
+             "Required when --doc-model-mode=server.")
     p.add_argument("--doc-model-name", default=None,
-        help="Served model name for doc generation. Defaults to --model-name.")
+        help="Model name for doc generation. Defaults to --model-name. For --doc-model-mode=api "
+             "use a keymaker id, e.g. openai/claude-sonnet-4-6.")
     p.add_argument("--doc-temperature", type=float, default=None,
         help="Temperature for doc generation. Defaults to --temperature.")
     p.add_argument("--doc-max-tokens", type=int, default=None,
@@ -195,11 +207,138 @@ def parse_args():
     p.add_argument("--index-dir", default=INDEX_DIR)
     p.add_argument("--cache-dir", default=CACHE_DIR)
 
+    # --- Misinformation injection (error-compounding experiment; all default-off) ---
+    p.add_argument("--doc-synthesis-mode", choices=list(MODES), default=MODE_FAITHFUL,
+        help="faithful (baseline), counterfactual (entity substitution), or freeform "
+             "(synthesizer invents one false claim). Non-faithful requires --gt-file.")
+    p.add_argument("--target-mode", choices=list(TARGETS), default="final_answer",
+        help="What to corrupt: the final answer entity, an intermediate bridge entity "
+             "(requires --native-hotpot-file), or an answer-irrelevant detail (untargeted control).")
+    p.add_argument("--inject-round", type=int, default=1,
+        help="Iteration index whose synthesized document is corrupted; that doc enters "
+             "the context/corpus at iteration inject_round+1.")
+    p.add_argument("--inject-every-round", action="store_true",
+        help="Stress arm: corrupt the synthesized document every round (not just --inject-round).")
+    p.add_argument("--seed", type=int, default=None,
+        help="Global seed (random, numpy). Substitute selection uses a separate per-question "
+             "RNG so control/treatment arms select identical answers under the same seed.")
+    p.add_argument("--gt-file", default=None,
+        help="HotpotQA ground-truth JSON (native list of {_id, answer,...} or flat {id: answer}). "
+             "Required when --doc-synthesis-mode != faithful.")
+    p.add_argument("--native-hotpot-file", default=None,
+        help="Native HotpotQA JSON with supporting_facts/context/type. Required for "
+             "--target-mode intermediate_hop.")
+
+    # --- Round-0 initial-document distractors (widen the starting distribution; default-off) ---
+    # Independent of --doc-synthesis-mode: corrupts a fraction of each question's round-0
+    # retrieved docs into wrong-answer distractors, each carrying its OWN distinct falsehood
+    # (DIVERSE) to simulate the spread of independently-hallucinated AI documents.
+    p.add_argument("--distractor-fraction", type=float, default=0.0,
+        help="Fraction of round-0 retrieved docs to turn into wrong-answer distractors "
+             "(0 = off). Requires --gt-file.")
+    p.add_argument("--distractor-mode", choices=list(DISTRACTOR_MODES), default="rewrite",
+        help="How to build each distractor: rewrite (doc-LLM invents a distinct wrong answer "
+             "per doc), substitution (distinct same-type wrong entity per doc), diverse_synth "
+             "(coordinated distinct wrong answers, one Wikipedia-style doc each), equal_diverse_synth "
+             "(fewer wrong answers, each reinforced by --distractor-docs-per-topic paragraphs; driven "
+             "by --distractor-num-topics, not --distractor-fraction), or native_noise "
+             "(real non-answer HotpotQA paragraphs; requires --native-hotpot-file).")
+    p.add_argument("--distractor-num-topics", type=int, default=0,
+        help="equal_diverse_synth only: number of distinct wrong-answer TOPICS to seed (0 = off). Each "
+             "topic gets --distractor-docs-per-topic paragraphs, so this drives the arm in place of "
+             "--distractor-fraction. Clamped by the available non-gold slots.")
+    p.add_argument("--distractor-docs-per-topic", type=int, default=2,
+        help="equal_diverse_synth only: paragraphs per topic (distinct generations asserting the SAME "
+             "wrong answer). Default 2 → 4 topics fills the 8 non-gold slots of the native setting.")
+    p.add_argument("--distractor-per-run", action="store_true",
+        help="Option A: give each of the --num-runs runs a DIFFERENT single distractor doc "
+             "(clean/gold docs + one rotating distractor) instead of all distractors at once, so "
+             "the round-0 answer distribution is wide across runs. No-op without distractor docs.")
+    p.add_argument("--shuffle-per-run", action="store_true",
+        help="shuffled-diverse-synth: give each of the --num-runs parallel generations a DIFFERENT, "
+             "reproducibly-random ORDER of the same context docs (re-shuffled every round, seeded by "
+             "--seed). Isolates context-position effects on the answer distribution. Mutually exclusive "
+             "with --distractor-per-run.")
+    p.add_argument("--distractor-avoid-gold", action="store_true",
+        help="Never corrupt a gold document (tagged gold=True or containing the gold answer); "
+             "randomly inject distractors into the NON-gold docs only. Use with --initial-docs "
+             "native_distractor to keep the 2 gold paragraphs intact and corrupt the 8 distractors.")
+    # Separate model for ROUND-0 distractor generation only (two-server style): a strong model
+    # seeds the distractors, while the ANSWER model (--doc-model-*) builds the per-round AI docs.
+    p.add_argument("--distractor-model-mode", choices=["api", "local", "server"], default=None,
+        help="Backend for round-0 distractor generation. Defaults to the --doc-model-* backend "
+             "when unset. Use 'api' with a strong keymaker model (e.g. azure/gpt-5-mini) to seed "
+             "distractors while per-round synthesis stays on the answer model.")
+    p.add_argument("--distractor-model-name", default=None,
+        help="Model for round-0 distractor generation (e.g. azure/gpt-5-mini). Defaults to the "
+             "doc model when unset.")
+    p.add_argument("--distractor-vllm-api-base", default=None,
+        help="vLLM base URL for the distractor model when --distractor-model-mode=server.")
+    p.add_argument("--distractor-max-tokens", type=int, default=None,
+        help="Max tokens for the distractor model. Defaults to --doc-max-tokens. Set higher (e.g. "
+             "2048) for reasoning distractor models (gpt-5*) WITHOUT inflating the per-round doc budget.")
+
+    # --- Original HotpotQA paper distractor setting (round-0 source; default-off) ---
+    # Replicate Yang et al. (EMNLP 2018): seed round 0 from each question's native
+    # 2-gold + 8-TF-IDF-distractor context instead of FAISS retrieval. Distinct from the
+    # synthetic --distractor-fraction above (those assert a wrong answer; the native ones
+    # are answer-absent hard negatives).
+    p.add_argument("--initial-docs", choices=["faiss", "native_distractor"], default="faiss",
+        help="Round-0 document source. 'faiss' (default): retrieve from the Wikipedia FAISS "
+             "index (pipeline unchanged). 'native_distractor': seed round 0 from the question's "
+             "native HotpotQA distractor-setting context (2 gold + 8 TF-IDF distractors); "
+             "requires --native-hotpot-file (hotpot_dev_distractor_v1.json).")
+    p.add_argument("--distractor-gold-only", action="store_true",
+        help="With --initial-docs native_distractor: keep ONLY the 2 gold paragraphs (drop the 8 "
+             "distractors) — the no-distractor contrast for the distractor-setting experiment.")
+
     return p.parse_args()
 
 
 def run_pipeline() -> None:
     args = parse_args()
+
+    # Reproducibility: seed the global RNGs (answer selection, doc shuffling).
+    # Substitute selection in MisinfoController uses a SEPARATE per-question RNG so
+    # the global sequence — and hence the answers selected — is identical across arms.
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        print(f"[seed] global RNG seeded with {args.seed}")
+
+    if args.doc_model_mode == "server" and not args.doc_vllm_api_base:
+        raise SystemExit("--doc-vllm-api-base is required when --doc-model-mode=server")
+
+    inject_enabled = args.doc_synthesis_mode != MODE_FAITHFUL
+    if inject_enabled and not args.gt_file:
+        raise SystemExit("--gt-file is required when --doc-synthesis-mode != faithful")
+    if args.target_mode == "intermediate_hop" and not args.native_hotpot_file:
+        raise SystemExit("--native-hotpot-file is required when --target-mode intermediate_hop")
+
+    # equal_diverse_synth is driven by --distractor-num-topics; all other modes by --distractor-fraction.
+    equal_mode = args.distractor_mode == "equal_diverse_synth"
+    distractor_enabled = (
+        (args.distractor_num_topics and args.distractor_num_topics > 0) if equal_mode
+        else (args.distractor_fraction and args.distractor_fraction > 0)
+    )
+    if distractor_enabled and not args.gt_file:
+        raise SystemExit("--gt-file is required when distractors are enabled")
+    if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
+        raise SystemExit("--native-hotpot-file is required when --distractor-mode native_noise")
+    if args.shuffle_per_run and args.distractor_per_run:
+        raise SystemExit("--shuffle-per-run and --distractor-per-run are mutually exclusive "
+                         "(both rewrite the per-run context differently)")
+
+    native_seed = args.initial_docs == "native_distractor"
+    if native_seed and not args.native_hotpot_file:
+        raise SystemExit("--initial-docs native_distractor requires --native-hotpot-file "
+                         "(the hotpot_dev_distractor_v1.json distractor-setting file)")
+    # native_distractor + synthetic distractors are composable: seed the native 2-gold/8-distractor
+    # context, then convert a fraction of the NON-gold slots into wrong-answer docs. Pair with
+    # --distractor-avoid-gold so the 2 gold paragraphs are never corrupted.
+    if native_seed and distractor_enabled and not args.distractor_avoid_gold:
+        print("[warn] --initial-docs native_distractor with synthetic distractors but WITHOUT "
+              "--distractor-avoid-gold: gold paragraphs may be corrupted.", flush=True)
 
     variant = args.pipeline_variant
     num_iterations = args.num_iterations or DEFAULT_ROUNDS[variant]
@@ -215,20 +354,28 @@ def run_pipeline() -> None:
         else min(args.max_questions, len(queries_ds))
     )
 
-    print("Loading corpus metadata ...")
-    from datasets import load_dataset as hf_load_dataset
-    corpus_ds = hf_load_dataset("mteb/hotpotqa", "corpus", cache_dir=args.cache_dir)["corpus"]
-    corpus_titles = corpus_ds["title"]
-    corpus_texts = corpus_ds["text"]
+    if native_seed:
+        # Original-HotpotQA distractor setting: no FAISS / Wikipedia corpus — round-0 docs come
+        # from each question's native context. Embedder only needed for the search variant.
+        print(f"Loading native HotpotQA distractor-setting file {args.native_hotpot_file} ...")
+        native_records = load_native_records(args.native_hotpot_file)
+        index = docid_map = corpus_ds = corpus_titles = corpus_texts = None
+        embedder = E5Embedder() if is_search else None
+    else:
+        print("Loading corpus metadata ...")
+        from datasets import load_dataset as hf_load_dataset
+        corpus_ds = hf_load_dataset("mteb/hotpotqa", "corpus", cache_dir=args.cache_dir)["corpus"]
+        corpus_titles = corpus_ds["title"]
+        corpus_texts = corpus_ds["text"]
 
-    print("Loading E5 embedding model ...")
-    embedder = E5Embedder()  # GPU if available, else CPU
+        print("Loading E5 embedding model ...")
+        embedder = E5Embedder()  # GPU if available, else CPU
 
-    print(f"Loading FAISS index from {args.index_dir} ...")
-    index = faiss.read_index(os.path.join(args.index_dir, "ivf.index"))
-    index.nprobe = args.nprobe
-    with open(os.path.join(args.index_dir, "docid_map.json")) as f:
-        docid_map: List[str] = json.load(f)
+        print(f"Loading FAISS index from {args.index_dir} ...")
+        index = faiss.read_index(os.path.join(args.index_dir, "ivf.index"))
+        index.nprobe = args.nprobe
+        with open(os.path.join(args.index_dir, "docid_map.json")) as f:
+            docid_map: List[str] = json.load(f)
 
     def _faiss_search(query, top_k):
         """Return (query_vec, [(score, doc_dict), ...]) from FAISS."""
@@ -257,6 +404,7 @@ def run_pipeline() -> None:
 
     print(f"Running initial retrieval for {num_questions} questions ...")
     states: List[_QState] = []
+    n_missing = 0
     for q_idx in range(num_questions):
         s = _QState()
         s.q_idx = q_idx
@@ -264,18 +412,39 @@ def run_pipeline() -> None:
         s.question_text = queries_ds[q_idx]["text"]
         s.search_state = None
 
-        k = MAX_INITIAL_DOCS_REPLACE_ONE if variant == VARIANT_REPLACE_ONE else args.top_k
-        fetch_k = k + 20 if is_search else k
-        qvec, candidates = _faiss_search(s.question_text, fetch_k)
+        if native_seed:
+            # Round-0 = the question's native distractor-setting context (2 gold + 8 distractors).
+            rec = native_records.get(s.query_id)
+            if rec is None:
+                n_missing += 1
+                continue
+            docs = native_context_docs(rec, gold_only=args.distractor_gold_only)
+            s.initial_corpus_docs = docs
+            s.current_docs = list(docs)
+            if variant == VARIANT_HYBRID and args.num_db_docs > 0:
+                s.current_docs = _select(docs, args.num_db_docs, args.db_doc_selection)
+            if is_search:
+                # Search universe = the native paragraphs (embedded), growing with generated docs.
+                qv = embedder.encode([s.question_text], prefix="query: ")[0]
+                if docs:
+                    dvecs = embedder.encode([d["text"] for d in docs], prefix="passage: ")
+                    candidates = [(float(sc), d) for sc, d in zip(dvecs @ qv, docs)]
+                else:
+                    candidates = []
+                s.search_state = CachedSearchState(query_vec=qv, corpus_candidates=candidates)
+        else:
+            k = MAX_INITIAL_DOCS_REPLACE_ONE if variant == VARIANT_REPLACE_ONE else args.top_k
+            fetch_k = k + 20 if is_search else k
+            qvec, candidates = _faiss_search(s.question_text, fetch_k)
 
-        s.initial_corpus_docs = [doc for _, doc in candidates[:k]]
-        s.current_docs = list(s.initial_corpus_docs)
+            s.initial_corpus_docs = [doc for _, doc in candidates[:k]]
+            s.current_docs = list(s.initial_corpus_docs)
 
-        if variant == VARIANT_HYBRID and args.num_db_docs > 0:
-            s.current_docs = _select(s.initial_corpus_docs, args.num_db_docs, args.db_doc_selection)
+            if variant == VARIANT_HYBRID and args.num_db_docs > 0:
+                s.current_docs = _select(s.initial_corpus_docs, args.num_db_docs, args.db_doc_selection)
 
-        if is_search:
-            s.search_state = CachedSearchState(query_vec=qvec, corpus_candidates=candidates)
+            if is_search:
+                s.search_state = CachedSearchState(query_vec=qvec, corpus_candidates=candidates)
 
         s.question_obj = {
             "question_id": q_idx,
@@ -287,16 +456,23 @@ def run_pipeline() -> None:
         if (q_idx + 1) % 100 == 0:
             print(f"  {q_idx + 1}/{num_questions}")
 
+    if native_seed and n_missing:
+        print(f"[native] {n_missing}/{num_questions} questions not found in the distractor file (skipped).")
+    if not states:
+        raise SystemExit("No questions to run — check that --native-hotpot-file (distractor setting) "
+                         "aligns with the query --split.")
     print(f"Initial retrieval done for {len(states)} questions.")
 
-    # Free FAISS index and corpus.
+    # Free FAISS index and corpus (faiss path only; the native path never loaded them).
     # For search: embedder stays on GPU to encode AI-generated docs each round.
     # For hybrid / replace_one: embedder is no longer needed.
-    del index, docid_map, corpus_ds, corpus_titles, corpus_texts
+    if not native_seed:
+        del index, docid_map, corpus_ds, corpus_titles, corpus_texts
     gc.collect()
 
     if not is_search:
-        del embedder
+        if embedder is not None:
+            del embedder
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -316,7 +492,7 @@ def run_pipeline() -> None:
     print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
     doc_llm, doc_model_name = build_llm(
-        model_mode="server",
+        model_mode=args.doc_model_mode,
         model_name=args.doc_model_name or args.model_name,
         temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
         max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
@@ -324,6 +500,69 @@ def run_pipeline() -> None:
         api_base=args.doc_vllm_api_base,
     )
     print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
+
+    controller = None
+    if inject_enabled:
+        controller = MisinfoController(
+            mode=args.doc_synthesis_mode,
+            target_mode=args.target_mode,
+            inject_round=args.inject_round,
+            inject_every_round=args.inject_every_round,
+            gt_file=args.gt_file,
+            doc_llm=doc_llm,
+            seed=args.seed,
+            native_file=args.native_hotpot_file,
+        )
+        print(f"[misinfo] mode={args.doc_synthesis_mode} target={args.target_mode} "
+              f"inject_round={args.inject_round} every={args.inject_every_round}", flush=True)
+        controller.prepare(states)
+        n_elig = sum(1 for s in states if controller.records[s.query_id].eligible)
+        print(f"[misinfo] prepared {len(states)} questions; {n_elig} eligible for injection.", flush=True)
+
+    # Round-0 distractors: corrupt a fraction of each question's initial docs IN PLACE,
+    # before the loop reads them. Independent of (and composable with) the controller above.
+    # The distractor model is SEPARATE from doc_llm (two-server style): a strong model seeds the
+    # round-0 distractors, while doc_llm (the answer model) builds the per-round AI docs.
+    distractor_llm = doc_llm
+    if distractor_enabled and args.distractor_model_name:
+        _dist_max_tokens = (
+            args.distractor_max_tokens if args.distractor_max_tokens is not None
+            else (args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens)
+        )
+        distractor_llm, distractor_model_name = build_llm(
+            model_mode=args.distractor_model_mode or "api",
+            model_name=args.distractor_model_name,
+            temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
+            max_tokens=_dist_max_tokens,
+            top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
+            api_base=args.distractor_vllm_api_base,
+        )
+        print(f"[Distractor LLM] Connected. Served model: "
+              f"{getattr(distractor_llm, 'served_model_name', distractor_model_name)}", flush=True)
+
+    distractor_controller = None
+    if distractor_enabled:
+        distractor_controller = DistractorController(
+            mode=args.distractor_mode,
+            fraction=args.distractor_fraction,
+            gt_file=args.gt_file,
+            doc_llm=distractor_llm,
+            seed=args.seed,
+            native_file=args.native_hotpot_file,
+            avoid_gold=args.distractor_avoid_gold,
+            num_topics=args.distractor_num_topics,
+            docs_per_topic=args.distractor_docs_per_topic,
+        )
+        if equal_mode:
+            print(f"[distractor] mode={args.distractor_mode} "
+                  f"num_topics={args.distractor_num_topics} docs_per_topic={args.distractor_docs_per_topic}",
+                  flush=True)
+        else:
+            print(f"[distractor] mode={args.distractor_mode} fraction={args.distractor_fraction}", flush=True)
+        distractor_controller.prepare_and_apply(states)
+        d_elig = sum(1 for s in states if distractor_controller.records[s.query_id].eligible)
+        d_docs = sum(distractor_controller.records[s.query_id].n_corrupted for s in states)
+        print(f"[distractor] {d_elig}/{len(states)} questions corrupted; {d_docs} distractor docs.", flush=True)
 
     meta: Dict[str, Any] = {
         "model": resolved_model_name,
@@ -335,12 +574,24 @@ def run_pipeline() -> None:
         "num_runs_per_iteration": num_runs,
         "top_k": args.top_k,
         "nprobe": args.nprobe,
+        "shuffle_per_run": args.shuffle_per_run,
     }
+    if native_seed:
+        meta["initial_docs"] = args.initial_docs
+        meta["native_hotpot_file"] = args.native_hotpot_file
+        meta["distractor_gold_only"] = args.distractor_gold_only
     if variant == VARIANT_HYBRID:
         meta["num_synth_docs"] = args.num_synth_docs
         meta["num_db_docs"] = args.num_db_docs
         meta["db_doc_selection"] = args.db_doc_selection
         meta["synth_doc_selection"] = args.synth_doc_selection
+    if controller is not None:
+        meta.update(controller.metadata())
+        meta["gt_file"] = args.gt_file
+        meta["native_hotpot_file"] = args.native_hotpot_file
+    if distractor_controller is not None:
+        meta.update(distractor_controller.metadata())
+        meta["gt_file"] = args.gt_file
 
     experiments: Dict[str, Any] = {"experiment_metadata": meta, "questions": []}
 
@@ -350,13 +601,35 @@ def run_pipeline() -> None:
         # --- Step 1: batch answer generation ---
         batch_conversations: List[List[Dict[str, str]]] = []
         for s in states:
-            conv = build_rag_conversation(
-                question=s.question_text,
-                docs=s.current_docs,
-                chars_per_doc=chars_per_doc,
-                shuffle_docs=True,
-            )
-            batch_conversations.extend([conv] * num_runs)
+            if args.shuffle_per_run:
+                # shuffled-diverse-synth: every run sees the SAME docs but in a DIFFERENT,
+                # seeded order (re-shuffled per round) — isolates context-position effects.
+                for docs_r in per_run_shuffled_docs(
+                        s.current_docs, num_runs, args.seed, s.query_id, it):
+                    batch_conversations.append(build_rag_conversation(
+                        question=s.question_text,
+                        docs=docs_r,
+                        chars_per_doc=chars_per_doc,
+                        shuffle_docs=False,   # order already fixed per run above
+                    ))
+            elif args.distractor_per_run:
+                # Option A: each run sees clean/gold docs + ONE rotating distractor → diverse
+                # round-0 answers across runs (instead of all runs sharing one context).
+                for docs_r in per_run_doc_subsets(s.current_docs, num_runs):
+                    batch_conversations.append(build_rag_conversation(
+                        question=s.question_text,
+                        docs=docs_r,
+                        chars_per_doc=chars_per_doc,
+                        shuffle_docs=True,
+                    ))
+            else:
+                conv = build_rag_conversation(
+                    question=s.question_text,
+                    docs=s.current_docs,
+                    chars_per_doc=chars_per_doc,
+                    shuffle_docs=True,
+                )
+                batch_conversations.extend([conv] * num_runs)
 
         print(f"[Iter {it}/{num_iterations}] Sending {len(batch_conversations)} answer requests "
               f"({len(states)} question(s) × {num_runs} runs)...", flush=True)
@@ -398,9 +671,12 @@ def run_pipeline() -> None:
             else:
                 ans_for_docs = [random.choice(answers)]
             for a in ans_for_docs:
-                doc_batch.append(get_create_document_conversation(
-                    question=s.question_text, answer=a,
-                ))
+                if controller is not None:
+                    doc_batch.append(controller.make_doc_conversation(s, a, it))
+                else:
+                    doc_batch.append(get_create_document_conversation(
+                        question=s.question_text, answer=a,
+                    ))
             docs_per_q.append(len(ans_for_docs))
 
         print(f"[Iter {it}/{num_iterations}] Creating {len(doc_batch)} documents...", flush=True)
@@ -409,10 +685,14 @@ def run_pipeline() -> None:
 
         # --- Step 4: update docs for next round ---
         offset = 0
+        synth_records: List[Tuple[Any, List[str], List[str]]] = []
         for i, s in enumerate(states):
             n = docs_per_q[i]
             doc_texts = all_doc_texts[offset:offset + n]
             offset += n
+            synth_records.append(
+                (s, doc_texts, [f"gen_{it + 1}_{j}" for j in range(n)])
+            )
 
             if is_search:
                 new_doc = _answers_to_docs([doc_texts[0]], iteration=it + 1)[0]
@@ -436,6 +716,14 @@ def run_pipeline() -> None:
                     db_selection=args.db_doc_selection,
                 )
 
+        if controller is not None:
+            controller.record_injection(synth_records, it)
+
+    if controller is not None:
+        controller.attach(states)
+    if distractor_controller is not None:
+        distractor_controller.attach(states)
+
     for s in states:
         experiments["questions"].append(s.question_obj)
 
@@ -450,6 +738,11 @@ def run_pipeline() -> None:
         doc_llm.shutdown()
     except Exception:
         pass
+    if distractor_llm is not doc_llm:
+        try:
+            distractor_llm.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

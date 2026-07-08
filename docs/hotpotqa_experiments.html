@@ -1,0 +1,586 @@
+<title>HotpotQA Experiment Suite</title>
+<style>
+  :root{
+    --ground:#111524;
+    --surface:#1a2034;
+    --surface-2:#222a42;
+    --text:#e7e9f2;
+    --dim:#9aa0b8;
+    --faint:#6b7290;
+    --line:rgba(231,233,242,0.10);
+    --gold:#e8b23a;        /* truth / gold answer / faithful */
+    --violet:#b45cf0;      /* corruption / distractor / drift */
+    --leak:#e0696b;        /* failure / gold-leak — used sparingly */
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(232,178,58,0.35)}
+  a:hover{border-bottom-color:var(--gold)}
+  h1,h2,h3{line-height:1.12;letter-spacing:-0.015em;margin:0}
+  code{font-family:var(--mono);font-size:0.88em;background:var(--surface-2);
+    padding:0.12em 0.4em;border-radius:4px;color:#d9dcee}
+  .eyebrow{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.22em;
+    text-transform:uppercase;color:var(--faint)}
+  .secnum{font-family:var(--mono);font-size:0.78rem;letter-spacing:0.2em;color:var(--gold);
+    text-transform:uppercase}
+  .lede{font-size:1.12rem;color:var(--dim);max-width:62ch}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:3px}
+
+  /* ---------- hero ---------- */
+  header.hero{position:relative;border-bottom:1px solid var(--line);overflow:hidden}
+  #field{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hero-inner{position:relative;max-width:var(--maxw);margin:0 auto;padding:104px 24px 88px;z-index:2}
+  .hero h1{font-size:clamp(2.4rem,6vw,4.3rem);font-weight:800}
+  .hero h1 .g{color:var(--gold)} .hero h1 .v{color:var(--violet)}
+  .hero p.kick{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.24em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 20px}
+  .hero .lede{margin-top:22px;font-size:clamp(1rem,2.2vw,1.22rem)}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:30px;font-family:var(--mono);
+    font-size:0.74rem;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+  /* ---------- sections ---------- */
+  section{padding:72px 0;border-bottom:1px solid var(--line)}
+  .sechead{display:flex;flex-direction:column;gap:12px;margin-bottom:30px}
+  .sechead h2{font-size:clamp(1.6rem,3.6vw,2.3rem);font-weight:750}
+
+  /* loop steps */
+  .loop{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:10px 0 26px}
+  .step{flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:16px 16px}
+  .step .n{font-family:var(--mono);font-size:0.7rem;color:var(--gold);letter-spacing:0.12em}
+  .step h4{margin:6px 0 4px;font-size:0.98rem}
+  .step p{margin:0;font-size:0.84rem;color:var(--dim)}
+  .arrow{align-self:center;color:var(--faint);font-size:1.2rem;flex:0 0 auto}
+
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card .rounds{font-family:var(--mono);font-weight:700;font-size:1.7rem;color:var(--gold)}
+  .card .rounds span{font-size:0.6rem;letter-spacing:0.16em;color:var(--faint);
+    display:block;text-transform:uppercase}
+  .card .rname{font-family:var(--mono);margin:8px 0 6px;color:var(--text);font-size:0.96rem}
+  .card p{margin:0;font-size:0.86rem;color:var(--dim)}
+
+  .callout{border-left:3px solid var(--gold);background:rgba(232,178,58,0.06);
+    padding:14px 18px;border-radius:0 10px 10px 0;color:#dfe2f0;font-size:0.94rem;margin-top:8px}
+  .callout.v{border-left-color:var(--violet);background:rgba(180,92,240,0.07)}
+  .callout strong{color:var(--text)}
+
+  /* tabs */
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 0}
+  .tab{font-family:var(--mono);font-size:0.84rem;background:var(--surface);color:var(--dim);
+    border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer;
+    transition:.16s}
+  .tab .pip{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;
+    background:var(--gold);vertical-align:middle}
+  .tab.v .pip{background:var(--violet)}
+  .tab[aria-selected="true"]{color:var(--text);border-color:var(--gold);background:var(--surface-2)}
+  .tab.v[aria-selected="true"]{border-color:var(--violet)}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:22px;margin-top:14px;min-height:120px}
+  .panel .tag{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.14em;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;border:1px solid var(--line)}
+  .tag.gold{color:var(--gold);border-color:rgba(232,178,58,0.4)}
+  .tag.viol{color:var(--violet);border-color:rgba(180,92,240,0.4)}
+  .panel h4{margin:14px 0 6px;font-size:1.05rem}
+  .panel p{margin:6px 0;color:var(--dim);font-size:0.92rem}
+  .panel .gt{font-family:var(--mono);font-size:0.82rem;color:#cfd3e6;background:var(--ground);
+    border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:10px}
+  .ex{font-family:var(--mono);font-size:0.8rem;color:#cfd3e6;background:var(--ground);
+    border:1px dashed var(--line);border-radius:8px;padding:12px;margin-top:10px;line-height:1.7}
+  .strike{color:var(--faint);text-decoration:line-through}
+  .bad{color:var(--violet);font-weight:600}
+  .good{color:var(--gold);font-weight:600}
+
+  /* timeline */
+  .tl-ctrl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);
+    font-size:0.82rem;color:var(--dim);margin:4px 0 16px}
+  .tl-btns{display:inline-flex;gap:6px}
+  .tl-btn{font-family:var(--mono);background:var(--surface);border:1px solid var(--line);color:var(--dim);
+    width:38px;height:34px;border-radius:8px;cursor:pointer}
+  .tl-btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--surface-2)}
+  .rounds-row{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:12px}
+  .rd{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 4px;text-align:center}
+  .rd .rn{font-family:var(--mono);font-size:0.6rem;color:var(--faint)}
+  .rd .ic{font-size:1rem;margin:2px 0}
+  .rd .st{font-family:var(--mono);font-size:0.54rem;color:var(--dim);line-height:1.25}
+  .rd.clean{border-color:rgba(232,178,58,0.5)} .rd.clean .ic{color:var(--gold)}
+  .rd.inject{border-color:rgba(180,92,240,0.55);background:rgba(180,92,240,0.08)} .rd.inject .ic{color:var(--violet)}
+  .rd.contam .ic{color:var(--violet)}
+  .tl-note{font-size:0.9rem;color:var(--dim);margin:0}
+  .tl-note b{color:var(--text)}
+
+  /* tables */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:14px}
+  table{border-collapse:collapse;width:100%;min-width:460px;font-size:0.9rem}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--faint);background:var(--surface)}
+  tr:last-child td{border-bottom:none}
+  td code{white-space:nowrap}
+  .num{font-family:var(--mono);color:var(--gold)}
+
+  /* details */
+  details{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:var(--surface);overflow:hidden}
+  summary{cursor:pointer;padding:15px 18px;font-family:var(--mono);font-size:0.86rem;color:var(--text);
+    list-style:none;display:flex;justify-content:space-between;align-items:center}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{color:var(--faint);transition:.2s}
+  details[open] summary .chev{transform:rotate(90deg);color:var(--gold)}
+  .det-body{padding:0 18px 18px}
+  pre{font-family:var(--mono);font-size:0.78rem;background:var(--ground);border:1px solid var(--line);
+    border-radius:8px;padding:14px;overflow-x:auto;line-height:1.55;color:#cfd3e6;margin:4px 0 0}
+  pre .k{color:var(--gold)} pre .v{color:var(--violet)} pre .c{color:var(--faint)} pre .s{color:#8fd6c2}
+  .pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .pill{font-family:var(--mono);font-size:0.72rem;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .pill.ok{color:var(--gold);border-color:rgba(232,178,58,0.4)}
+  .pill.bad{color:var(--leak);border-color:rgba(224,105,107,0.4)}
+
+  /* results / findings */
+  .results{background:linear-gradient(180deg,rgba(180,92,240,0.05),rgba(232,178,58,0.03));
+    border:1px solid var(--line);border-radius:16px;padding:24px}
+  .badge-smoke{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.14em;text-transform:uppercase;
+    color:var(--leak);border:1px solid rgba(224,105,107,0.45);border-radius:999px;padding:3px 10px}
+  .curves{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:18px}
+  .curve{background:var(--ground);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .curve .lab{font-family:var(--mono);font-size:0.74rem;color:var(--dim)}
+  .curve .vals{font-family:var(--mono);font-size:1.05rem;margin-top:4px}
+  .curve .vals .a{color:var(--dim)} .curve .vals .b{color:var(--gold)}
+  .curve.drift .vals .b{color:var(--violet)}
+  .bar{height:6px;border-radius:3px;background:var(--surface-2);margin-top:10px;position:relative;overflow:hidden}
+  .bar i{position:absolute;top:0;left:0;height:100%;border-radius:3px;background:var(--gold)}
+  .curve.drift .bar i{background:var(--violet)}
+  .takeaway{font-size:0.94rem;color:#dfe2f0;margin-top:18px}
+  .takeaway b{color:var(--text)}
+
+  .src{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px}
+  .srcitem{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:0.86rem}
+  .srcitem .v-tag{font-family:var(--mono);font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;
+    padding:2px 7px;border-radius:999px;margin-right:6px}
+  .v-web{color:#8fd6c2;border:1px solid rgba(143,214,194,0.4)}
+  .v-mem{color:var(--faint);border:1px solid var(--line)}
+  .srcitem p{margin:8px 0 0;color:var(--dim);font-size:0.8rem}
+
+  footer{padding:40px 0 60px;color:var(--faint);font-family:var(--mono);font-size:0.74rem}
+  @media (max-width:560px){.rounds-row{grid-template-columns:repeat(4,1fr)}}
+</style>
+
+<header class="hero">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <p class="kick">Recursive RAG · HotpotQA · error compounding &amp; answer diversity</p>
+    <h1>When a model reads its <span class="g">own answers</span>, does the truth <span class="v">drift</span>?</h1>
+    <p class="lede">A suite of experiments that feed a model's answers back as retrieved context, round
+      after round, and measure whether the answer distribution stays pinned to the gold answer —
+      or concentrates, shifts, and wanders toward a wrong attractor.</p>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--gold)"></i> gold answer · faithful · truth</span>
+      <span><i class="dot" style="background:var(--violet)"></i> distractor · injection · drift</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 01 BASE LOOP -->
+  <section id="loop">
+    <div class="sechead">
+      <span class="secnum">01 / The recursive loop</span>
+      <h2>Answers become documents become context</h2>
+      <p class="lede">Each round retrieves the top-k=10 passages from a FAISS index over Wikipedia
+        (E5-small-v2 embeddings), the model answers, its answer is condensed into a synthetic
+        "document," and that document is fed back into the next round's context.</p>
+    </div>
+
+    <div class="loop">
+      <div class="step"><div class="n">RETRIEVE</div><h4>top-k = 10</h4><p>FAISS / E5 over a Wikipedia corpus.</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="n">ANSWER</div><h4>model reads context</h4><p>num_runs samples per question.</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="n">SYNTHESIZE</div><h4>answer → document</h4><p>a doc-LLM condenses the answer.</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="n">RE-CONTEXT</div><h4>doc re-enters</h4><p>tagged <code>model_generated</code>, retrieved next round.</p></div>
+      <div class="arrow">↺</div>
+    </div>
+
+    <div class="grid3">
+      <div class="card"><div class="rounds">30 <span>rounds</span></div><div class="rname">search</div>
+        <p>A growing vector store. Each round re-retrieves top-k, so synthetic docs compete with the corpus.</p></div>
+      <div class="card"><div class="rounds">20 <span>rounds</span></div><div class="rname">replace_one</div>
+        <p>One document slot is swapped for a freshly synthesized doc each round; the rest carries over.</p></div>
+      <div class="card"><div class="rounds">10 <span>rounds</span></div><div class="rname">hybrid <span style="display:inline;color:var(--faint);font-size:0.7rem">/ replace_all</span></div>
+        <p>The whole context is replaced by docs synthesized from the prior round's answers.</p></div>
+    </div>
+
+    <div class="callout"><strong>The confound this suite removes.</strong> By default the synthesizer writes a
+      <em>faithful</em> condensation of the <em>correct</em> answer — handing later rounds the answer
+      pre-assembled, which masks degradation. The two experiments below replace or perturb that step.</div>
+  </section>
+
+  <!-- 02 MISINFO -->
+  <section id="misinfo">
+    <div class="sechead">
+      <span class="secnum">02 / Error compounding</span>
+      <h2>Injecting misinformation into the synthesis step</h2>
+      <p class="lede">Instead of condensing the correct answer, the synthesizer can plant a falsehood in
+        the document it writes — then we track whether the seeded error <span style="color:var(--violet)">propagates</span>,
+        <span style="color:var(--violet)">amplifies</span>, or is <span style="color:var(--gold)">corrected</span> once re-retrieved.
+        A distinct construct from diversity collapse: this measures convergence toward a <em>wrong attractor</em>.</p>
+    </div>
+
+    <p class="eyebrow">synthesis mode — <code>--doc-synthesis-mode</code></p>
+    <div class="tabs" role="tablist" aria-label="synthesis modes" id="modeTabs">
+      <button class="tab" role="tab" aria-selected="true" data-k="faithful"><span class="pip"></span>faithful</button>
+      <button class="tab v" role="tab" aria-selected="false" data-k="counterfactual"><span class="pip"></span>counterfactual</button>
+      <button class="tab v" role="tab" aria-selected="false" data-k="freeform"><span class="pip"></span>freeform</button>
+    </div>
+    <div class="panel" id="modePanel" aria-live="polite"></div>
+
+    <p class="eyebrow" style="margin-top:30px">distractor target — <code>--target-mode</code></p>
+    <div class="tabs" role="tablist" aria-label="targets" id="targetTabs">
+      <button class="tab v" role="tab" aria-selected="true" data-k="final_answer"><span class="pip"></span>final_answer</button>
+      <button class="tab v" role="tab" aria-selected="false" data-k="intermediate_hop"><span class="pip"></span>intermediate_hop</button>
+      <button class="tab" role="tab" aria-selected="false" data-k="untargeted"><span class="pip"></span>untargeted</button>
+    </div>
+    <div class="panel" id="targetPanel" aria-live="polite"></div>
+
+    <p class="eyebrow" style="margin-top:30px">injection timing — <code>--inject-round</code></p>
+    <p class="lede" style="margin:6px 0 14px">A doc synthesized at the end of round <code>it</code> first enters
+      context at round <code>it+1</code>. Pick a round and watch the contamination front move.</p>
+    <div class="tl-ctrl">
+      <span>--inject-round</span>
+      <div class="tl-btns" id="injBtns" role="group" aria-label="injection round">
+        <button class="tl-btn" data-r="0">0</button>
+        <button class="tl-btn" data-r="1" aria-pressed="true">1</button>
+        <button class="tl-btn" data-r="2">2</button>
+        <button class="tl-btn" data-r="3">3</button>
+      </div>
+      <span style="color:var(--gold)">default = 1</span>
+    </div>
+    <div class="rounds-row" id="roundsRow"></div>
+    <p class="tl-note" id="tlNote"></p>
+
+    <details>
+      <summary>Injection record &amp; metrics <span class="chev">▸</span></summary>
+      <div class="det-body">
+        <p class="lede" style="font-size:0.92rem">Per question, schema-additive (absent in faithful runs):</p>
+<pre><span class="k">"injection"</span>: {
+  <span class="k">"mode"</span>: <span class="v">"counterfactual"</span>, <span class="k">"target"</span>: <span class="s">"final_answer"</span>, <span class="k">"inject_round"</span>: 1, <span class="k">"seed"</span>: 42,
+  <span class="k">"gold_answer"</span>: <span class="s">"Providence"</span>, <span class="k">"eligible"</span>: true, <span class="k">"status"</span>: <span class="s">"ok"</span>,
+  <span class="k">"injected_entity"</span>: <span class="v">"Newport"</span>, <span class="k">"injected_doc_ids"</span>: [<span class="v">"gen_2_0"</span>],
+  <span class="k">"discovered_claims"</span>: null, <span class="c">// freeform</span>  <span class="k">"bridge_entity"</span>: null, <span class="k">"implied_answer"</span>: null <span class="c">// hop</span>
+}</pre>
+        <div class="pills">
+          <span class="pill ok">ok</span><span class="pill">leaky_gold</span><span class="pill">not_realized</span>
+          <span class="pill">gold_absent_in_answer</span><span class="pill">no_valid_substitute</span>
+          <span class="pill">no_error_produced</span><span class="pill">skipped_*</span>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>metric</th><th>meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>injected_match_rate</code> <span class="num">(ASR)</span></td><td>fraction of runs adopting the injected entity (generation condition)</td></tr>
+              <tr><td><code>gold_match_rate</code></td><td>fraction still matching gold — recovery signal</td></tr>
+              <tr><td><code>retrieval_condition</code></td><td>injected doc id present in this round's context (PoisonedRAG retrieval condition)</td></tr>
+              <tr><td><code>doc_propagation</code></td><td>injected entity reappears in a newly synthesized doc</td></tr>
+              <tr><td><code>implied_match_rate</code></td><td>hop only: matches the derived implied-wrong answer</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lede" style="font-size:0.86rem;margin-top:12px">Aggregates: <code>asr_by_iteration</code>,
+          <code>gold_match_by_iteration</code>, <code>retrieval_condition_by_iteration</code>,
+          <code>doc_propagation_by_iteration</code>, <code>adoption_rate</code>, mean time-to-adoption, recovery rate.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- 03 DISTRACTORS -->
+  <section id="distractor">
+    <div class="sechead">
+      <span class="secnum">03 / Round-0 diverse distractors</span>
+      <h2>Widening the start so drift becomes observable</h2>
+      <p class="lede">Factual QA begins as a narrow spike on the gold answer, so a loop whose fixed point
+        is the truth can't drift. This knob corrupts a fraction of each question's
+        <em>round-0 retrieved</em> documents into wrong-answer distractors — moving the start off-gold —
+        independent of, and composable with, the injection above.</p>
+    </div>
+
+    <div class="callout v"><strong>Diverse by design.</strong> Each corrupted doc gets its <em>own distinct
+      falsehood</em>, not one shared wrong entity — to simulate the spread of independently-hallucinated
+      AI documents and the answer diversity that produces. Frame collapse as two axes:
+      <em>concentration</em> (the distribution narrows) and <em>shift</em> (the mode moves). This knob seeds width at the start; the loop reveals the shift.</div>
+
+    <p class="eyebrow" style="margin-top:26px">distractor mode — <code>--distractor-mode</code></p>
+    <div class="tabs" role="tablist" aria-label="distractor modes" id="distTabs">
+      <button class="tab v" role="tab" aria-selected="true" data-k="rewrite"><span class="pip"></span>rewrite</button>
+      <button class="tab v" role="tab" aria-selected="false" data-k="substitution"><span class="pip"></span>substitution</button>
+      <button class="tab" role="tab" aria-selected="false" data-k="native_noise"><span class="pip"></span>native_noise</button>
+    </div>
+    <div class="panel" id="distPanel" aria-live="polite"></div>
+
+    <details>
+      <summary>initial_distractor record &amp; diverse-aware metrics <span class="chev">▸</span></summary>
+      <div class="det-body">
+        <p class="lede" style="font-size:0.92rem">A per-question <b>list</b> — one entry per corrupted doc
+          (each carries its own distinct seeded entity):</p>
+<pre><span class="k">"initial_distractor"</span>: {
+  <span class="k">"fraction"</span>: 0.5, <span class="k">"mode"</span>: <span class="v">"rewrite"</span>, <span class="k">"gold_answer"</span>: <span class="s">"Providence"</span>,
+  <span class="k">"eligible"</span>: true, <span class="k">"n_docs"</span>: 10, <span class="k">"n_corrupted"</span>: 5, <span class="k">"status"</span>: <span class="s">"ok"</span>,
+  <span class="k">"distractors"</span>: [
+    {<span class="k">"doc_id"</span>: <span class="v">"corpus_41"</span>, <span class="k">"injected_entity"</span>: <span class="v">"Newport"</span>, <span class="k">"status"</span>: <span class="s">"ok"</span>},
+    {<span class="k">"doc_id"</span>: <span class="v">"corpus_88"</span>, <span class="k">"injected_entity"</span>: <span class="v">"Cranston"</span>, <span class="k">"status"</span>: <span class="s">"ok"</span>} <span class="c">// distinct → diverse</span>
+  ]
+}</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>metric (in distractor_aggregates)</th><th>meaning</th></tr></thead>
+            <tbody>
+              <tr><td><code>gold_match_rate</code></td><td>accuracy / recovery — should drop if distractors mislead</td></tr>
+              <tr><td><code>distractor_adoption_rate</code></td><td>fraction adopting <em>any</em> seeded wrong entity</td></tr>
+              <tr><td><code>distinct_answers</code></td><td><span class="num">headline diversity signal</span> — distinct normalized answers this round</td></tr>
+              <tr><td><code>offtarget_rate</code></td><td>off-gold <em>and</em> off-every-seeded-entity (genuinely wandered)</td></tr>
+              <tr><td><code>distractor_retrieval_condition</code></td><td>a distractor doc present in this round's context</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- 04 RESULTS -->
+  <section id="results">
+    <div class="sechead">
+      <span class="secnum">04 / First evidence</span>
+      <h2 style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">Qwen2.5-14B distractor run <span class="badge-smoke">preliminary smoke</span></h2>
+      <p class="lede"><code>search</code> variant · 20 questions · num_runs=10 · <code>--distractor-fraction 0.5</code> ·
+        faithful synthesis arm. The plumbing works end-to-end; the result is a finding about distractor
+        <em>effectiveness</em>, not yet a measurement of collapse.</p>
+    </div>
+
+    <div class="results">
+      <div class="tablewrap" style="margin-top:0">
+        <table>
+          <thead><tr><th>signal</th><th>value</th><th>reading</th></tr></thead>
+          <tbody>
+            <tr><td>eligible questions</td><td class="num">15 / 20</td><td>5 skipped (yes/no answers)</td></tr>
+            <tr><td>corrupted-doc sub-records</td><td class="num">75</td><td>15 × 5 docs (fraction 0.5 of top-k=10)</td></tr>
+            <tr><td>per-doc status</td><td class="num">53 ok · 22 no_error</td><td>the 7B rewrite often produced no discoverable wrong claim</td></tr>
+            <tr><td>empty <code>injected_entity</code></td><td class="num">37 / 75</td><td>~half the corruptions carry no usable wrong answer</td></tr>
+            <tr><td style="color:var(--leak)">gold-leak (<code>injected_entity == gold</code>)</td><td class="num" style="color:var(--leak)">13 / 75</td><td>failed distractors that also inflate adoption</td></tr>
+            <tr><td>distinct <em>real</em> wrong entities / question</td><td class="num">mean 1.33</td><td>min 0, max 3 · 12/15 with ≥1 (of 5 corrupted)</td></tr>
+            <tr><td>answers generated</td><td class="num">6000</td><td>0 byte-artifacts · 0 empty (clean)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="curves">
+        <div class="curve"><div class="lab">gold_match · r0→r29</div>
+          <div class="vals"><span class="a">0.200</span> → <span class="b">0.200</span></div>
+          <div class="bar"><i style="width:20%"></i></div><div class="lab" style="margin-top:6px">flat — distractors aren't moving it</div></div>
+        <div class="curve drift"><div class="lab">distractor_adoption · r0→r29</div>
+          <div class="vals"><span class="a">0.667</span> → <span class="b">0.533</span></div>
+          <div class="bar"><i style="width:53%"></i></div><div class="lab" style="margin-top:6px">inflated by gold-leak</div></div>
+        <div class="curve drift"><div class="lab">distinct_answers · r0→r29</div>
+          <div class="vals"><span class="a">1.4</span> → <span class="b">1.2</span></div>
+          <div class="bar"><i style="width:28%"></i></div><div class="lab" style="margin-top:6px">low diversity so far</div></div>
+        <div class="curve drift"><div class="lab">offtarget · r0→r29</div>
+          <div class="vals"><span class="a">0.333</span> → <span class="b">0.467</span></div>
+          <div class="bar"><i style="width:47%"></i></div><div class="lab" style="margin-top:6px">slight wander over rounds</div></div>
+      </div>
+
+      <p class="takeaway"><b>Honest read:</b> the feature runs end-to-end and writes correct, diverse records —
+        but on hard multi-hop questions the 7B rewrite distractor lands on only ~⅓ of corrupted docs and
+        sometimes re-asserts the gold, so it isn't yet shifting the distribution. <b>Planned fixes:</b>
+        exclude gold-leak from the seeded set, and fall back to <code>substitution</code> for docs where
+        rewrite produces no usable wrong answer — guaranteeing every corrupted doc becomes a real, diverse distractor.</p>
+    </div>
+  </section>
+
+  <!-- 05 SOURCES -->
+  <section id="sources">
+    <div class="sechead">
+      <span class="secnum">05 / Sources</span>
+      <h2>Where the ideas and numbers come from</h2>
+    </div>
+    <div class="src">
+      <div class="srcitem"><span class="v-tag v-web">web-verified</span><b>HotpotQA</b> — Yang et al. 2018, <a href="https://arxiv.org/abs/1809.09600">arXiv:1809.09600</a>.<p>Multi-hop QA; the dataset this suite runs on.</p></div>
+      <div class="srcitem"><span class="v-tag v-web">web-verified</span><b>Distractor format</b> — <a href="https://github.com/hotpotqa/hotpot">github.com/hotpotqa/hotpot</a>.<p>2 gold + 8 TF-IDF distractor paragraphs; <code>context = [title,[sents]]</code>.</p></div>
+      <div class="srcitem"><span class="v-tag v-web">web-verified</span><b>vLLM detok issue</b> — <a href="https://github.com/vllm-project/vllm/issues/12954">#12954</a> · <a href="https://github.com/vllm-project/vllm/issues/19222">#19222</a> · <a href="https://github.com/vllm-project/vllm/issues/24459">#24459</a>.<p>deepseek_r1 reasoning-parser garbling we hit and worked around.</p></div>
+      <div class="srcitem"><span class="v-tag v-mem">from-memory</span><b>Model collapse</b> — Shumailov et al., "The Curse of Recursion."<p>Training on recursively-generated data compounds error / narrows diversity.</p></div>
+      <div class="srcitem"><span class="v-tag v-mem">from-memory</span><b>Hallucination snowballing</b> — Zhang et al.<p>Intra-generation analog of compounding error.</p></div>
+      <div class="srcitem"><span class="v-tag v-mem">from-memory</span><b>Entity-substitution knowledge conflicts</b> — Longpre et al. 2021.<p>The counterfactual / substitution method's lineage.</p></div>
+      <div class="srcitem"><span class="v-tag v-mem">from-memory</span><b>PoisonedRAG</b> — Zou et al. 2024.<p>Retrieval-vs-generation conditions for corpus poisoning.</p></div>
+    </div>
+    <p class="lede" style="font-size:0.82rem;margin-top:16px"><span class="v-tag v-mem" style="font-family:var(--mono)">from-memory</span>
+      items are recalled, not re-fetched in this build — verify titles/years before citing in a paper.</p>
+  </section>
+
+  <footer>HotpotQA experiment suite · recursive RAG collapse, error compounding &amp; answer diversity ·
+    flag &amp; metric names mirror <code>hotpot_pipeline.py</code> / <code>pipeline/misinfo.py</code> / <code>hotpot_evaluation.py</code>.</footer>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- tab content ---------- */
+  var MODES={
+    faithful:{tag:"control",cls:"gold",
+      gt:"Ground truth: — (no injection). Byte-identical to the existing pipeline.",
+      doc:'Brown University sits in <span class="good">Providence</span>, the capital of Rhode Island.',
+      note:"The synthesizer condenses the correct answer. Exists so any drift in a treatment arm is attributable to the falsehood and nothing else."},
+    counterfactual:{tag:"treatment",cls:"viol",
+      gt:"Ground truth: exact — the injected entity. A judge proposes K=5 same-type candidates; a seeded pick chooses one.",
+      doc:'Brown University sits in <span class="strike">Providence</span> <span class="bad">Newport</span>, the capital of Rhode Island.',
+      note:"The gold entity is swapped for a same-type wrong entity before synthesis. Treatment and control then differ only in that one entity."},
+    freeform:{tag:"treatment",cls:"viol",
+      gt:"Ground truth: LLM-judged — a discovery judge extracts what the synthesizer actually injected.",
+      doc:'Brown University sits in <span class="good">Providence</span>. <span class="bad">Its metro population now exceeds three million.</span>',
+      note:"The synthesizer invents one plausible false claim and keeps everything else accurate; a judge records the claim as trackable ground truth."}
+  };
+  var TARGETS={
+    final_answer:{tag:"default",cls:"viol",
+      gt:'Corrupts the <span class="good">gold answer</span> entity. Needs only the gold answer (<code>--gt-file</code>).',
+      doc:'The capital of the state where Brown is located is <span class="strike">Providence</span> <span class="bad">Newport</span>.',
+      note:"Does a wrong final answer, laundered into a doc, get re-adopted?"},
+    intermediate_hop:{tag:"treatment",cls:"viol",
+      gt:'Corrupts a <span class="bad">bridge entity</span> mid-chain. Needs <code>--native-hotpot-file</code>; bridge-only cohort — spot-check before trusting <code>implied_match_rate</code>.',
+      doc:'Brown is located in <span class="strike">Rhode Island</span> <span class="bad">New Hampshire</span>. → implied answer drifts to <span class="bad">Concord</span> — an error never written into the doc.',
+      note:"Compounding is the point: the doc never states a wrong final answer, yet the model may infer one."},
+    untargeted:{tag:"control",cls:"gold",
+      gt:'Inserts one <span class="good">answer-irrelevant</span> false detail; the answer stays correct.',
+      doc:'Brown sits in <span class="good">Providence</span>, <span class="bad">incorporated in 1622.</span> (The answer, Providence, is untouched.)',
+      note:'Separates "any falsehood destabilizes" from "only answer-relevant falsehoods do."'}
+  };
+  var DIST={
+    rewrite:{tag:"default",cls:"viol",
+      gt:"Most naturalistic. The doc-LLM rewrites each passage to imply its OWN invented wrong answer — independent per doc, so falsehoods differ.",
+      doc:'Passage rewritten so doc A implies <span class="bad">Newport</span>, doc B implies <span class="bad">Cranston</span>, doc C implies <span class="bad">Warwick</span> — diverse.',
+      note:"Smoke finding: with a 7B doc-LLM this lands on only ~⅓ of docs and can re-assert gold — hence the planned substitution fallback."},
+    substitution:{tag:"exact GT",cls:"viol",
+      gt:"A distinct same-type wrong entity per doc (reuses the substitute judge). Exact ground truth; the most reliable diversity.",
+      doc:'Gold <span class="strike">Providence</span> replaced per-doc by distinct entities: <span class="bad">Newport</span> / <span class="bad">Cranston</span> / <span class="bad">Warwick</span>.',
+      note:"Deterministic, seeded, guaranteed distinct — every corrupted doc becomes a real distractor."},
+    native_noise:{tag:"control",cls:"gold",
+      gt:"Real non-answer HotpotQA paragraphs (needs <code>--native-hotpot-file</code>). No asserted wrong answer — pure off-topic noise.",
+      doc:'Round-0 docs replaced by real, unrelated passages that <span class="good">lack the answer</span> rather than assert a wrong one.',
+      note:"Control: does any irrelevant context widen the start, or only answer-relevant falsehoods?"}
+  };
+
+  function render(el,d){
+    el.innerHTML='<span class="tag '+d.cls+'">'+d.tag+'</span>'+
+      '<div class="gt">'+d.gt+'</div>'+
+      '<div class="ex">'+d.doc+'</div>'+
+      '<p>'+d.note+'</p>';
+  }
+  function wire(tablist,dict,panel){
+    var tabs=[].slice.call(tablist.querySelectorAll('.tab'));
+    function sel(t){tabs.forEach(function(x){x.setAttribute('aria-selected',String(x===t));});
+      render(panel,dict[t.getAttribute('data-k')]);}
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){sel(t);});
+      t.addEventListener('keydown',function(e){
+        var j=e.key==='ArrowRight'?(i+1)%tabs.length:e.key==='ArrowLeft'?(i-1+tabs.length)%tabs.length:-1;
+        if(j>=0){e.preventDefault();tabs[j].focus();sel(tabs[j]);}});
+    });
+    sel(tabs.find(function(x){return x.getAttribute('aria-selected')==='true';})||tabs[0]);
+  }
+  wire(document.getElementById('modeTabs'),MODES,document.getElementById('modePanel'));
+  wire(document.getElementById('targetTabs'),TARGETS,document.getElementById('targetPanel'));
+  wire(document.getElementById('distTabs'),DIST,document.getElementById('distPanel'));
+
+  /* ---------- inject-round timeline ---------- */
+  var N=8,row=document.getElementById('roundsRow'),note=document.getElementById('tlNote'),btns=document.getElementById('injBtns');
+  function timeline(r){
+    row.innerHTML='';
+    for(var i=0;i<N;i++){
+      var cls='rd',ic='○',st='clean';
+      if(i<r){cls+=' clean';ic='✓';st='clean';}
+      else if(i===r){cls+=' inject';ic='☣';st='doc corrupted';}
+      else{cls+=' contam';ic='☣';st='contaminated';}
+      if(i===0&&r!==0){cls='rd clean';ic='✓';st='original docs';}
+      var d=document.createElement('div');d.className=cls;
+      d.innerHTML='<div class="rn">round '+i+'</div><div class="ic">'+ic+'</div><div class="st">'+st+'</div>';
+      row.appendChild(d);
+    }
+    var e=r+1;
+    note.innerHTML='The doc synthesized at the end of <b>round '+r+'</b> first enters context at <b>round '+e+'</b>. '
+      +(r===0?'At inject-round 0 even the first synthetic doc is corrupted.'
+             :'Rounds 0–'+r+' use clean docs; the seeded error is present from <b>round '+e+'</b> onward.');
+  }
+  [].slice.call(btns.querySelectorAll('.tl-btn')).forEach(function(b){
+    b.addEventListener('click',function(){
+      btns.querySelectorAll('.tl-btn').forEach(function(x){x.removeAttribute('aria-pressed');});
+      b.setAttribute('aria-pressed','true');timeline(parseInt(b.getAttribute('data-r'),10));});
+  });
+  timeline(1);
+
+  /* ---------- hero: answer-distribution drift ---------- */
+  var cv=document.getElementById('field'),ctx=cv.getContext('2d');
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var W=0,H=0,P=[],attractors=[];
+  function seed(){
+    P=[];var n=130;
+    for(var i=0;i<n;i++){
+      // allegiance: most to gold(0), some to violet attractors(1..3)
+      var a=Math.random()<0.62?0:1+Math.floor(Math.random()*3);
+      P.push({a:a,jx:(Math.random()*2-1),jy:(Math.random()*2-1),s:0.6+Math.random()*1.1,
+        ph:Math.random()*6.28});
+    }
+  }
+  function layout(){
+    var r=cv.getBoundingClientRect();var dpr=window.devicePixelRatio||1;
+    W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var cx=W*0.5,cy=H*0.52,R=Math.min(W,H)*0.34;
+    attractors=[
+      {x:cx,y:cy,c:'232,178,58'},                              // gold center
+      {x:cx+R*0.95,y:cy-R*0.5,c:'180,92,240'},
+      {x:cx-R*1.05,y:cy-R*0.15,c:'180,92,240'},
+      {x:cx+R*0.2,y:cy+R*0.85,c:'180,92,240'}
+    ];
+  }
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    // drift phase 0..1 looping over ~9s (concentration -> shift)
+    var ph=(t/9000)%1;var spread=ph<0.5?(ph/0.5):1; // ramp then hold
+    var glow=0.5+0.5*Math.sin(t/1400);
+    // attractor glows
+    attractors.forEach(function(at,idx){
+      var rad=idx===0?34:20;
+      var g=ctx.createRadialGradient(at.x,at.y,0,at.x,at.y,rad*2.4);
+      var al=idx===0?0.22:0.13*spread;
+      g.addColorStop(0,'rgba('+at.c+','+al+')');g.addColorStop(1,'rgba('+at.c+',0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(at.x,at.y,rad*2.4,0,6.2832);ctx.fill();
+    });
+    // particles ease from gold-center toward their attractor as spread grows
+    var c0=attractors[0];
+    for(var i=0;i<P.length;i++){
+      var p=P[i];var tgt=attractors[p.a];
+      var mix=p.a===0?0.18*spread:spread; // gold-allegiant stay tighter
+      var bx=c0.x+(tgt.x-c0.x)*mix, by=c0.y+(tgt.y-c0.y)*mix;
+      var jit=(8+22*spread);
+      var x=bx+Math.cos(t/900+p.ph)*p.jx*jit, y=by+Math.sin(t/1050+p.ph)*p.jy*jit;
+      var col=p.a===0?'232,178,58':'180,92,240';
+      var aa=p.a===0?0.85:0.35+0.5*spread;
+      ctx.fillStyle='rgba('+col+','+aa+')';
+      ctx.beginPath();ctx.arc(x,y,p.s,0,6.2832);ctx.fill();
+    }
+    // round label
+    ctx.font='600 11px '+'ui-monospace,Menlo,Consolas,monospace';
+    ctx.fillStyle='rgba(154,160,184,0.8)';ctx.textAlign='left';
+    ctx.fillText('round '+Math.min(30,Math.round(ph*30))+'  ·  distribution '+(spread<0.4?'pinned to gold':spread<0.9?'widening':'drifted'),18,H-16);
+  }
+  var raf=null;
+  function frame(t){draw(t);raf=requestAnimationFrame(frame);}
+  function start(){layout();seed();if(reduce){draw(7600);return;}if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(frame);}
+  window.addEventListener('resize',function(){layout();if(reduce)draw(7600);});
+  start();
+})();
+</script>

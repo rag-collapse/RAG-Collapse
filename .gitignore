@@ -215,3 +215,17 @@ __marimo__/
 .claude
 .claude/
 **/llm_calls.jsonl
+# don't add all_experiments or the entity workshop folder
+all_experiments/
+entity re-run for workshop paper-*/
+Rag_Collapse_Paper
+# downloaded DeepSeek baseline raw outputs (~790 MB, data not code)
+baseline-DeepSeek-R1-Distill-Qwen-7B/
+# distractor-sweep experiment outputs (downloaded data, not code) — root only,
+# so visualization_outputs/distractor_sweep_figures/ (committed plots) is NOT ignored
+/distractor_sweep/
+/equal_distractor_sweep/
+
+# cross-model-baseline raw experiment outputs (downloaded data, not code)
+/cross-model-baseline/
+/shuffled_distractor_sweep/

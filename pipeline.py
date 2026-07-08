@@ -256,6 +256,27 @@ def parse_args():
     parser.add_argument("--doc-top-p", type=float, default=None,
         help="Top-p for doc generation. Defaults to --top-p.")
 
+    # --- Cross-model baseline: a SECOND answer model ("side") whose answers feed doc generation ---
+    # Each round both the main and side models answer from the same current docs. With --docs-from-side,
+    # the next round's documents are synthesized from the SIDE model's answers (not main's), so the MAIN
+    # model (measured) reads a document stream written by the side model. Omit --side-model-mode to run
+    # the standard self-loop baseline (main feeds its own answers).
+    parser.add_argument("--side-model-mode", choices=["api", "local", "server"], default=None,
+        help="Model mode for the side answer model. Omit to disable the side model (standard baseline).")
+    parser.add_argument("--side-vllm-api-base", default=None,
+        help="vLLM server base URL for the side model (required when --side-model-mode server).")
+    parser.add_argument("--side-model-name", default=None,
+        help="Model identifier for the side answer model. Defaults to --model-name.")
+    parser.add_argument("--side-temperature", type=float, default=None,
+        help="Temperature for the side model. Defaults to --temperature.")
+    parser.add_argument("--side-max-tokens", type=int, default=None,
+        help="Max tokens for the side model. Defaults to --max-tokens (set higher for reasoning models).")
+    parser.add_argument("--side-top-p", type=float, default=None,
+        help="Top-p for the side model. Defaults to --top-p.")
+    parser.add_argument("--docs-from-side", action="store_true",
+        help="Source each round's generated documents from the SIDE model's answers instead of the main "
+             "model's. The main model still answers and is what we measure; requires --side-model-mode.")
+
     # Local-only knobs (ignored for api mode)
     parser.add_argument("--max-model-len", type=int, default=8192)
     parser.add_argument("--gpu-mem-util", type=float, default=0.7)
@@ -457,6 +478,12 @@ def run_pipeline() -> None:
         raise SystemExit("ERROR: --vllm-api-base is required when --model-mode=server")
     if args.doc_model_mode == "server" and not args.doc_vllm_api_base:
         raise SystemExit("ERROR: --doc-vllm-api-base is required when --doc-model-mode=server")
+    if args.docs_from_side and args.side_model_mode is None:
+        raise SystemExit("ERROR: --docs-from-side requires --side-model-mode (the side answer model)")
+    if args.side_model_mode == "server" and not args.side_vllm_api_base:
+        raise SystemExit("ERROR: --side-vllm-api-base is required when --side-model-mode=server")
+    if args.docs_from_side and args.pipeline_variant == "agentic_rag":
+        raise SystemExit("ERROR: --docs-from-side is not supported with --pipeline-variant agentic_rag")
 
     dataset_path = args.dataset_path
     output_path = args.output_path
@@ -548,6 +575,26 @@ def run_pipeline() -> None:
         doc_llm = llm
         doc_model_name = resolved_model_name
 
+    # Side answer model (cross-model baseline). When --docs-from-side, its answers feed doc generation.
+    side_llm = None
+    side_model_name = None
+    if args.side_model_mode is not None:
+        side_llm, side_model_name = build_llm(
+            model_mode=args.side_model_mode,
+            model_name=args.side_model_name or args.model_name,
+            temperature=args.side_temperature if args.side_temperature is not None else args.temperature,
+            max_tokens=args.side_max_tokens if args.side_max_tokens is not None else args.max_tokens,
+            top_p=args.side_top_p if args.side_top_p is not None else args.top_p,
+            api_base=args.side_vllm_api_base,
+            max_model_len=args.max_model_len,
+            gpu_memory_utilization=args.gpu_mem_util,
+            cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            require_gpu=not args.allow_no_gpu,
+            tensor_parallel_size=tp_size,
+        )
+        print(f"[Side LLM] Connected. Served model: "
+              f"{getattr(side_llm, 'served_model_name', side_model_name)}", flush=True)
+
     experiments_metadata: Dict[str, Any] = {
         "model": resolved_model_name,
         "pipeline_variant": variant,
@@ -565,6 +612,10 @@ def run_pipeline() -> None:
     if args.doc_model_mode is not None:
         experiments_metadata["doc_model"] = doc_model_name
         experiments_metadata["doc_model_mode"] = args.doc_model_mode
+    if side_llm is not None:
+        experiments_metadata["side_model"] = side_model_name
+        experiments_metadata["side_model_mode"] = args.side_model_mode
+        experiments_metadata["docs_from_side"] = bool(args.docs_from_side)
     if is_search(variant) or is_agentic_rag(variant):
         experiments_metadata["search_top_k"] = search_top_k
         experiments_metadata["search_chunk_size"] = search_chunk_size
@@ -664,6 +715,7 @@ def run_pipeline() -> None:
 
         # --- Step 1: batch sample_runs across all active questions ---
         prompt_docs_by_question: List[List[Dict[str, Any]]] = []
+        all_side_answers = None   # cross-model baseline: side model's answers (list[str] when enabled)
 
         if is_agentic_rag(variant):
             # Agentic flow: model retrieves its own context via the retrieve tool.
@@ -729,13 +781,24 @@ def run_pipeline() -> None:
             all_answers = llm.inference_batch(batch_conversations)
             print(f"[Iter {it + 1}/{num_iterations}] Answer inference complete.", flush=True)
 
+            # Cross-model baseline: the SIDE model answers from the SAME context; its answers (not
+            # main's) will be turned into next round's documents (Step 3). Main is still measured.
+            if args.docs_from_side and side_llm is not None:
+                print(f"[Iter {it + 1}/{num_iterations}] Sending {len(batch_conversations)} SIDE answer "
+                      f"requests ({len(active)} question(s) × {num_runs} runs)...", flush=True)
+                all_side_answers = side_llm.inference_batch(batch_conversations)
+                print(f"[Iter {it + 1}/{num_iterations}] Side answer inference complete.", flush=True)
+
         # Slice answers (and tool call counts for agentic) back to per-question groups
         offset = 0
         per_question_answers: List[List[str]] = []
+        per_question_side_answers: List[List[str]] = []
         per_question_tool_calls: List[List[int]] = []
         _tool_calls_src = all_tool_calls_used if is_agentic_rag(variant) else None
         for _ in active:
             per_question_answers.append(all_answers[offset : offset + num_runs])
+            if all_side_answers is not None:
+                per_question_side_answers.append(all_side_answers[offset : offset + num_runs])
             per_question_tool_calls.append(
                 _tool_calls_src[offset : offset + num_runs]
                 if _tool_calls_src is not None
@@ -749,6 +812,7 @@ def run_pipeline() -> None:
         still_active_for_docs: List[int] = []  # indices into active[]
         for i, s in enumerate(active):
             answers = per_question_answers[i]
+            side_answers = per_question_side_answers[i] if per_question_side_answers else None
             run_tool_calls = per_question_tool_calls[i]
             prompt_docs = prompt_docs_by_question[i]
             citation_index: List[Dict[str, Any]] = []
@@ -854,6 +918,8 @@ def run_pipeline() -> None:
                     if citations_enabled
                     else [],
                 }
+                if side_answers is not None and r < len(side_answers):
+                    run_obj["side_answer"] = side_answers[r]
                 if is_agentic_rag(variant):
                     run_obj["tool_calls_used"] = n_tool_calls
                 runs.append(run_obj)
@@ -886,7 +952,12 @@ def run_pipeline() -> None:
             doc_batch: List[List[Dict[str, str]]] = []
             runs_per_q: List[int] = []
             for i in still_active_for_docs:
-                answers = per_question_answers[i]
+                # Cross-model baseline: source next round's docs from the SIDE model's answers, so the
+                # MAIN model (measured) reads documents written from a different model's output.
+                if per_question_side_answers:
+                    answers = per_question_side_answers[i]
+                else:
+                    answers = per_question_answers[i]
                 if is_replace_one(variant) or is_search(variant) or is_agentic_rag(variant):
                     answers = [random.choice(answers)]
                 convos = [get_create_document_conversation(question=active[i].question_text, answer=ans) for ans in answers]
@@ -933,6 +1004,11 @@ def run_pipeline() -> None:
     if doc_llm is not llm:
         try:
             doc_llm.shutdown()
+        except Exception:
+            pass
+    if side_llm is not None and side_llm is not llm and side_llm is not doc_llm:
+        try:
+            side_llm.shutdown()
         except Exception:
             pass
 
