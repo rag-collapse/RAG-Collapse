@@ -24,7 +24,8 @@ Pipeline of work: `pipeline.py` (run loop) → `evaluation.py` (text metrics) �
 | `formatters.py` | all prompts: `_RAG_GENERATION_SYSTEM_PROMPT` (baseline), `GEPA_RAG_GENERATION_SYSTEM_PROMPT` (GEPA seed/optimized), create-document, agentic tool spec |
 | `llm_service/` | LLM backends: `OpenSourceLLM` (vLLM), `ProprietaryLLM` (LiteLLM/keymaker), `ServerLLM` (HTTP vLLM), `CommonLLM` interface, `EmbeddingModel` |
 | `gepa_optimization/` | GEPA prompt optimization package (prepare_dataset, rag_adapter, scoring, pipeline_simulator, run_optimization, parse_results, apply_best_prompt) |
-| `hotpot_pipeline.py`, `hotpot_evaluation.py`, `build_hotpotqa_index.py`, `download_hotpot.py` | HotpotQA-dataset variants of the loop/eval |
+| `hotpot_pipeline.py`, `hotpot_evaluation.py`, `build_hotpotqa_index.py`, `download_hotpot.py` | HotpotQA-dataset variants of the loop/eval (misinfo injection + distractor flags live here) |
+| `base_hotpotqa_distractors/` | round-0 distractor experiments over the HotpotQA loop: synthetic wrong-answer sweep (`diverse_synth`/`equal_diverse_synth`/`shuffled_diverse_synth`) + the **native 2-gold/8-distractor paper replication** (`launch_native.sh`); see its `README.md` and `docs/misinfo_error_compounding.md` |
 | `rerank_mitigation_pipeline.py`, `rerank_mitigation_hotpot_pipeline.py` | reranker-mitigation pipelines |
 | `scripts/` | SLURM batch scripts (see below) |
 | `datasets/` | input JSONL (`umass_data.entity.chatgpt.{50,400}.jsonl`) |
@@ -156,13 +157,15 @@ the notebook's `_resolve()` tolerates either, and empty groups skip without over
 
 ## Documentation index
 
+- `handoff.md` — **fresh-start context** for the HotpotQA / distractor work: the `all_experiments` data folder, the three HotpotQA experiments (misinfo, synthetic distractor, native paper-replication), and hard-won Unity lessons. Read first when resuming this line of work.
 - `docs/experiment_tracker.html` — live-status tracker (cross-model rerun + shuffled sweep) + hub linking all published artifacts; artifact: https://claude.ai/code/artifact/b6bc9a85-ad70-454e-8a0c-7dbed131c9ba
 - `README.md` — setup + full workflow
 - `docs/unity_setup.md` — Unity scratch + job submission
 - `docs/gepa_prompt_optimization_plan.md`, `docs/gepa_flowchart.md` — GEPA subsystem
 - `docs/data_locations.md`, `scripts/all_experiments_README.md` — where raw/consolidated data lives
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md` — comparison vs `collapse-randomness-research`
-- `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`
+- `docs/misinfo_error_compounding.md` — misinformation error-compounding experiment (HotpotQA); `scripts/hotpot-misinfo/`; also covers the round-0 synthetic distractors (Option B) and the **native paper-replication distractor setting (Option A)**
+- `base_hotpotqa_distractors/README.md` — standalone round-0 distractor experiment package: synthetic wrong-answer sweep + the native **2-gold/8-distractor paper replication** (Yang et al., EMNLP 2018) vs gold-only control
 - `docs/hotpotqa_diverse_synth.html` — round-0 distractor experiments (`diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth`); artifact: https://claude.ai/code/artifact/0b92b522-4718-4496-bb94-8d7d2079170a
 - `docs/cross_model_baseline.html` — `cross-model-baseline` (`scripts/cross_model_baseline/`, main reads docs written from a side model's answers) + the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack; artifact: https://claude.ai/code/artifact/2dd7115f-3457-44e8-8914-a088246f773e
   Outputs are keyed `cross-model-baseline/<main-org>/<main-model>/<side>/<variant>/{experiment,evaluation}_outputs/` (side dimension added so DeepSeek/Llama/Mistral side models don't collide). Entity diagrams for cross-model live in `cross_model_baseline_visualizations/` (from `cross-model-baseline-visualization.ipynb`).
