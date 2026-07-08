@@ -151,6 +151,35 @@ distractors mislead), `distractor_adoption_rate` (fraction adopting *any* seeded
 *and* off-every-seeded-entity), and `distractor_retrieval_condition`. A round-0 point is included
 so the shift from a wider start is visible.
 
+## Native HotpotQA distractor setting — paper replication ("Option A")
+
+The `--distractor-fraction` knob above (call it "Option B") *synthesizes* wrong-answer distractors.
+A separate arm replicates the **original HotpotQA paper's own distractor setting** (Yang et al.,
+EMNLP 2018): each question ships with **2 gold + 8 TF-IDF distractor** paragraphs, where the
+distractors are *answer-absent hard negatives* (topically related but do not state the answer — NOT
+wrong-answer assertions). This arm seeds round 0 from that native context and runs the recursive loop.
+
+| Flag | Meaning |
+|---|---|
+| `--initial-docs {faiss,native_distractor}` | `faiss` *(default)* is byte-identical to the original pipeline; `native_distractor` seeds round 0 from each question's native `context` (each paragraph a doc, tagged gold/distractor), bypassing FAISS. |
+| `--native-hotpot-file <distractor.json>` | the paper's *distractor*-setting dev file (gold guaranteed present), reconstructed from HuggingFace (`hotpot_qa`, config `distractor`, split `validation` = 7,405 q) by `base_hotpotqa_distractors/fetch_distractor_file.py` since the official host `curtis.ml.cmu.edu` is dead. |
+| `--distractor-gold-only` | the **control**: keep only the 2 gold paragraphs. Headline = distractor-setting vs gold-only (the paper's ablation). |
+
+**Metrics.** Native distractors are answer-absent (no seeded wrong entity), so there is **no
+`distractor_adoption`** here — the read is **token F1 / EM / `gold_match`** degradation over rounds,
+distractor-setting vs gold-only (`compare_native.py` + per-arm `hotpot_evaluation.py`).
+
+**Variants.** Use `replace_one` (default) or `hybrid` — both carry all/most of the 10 native docs
+forward. **`search` caveat:** with native seeding the search universe is just the question's own 10
+paragraphs (it does not re-retrieve from Wikipedia), so native seeding is most meaningful in
+`replace_one`/`hybrid`. Native seeding and the synthetic `--distractor-fraction` are mutually exclusive.
+
+**Status.** Smoke-validated across all 4 models (qwen14b / mistral-7b / llama-3.1-8b / deepseek-r1-7b);
+full runs pending. ⚠️ DeepSeek scored ~0 `gold_match` in the smoke (clean but diverse answers not
+matching short gold spans — a reasoning-model answer-format issue); investigate before trusting its
+native numbers. Full walkthrough + run commands: **`base_hotpotqa_distractors/README.md`** and
+**`handoff.md`** §2c.
+
 ## Files
 
 | File | Role |
@@ -161,6 +190,7 @@ so the shift from a wider start is visible.
 | `hotpot_evaluation.py` | injection-aware + distractor-aware metrics + aggregates + plot |
 | `scripts/hotpot-misinfo/` | `run_misinfo.sh` (pilot), `smoke_test.sh` (now also a distractor arm), `run_variant_client.sh` / `launch_*.sh` (thread `DISTRACTOR_FRACTION`/`DISTRACTOR_MODE`), `server_answer.sh`, `server_docgen.sh`, `RUNBOOK.md` |
 | `tests/test_misinfo.py` | 24 pure-Python tests (no GPU), incl. fake-LLM controller end-to-ends for both injection and distractors |
+| `base_hotpotqa_distractors/` | standalone experiment interface over the loop: synthetic round-0 distractor sweep (`launch.sh`, `run_sweep.sh`, `compare_sweep.py`) + the **native paper-replication** arm (`launch_native.sh`, `run_native.sh`, `smoke_native.sh`, `compare_native.py`, `fetch_distractor_file.py`, `test_native_seed.py`); see its `README.md` |
 
 ## How to run
 
