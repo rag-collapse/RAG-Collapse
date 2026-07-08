@@ -14,6 +14,59 @@ import time
 from .common_llm import CommonLLM
 
 
+def _bytes_to_unicode_decoder() -> dict:
+    """Inverse of GPT-2/Qwen byte-level BPE map: byte-level unicode char -> original byte."""
+    bs = (
+        list(range(ord("!"), ord("~") + 1))
+        + list(range(ord("¡"), ord("¬") + 1))
+        + list(range(ord("®"), ord("ÿ") + 1))
+    )
+    cs = bs[:]
+    n = 0
+    for b in range(256):
+        if b not in bs:
+            bs.append(b)
+            cs.append(256 + n)
+            n += 1
+    return {chr(c): b for b, c in zip(bs, cs)}
+
+
+_BYTE_DECODER = _bytes_to_unicode_decoder()
+
+
+def _maybe_byte_decode(text: "str | None") -> "str | None":
+    """Recover text that vLLM returned as raw byte-level BPE token strings.
+
+    On current vLLM (0.20.0) the detokenizer hands back DeepSeek-R1-Distill-Qwen content as
+    the byte-level BPE representation (space=``Ġ``, newline=``Ċ``, …) instead of decoded UTF-8
+    — a model-specific detokenizer regression (the Qwen2.5 doc server, same tokenizer family,
+    is unaffected; and the same model on older vLLM was clean). The encoding is lossless, so
+    when those markers are present we invert the byte map and UTF-8-decode. No-op otherwise,
+    so clean output (Llama/Qwen/working DeepSeek) is never altered.
+    """
+    if not text or ("Ġ" not in text and "Ċ" not in text):
+        return text
+    try:
+        return bytearray(_BYTE_DECODER[c] for c in text).decode("utf-8", errors="replace")
+    except KeyError:
+        return text  # not a pure byte-level string — leave as-is
+
+
+def _strip_reasoning(text: "str | None") -> "str | None":
+    """Drop a DeepSeek-R1-style ``<think>...</think>`` block, keeping text after the last
+    ``</think>``. No-op when absent (non-reasoning models / special-token-skipped content)."""
+    if not text:
+        return text
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[-1]
+    return text.lstrip()
+
+
+def _clean_response(text: "str | None") -> "str | None":
+    """Byte-decode the vLLM detok regression, then strip a ``<think>`` block. No-op for clean text."""
+    return _strip_reasoning(_maybe_byte_decode(text))
+
+
 class ServerLLM(CommonLLM):
     """
     Connects to a vLLM OpenAI-compatible server instead of loading
@@ -82,7 +135,7 @@ class ServerLLM(CommonLLM):
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
             )
-            return response.choices[0].text
+            return _clean_response(response.choices[0].text)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_complete, prompts))
@@ -108,7 +161,7 @@ class ServerLLM(CommonLLM):
                 top_p=self.top_p,
                 extra_body=self._extra_body or None,
             )
-            return response.choices[0].message.content
+            return _clean_response(response.choices[0].message.content)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             return list(executor.map(_chat_complete, conversations))
@@ -192,7 +245,7 @@ class ServerLLM(CommonLLM):
 
             if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
                 # Model produced a final answer
-                return choice.message.content or "", tool_calls_used
+                return _clean_response(choice.message.content or ""), tool_calls_used
 
             tool_calls_used += 1
 
@@ -235,7 +288,7 @@ class ServerLLM(CommonLLM):
             top_p=self.top_p,
             tool_choice="none",
         )
-        return response.choices[0].message.content or "", tool_calls_used
+        return _clean_response(response.choices[0].message.content or ""), tool_calls_used
 
     def inference_agentic_batch(
         self,
