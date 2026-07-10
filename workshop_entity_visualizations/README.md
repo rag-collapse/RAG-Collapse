@@ -29,6 +29,11 @@ line charts only — collapse-by-simulation needs ≥2 simulations to compare.)
   `Qwen/Qwen2.5-14B-Instruct/rerank_lambda0.7/`. The appendix models (Llama-3.1-8B, Mistral-7B,
   DeepSeek-R1-Distill-7B) only have λ=0.7 in the dump, so their single rerank panel is the same
   **oracle vs desklib** focus at λ=0.7 → `<org>/<model>/rerank/`.
+- **cross_baseline** — the cross-model baseline, where **Qwen2.5-14B is the main (measured) model reading
+  documents written from each side model's answers**. One group per side model (DeepSeek-R1-Distill-7B,
+  Llama-3.1-8B, Mistral-7B), Replace All / One / Search overlaid → `cross_baseline/qwen2.5-14b/<side-model>/`.
+  (Inputs are the `..._handoff_<side>_<variant>_local_<variant>.entities_by_round.jsonl` files; the two
+  `graphite_cross_model_*` files remain excluded here — they belong to `cross-model-baseline-visualization.ipynb`.)
 
 Metrics: `unique_entities_per_round` = unique mapped entities per round (union across the 10 runs,
 averaged across questions); `entity_similarity_per_round` = mean pairwise cosine similarity of binary
@@ -38,10 +43,11 @@ non-Qwen rerank panels use oracle `#2ca02c` vs desklib `#d62728`.
 
 ## File structure
 
-44 PNGs across 15 group folders covering **all 35 files** in the dump (the notebook's last cell asserts
-full coverage). Every group has `unique_entities_per_round.png` + `entity_similarity_per_round.png`;
-multi-simulation groups also have `collapse_by_simulation.png` (all except the single-variant
-`agentic_rag/`, which needs ≥2 simulations to compare):
+53 PNGs across 18 group folders covering **all 44 files** in the dump (the notebook's last cell asserts
+full coverage; the two `cross_model_*` files are handled separately). Every group has
+`unique_entities_per_round.png` + `entity_similarity_per_round.png`; multi-simulation groups also have
+`collapse_by_simulation.png` (all except the single-variant `agentic_rag/`, which needs ≥2 simulations
+to compare):
 
 ```
 workshop_entity_visualizations/
@@ -61,14 +67,18 @@ workshop_entity_visualizations/
 │   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 │   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
 │   └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
-└── deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/
-    ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
-    ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
-    └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+├── deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/
+│   ├── baseline/            unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+│   ├── rerank/              unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png   (oracle vs desklib @ λ=0.7)
+│   └── rerun-paraphrase/    unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+└── cross_baseline/qwen2.5-14b/          (Qwen2.5-14B main reads docs written from each side model)
+    ├── deepseek-r1-distill-qwen-7b/  unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+    ├── llama-3.1-8b/                 unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
+    └── mistral-7b/                   unique_entities_per_round.png  entity_similarity_per_round.png  collapse_by_simulation.png
 ```
 
-Counts: 15 `unique_entities_per_round.png` + 15 `entity_similarity_per_round.png` +
-14 `collapse_by_simulation.png` (every group except `agentic_rag/`) = 44 PNGs.
+Counts: 18 `unique_entities_per_round.png` + 18 `entity_similarity_per_round.png` +
+17 `collapse_by_simulation.png` (every group except `agentic_rag/`) = 53 PNGs.
 
 ## Regenerating
 
