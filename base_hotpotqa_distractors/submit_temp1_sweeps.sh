@@ -44,7 +44,9 @@ MODELS="${MODELS:-$MODELS_ALL}"
 MODES="${MODES:-diverse_synth equal_diverse_synth}"
 
 # ---- distinct port pair per (model,mode) so co-scheduled jobs on one node never collide ----
-port=5200
+# BASE_PORT lets a partial re-submit use a fresh range that won't clash with still-live jobs
+# (e.g. BASE_PORT=5220 MODELS="llama deepseek" to re-run just those after a fix).
+port="${BASE_PORT:-5200}"
 for m in $MODELS; do
   for mode in $MODES; do
     export ANSWER_MODEL_ID="${MID[$m]}" ANSWER_SERVED="${SRV[$m]}" \
