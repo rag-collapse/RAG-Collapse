@@ -55,6 +55,12 @@ ANSWER_PORT="${ANSWER_PORT:-5200}"
 DOCGEN_PORT="${DOCGEN_PORT:-5201}"
 DOC_MODEL_ID="${DOC_MODEL_ID:-Qwen/Qwen2.5-7B-Instruct}"
 DOC_SERVED="${DOC_SERVED:-qwen2.5-7b-docgen}"
+# Cap context length. Some answer models are 128K-native (Llama-3.1-8B, DeepSeek-R1-Distill-Qwen-7B);
+# at 131072 the KV cache can't fit even one sequence on a <=24GB GPU and vLLM's engine init FAILS
+# ("Available KV cache memory: 3.1 GiB"). HotpotQA prompts are short (question + ~10 short docs +
+# a <=512-token answer), so 8192 is ample and lets these models fit the bf16&vram23 pool. 32K-native
+# models (Mistral-7B, Qwen2.5-7B/14B) are unaffected by the cap.
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
 LOAD_TRIES="${LOAD_TRIES:-180}"   # 180 * 10s = 30 min max for a server to load its weights
 
 alog="logs/colo_${SLURM_JOB_ID}_answer.log"
@@ -65,6 +71,7 @@ echo "### co-located job ${SLURM_JOB_ID} on $(hostname -s): answer=$ANSWER_SERVE
 CUDA_VISIBLE_DEVICES=0 vllm serve "$ANSWER_MODEL_ID" \
   --host 127.0.0.1 --port "$ANSWER_PORT" --served-model-name "$ANSWER_SERVED" \
   --tensor-parallel-size 1 --max-num-seqs "$ANSWER_MAX_NUM_SEQS" \
+  --max-model-len "$MAX_MODEL_LEN" \
   --max-num-batched-tokens 8192 --gpu-memory-utilization 0.92 \
   --trust-remote-code $ANSWER_EXTRA_ARGS > "$alog" 2>&1 &
 A_PID=$!
@@ -72,6 +79,7 @@ A_PID=$!
 CUDA_VISIBLE_DEVICES=1 vllm serve "$DOC_MODEL_ID" \
   --host 127.0.0.1 --port "$DOCGEN_PORT" --served-model-name "$DOC_SERVED" \
   --tensor-parallel-size 1 --max-num-seqs 128 \
+  --max-model-len "$MAX_MODEL_LEN" \
   --max-num-batched-tokens 8192 --gpu-memory-utilization 0.90 \
   --trust-remote-code > "$dlog" 2>&1 &
 D_PID=$!
