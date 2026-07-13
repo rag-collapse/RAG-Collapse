@@ -17,6 +17,9 @@ cd "$(dirname "$0")/.."   # repo root
 SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
 mkdir -p logs
 
+# Slurm emails (BEGIN/END/FAIL/TIME_LIMIT come from launch_colocated.sh's #SBATCH --mail-type).
+MAIL_USER="${MAIL_USER:-riddhimaan.senapati@graphitehq.com}"
+
 # ---- shared sweep parameters ----
 export TEMPERATURE=1.0 TOP_P=1.0
 export MAX_Q="${MAX_Q:-400}" NUM_RUNS=10 SEED=42 NUM_ITERATIONS=3
@@ -54,9 +57,9 @@ for m in $MODELS; do
     mkdir -p "$OUTDIR"
     echo ">>> $jobtag  ports ${ANSWER_PORT}/${DOCGEN_PORT}  constraint '${CON[$m]}'  -> $OUTDIR"
     if [[ -n "${DRYRUN:-}" ]]; then
-      echo "    DRYRUN: sbatch -J $jobtag --constraint='${CON[$m]}' --export=ALL base_hotpotqa_distractors/launch_colocated.sh"
+      echo "    DRYRUN: sbatch -J $jobtag --constraint='${CON[$m]}' --mail-user='$MAIL_USER' --export=ALL base_hotpotqa_distractors/launch_colocated.sh"
     else
-      sbatch -J "$jobtag" --constraint="${CON[$m]}" --export=ALL \
+      sbatch -J "$jobtag" --constraint="${CON[$m]}" --mail-user="$MAIL_USER" --export=ALL \
         base_hotpotqa_distractors/launch_colocated.sh
     fi
   done

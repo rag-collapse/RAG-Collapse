@@ -29,7 +29,7 @@
 #SBATCH -t 48:00:00
 #SBATCH -o logs/colo_%j.out
 #SBATCH -e logs/colo_%j.err
-#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-type=BEGIN,END,FAIL,TIME_LIMIT
 set -eo pipefail
 if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
 
