@@ -123,9 +123,14 @@ case "${SHUFFLE_PER_RUN:-}" in 1|true|yes) SHUFFLE_ARG="--shuffle-per-run" ;; es
 
 for VAR in $VARIANTS; do
   echo "==================== variant=$VAR ===================="
-  VARIANT_ARGS=(--pipeline-variant "$VAR")
-  # replace-all == hybrid with all-synth / no-DB docs
-  [[ "$VAR" == "hybrid" ]] && VARIANT_ARGS+=(--num-synth-docs 10 --num-db-docs 0)
+  # "replace_all" is a display alias for the hybrid variant (all-synth / no-DB docs), matching the
+  # baseline's naming; both run --pipeline-variant hybrid. Output filenames keep $VAR, so a
+  # replace_all run writes base_replace_all_*.json (hybrid still works for older callers).
+  PV="$VAR"; SYNTH_ARGS=()
+  if [[ "$VAR" == "hybrid" || "$VAR" == "replace_all" ]]; then
+    PV="hybrid"; SYNTH_ARGS=(--num-synth-docs 10 --num-db-docs 0)
+  fi
+  VARIANT_ARGS=(--pipeline-variant "$PV" "${SYNTH_ARGS[@]}")
 
   COMMON=(--vllm-api-base "$VLLM_API_BASE" --model-name "$MODEL"
           "${DOC_ARGS[@]}" "${DIST_ARGS[@]}" "${INITIAL_ARGS[@]}"
@@ -178,8 +183,12 @@ for VAR in $VARIANTS; do
     done
   fi
 
-  echo "########## comparison (variant=$VAR) ##########"
-  python -u base_hotpotqa_distractors/compare_sweep.py \
-    --gt-file "$GT_FILE" --summary "$OUTDIR/sweep_summary_${VAR}.json" "${OUTS[@]}"
+  if [[ -n "${SKIP_COMPARE:-}" ]]; then
+    echo "########## SKIP_COMPARE set — skipping in-job compare for variant=$VAR (aggregate post-hoc) ##########"
+  else
+    echo "########## comparison (variant=$VAR) ##########"
+    python -u base_hotpotqa_distractors/compare_sweep.py \
+      --gt-file "$GT_FILE" --summary "$OUTDIR/sweep_summary_${VAR}.json" "${OUTS[@]}"
+  fi
 done
 echo "Done. Per-variant sweep_summary_*.json + base_<variant>_f*.json in $OUTDIR/"
