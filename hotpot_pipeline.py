@@ -122,6 +122,44 @@ def _answers_to_docs(texts: List[str], iteration: int) -> List[Dict[str, Any]]:
     ]
 
 
+# --- Prebuilt distractor-doc dataset (build once, reuse across all runs; see --dump-distractor-docs) ---
+# The round-0 distractor documents depend only on (question, gold, seed, mode) — NOT on the answer
+# model or the pipeline variant — and are synthesized by an expensive, non-reproducible API model.
+# So we build them ONCE at the full pool (all non-gold slots) and freeze them to a versioned dataset;
+# every run loads the dataset (--distractor-docs-file) and applies a nested prefix per fraction/topic.
+def _build_docs_dataset(states, controller) -> Dict[str, Any]:
+    """{query_id: {doc_id: {injected_entity, text, status}}} for every corrupted (non-gold) slot."""
+    out: Dict[str, Any] = {}
+    for s in states:
+        rec = controller.records.get(s.query_id)
+        if not rec or not rec.distractors:
+            continue
+        by_id = {str(d.get("doc_id")): d for d in s.current_docs}
+        entry: Dict[str, Any] = {}
+        for dd in rec.distractors:
+            did = str(dd.get("doc_id"))
+            doc = by_id.get(did)
+            if doc is None:
+                continue
+            entry[did] = {
+                "injected_entity": dd.get("injected_entity", ""),
+                "text": doc.get("text", ""),
+                "status": dd.get("status", ""),
+            }
+        if entry:
+            out[s.query_id] = entry
+    return out
+
+
+def _write_docs_dataset(path, dataset, provenance) -> None:
+    payload = {"provenance": provenance, "n_questions": len(dataset), "docs": dataset}
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    tmp = f"{path}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(payload, f)
+    os.replace(tmp, path)
+
+
 def _select(items: list, k: int, mode: str) -> list:
     if k <= 0:
         return []
@@ -291,6 +329,16 @@ def parse_args():
     p.add_argument("--distractor-gold-only", action="store_true",
         help="With --initial-docs native_distractor: keep ONLY the 2 gold paragraphs (drop the 8 "
              "distractors) — the no-distractor contrast for the distractor-setting experiment.")
+    # --- Prebuilt distractor-doc dataset (reproducible, build-once, reuse across all runs) ---
+    p.add_argument("--dump-distractor-docs", default=None,
+        help="Build mode (CPU/API only, no answer/doc GPU): synthesize the distractor pool and write "
+             "{query_id:{doc_id:{injected_entity,text,status}}} to this JSON, then EXIT before "
+             "generation. Run at the FULL pool (e.g. --distractor-fraction 1.0 --distractor-avoid-gold, "
+             "or --distractor-num-topics = max) so every fraction/topic arm is a nested prefix of it.")
+    p.add_argument("--distractor-docs-file", default=None,
+        help="Load mode: apply the pre-synthesized distractor docs from this dataset (built by "
+             "--dump-distractor-docs) instead of calling the synthesis API. Slot selection is "
+             "unchanged, so the arm uses a nested prefix of the frozen pool.")
 
     return p.parse_args()
 
@@ -321,6 +369,22 @@ def run_pipeline() -> None:
         (args.distractor_num_topics and args.distractor_num_topics > 0) if equal_mode
         else (args.distractor_fraction and args.distractor_fraction > 0)
     )
+    dump_mode = args.dump_distractor_docs is not None
+    load_mode = args.distractor_docs_file is not None
+    if dump_mode and load_mode:
+        raise SystemExit("--dump-distractor-docs and --distractor-docs-file are mutually exclusive")
+    if dump_mode and not (distractor_enabled and args.distractor_model_name):
+        raise SystemExit("--dump-distractor-docs needs a distractor arm "
+                         "(--distractor-fraction or --distractor-num-topics) and --distractor-model-name")
+    if load_mode and not distractor_enabled:
+        raise SystemExit("--distractor-docs-file needs a distractor arm "
+                         "(--distractor-fraction or --distractor-num-topics)")
+    docs_dataset_loaded = None
+    if load_mode:
+        with open(args.distractor_docs_file) as _df:
+            docs_dataset_loaded = json.load(_df).get("docs", {})
+        print(f"[distractor-docs] loaded prebuilt pool for {len(docs_dataset_loaded)} questions "
+              f"from {args.distractor_docs_file}", flush=True)
     if distractor_enabled and not args.gt_file:
         raise SystemExit("--gt-file is required when distractors are enabled")
     if distractor_enabled and args.distractor_mode == "native_noise" and not args.native_hotpot_file:
@@ -481,25 +545,31 @@ def run_pipeline() -> None:
         print(f"Freed FAISS index and corpus metadata. "
               f"Embedder remains on {embedder.device} for search-variant doc encoding.")
 
-    llm, resolved_model_name = build_llm(
-        model_mode="server",
-        model_name=args.model_name,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-        top_p=args.top_p,
-        api_base=args.vllm_api_base,
-    )
-    print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
+    if dump_mode:
+        # Build mode is CPU/API only — the answer/doc GPU servers are never needed (distractor
+        # synthesis uses the separate distractor model). Skip them so the builder needs no GPU.
+        llm = doc_llm = None
+        resolved_model_name = doc_model_name = "(dump-mode: no answer/doc server)"
+    else:
+        llm, resolved_model_name = build_llm(
+            model_mode="server",
+            model_name=args.model_name,
+            temperature=args.temperature,
+            max_tokens=args.max_tokens,
+            top_p=args.top_p,
+            api_base=args.vllm_api_base,
+        )
+        print(f"[LLM] Connected. Served model: {getattr(llm, 'served_model_name', resolved_model_name)}", flush=True)
 
-    doc_llm, doc_model_name = build_llm(
-        model_mode=args.doc_model_mode,
-        model_name=args.doc_model_name or args.model_name,
-        temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
-        max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
-        top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
-        api_base=args.doc_vllm_api_base,
-    )
-    print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
+        doc_llm, doc_model_name = build_llm(
+            model_mode=args.doc_model_mode,
+            model_name=args.doc_model_name or args.model_name,
+            temperature=args.doc_temperature if args.doc_temperature is not None else args.temperature,
+            max_tokens=args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens,
+            top_p=args.doc_top_p if args.doc_top_p is not None else args.top_p,
+            api_base=args.doc_vllm_api_base,
+        )
+        print(f"[Doc LLM] Connected. Served model: {getattr(doc_llm, 'served_model_name', doc_model_name)}", flush=True)
 
     controller = None
     if inject_enabled:
@@ -524,7 +594,7 @@ def run_pipeline() -> None:
     # The distractor model is SEPARATE from doc_llm (two-server style): a strong model seeds the
     # round-0 distractors, while doc_llm (the answer model) builds the per-round AI docs.
     distractor_llm = doc_llm
-    if distractor_enabled and args.distractor_model_name:
+    if distractor_enabled and args.distractor_model_name and not load_mode:
         _dist_max_tokens = (
             args.distractor_max_tokens if args.distractor_max_tokens is not None
             else (args.doc_max_tokens if args.doc_max_tokens is not None else args.max_tokens)
@@ -552,6 +622,7 @@ def run_pipeline() -> None:
             avoid_gold=args.distractor_avoid_gold,
             num_topics=args.distractor_num_topics,
             docs_per_topic=args.distractor_docs_per_topic,
+            docs_dataset=docs_dataset_loaded,
         )
         if equal_mode:
             print(f"[distractor] mode={args.distractor_mode} "
@@ -563,6 +634,25 @@ def run_pipeline() -> None:
         d_elig = sum(1 for s in states if distractor_controller.records[s.query_id].eligible)
         d_docs = sum(distractor_controller.records[s.query_id].n_corrupted for s in states)
         print(f"[distractor] {d_elig}/{len(states)} questions corrupted; {d_docs} distractor docs.", flush=True)
+
+    if dump_mode:
+        dataset = _build_docs_dataset(states, distractor_controller)
+        provenance = {
+            "distractor_model": args.distractor_model_name,
+            "distractor_model_mode": args.distractor_model_mode or "api",
+            "mode": args.distractor_mode,
+            "seed": args.seed,
+            "fraction": args.distractor_fraction,
+            "num_topics": args.distractor_num_topics,
+            "docs_per_topic": args.distractor_docs_per_topic,
+            "avoid_gold": args.distractor_avoid_gold,
+            "native_hotpot_file": args.native_hotpot_file,
+            "n_questions": len(states),
+        }
+        _write_docs_dataset(args.dump_distractor_docs, dataset, provenance)
+        print(f"[dump-distractor-docs] wrote pool for {len(dataset)} questions to "
+              f"{args.dump_distractor_docs}; exiting before generation.", flush=True)
+        return
 
     meta: Dict[str, Any] = {
         "model": resolved_model_name,

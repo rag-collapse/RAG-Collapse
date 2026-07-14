@@ -704,6 +704,7 @@ class DistractorController:
         avoid_gold: bool = False,
         num_topics: Optional[int] = None,
         docs_per_topic: int = 2,
+        docs_dataset: Optional[Dict[str, Any]] = None,
     ):
         if mode not in DISTRACTOR_MODES:
             raise ValueError(f"Unknown distractor mode {mode!r}; expected one of {DISTRACTOR_MODES}")
@@ -723,6 +724,12 @@ class DistractorController:
         self.avoid_gold = avoid_gold
         self.num_topics = num_topics
         self.docs_per_topic = docs_per_topic
+        # Load-mode: pre-synthesized distractor docs {query_id: {doc_id: {injected_entity, text,
+        # status}}}, built once (full pool) by build_distractor_dataset. When set, prepare_and_apply
+        # applies these instead of calling the (expensive, non-reproducible) synthesis API. Slot
+        # selection is unchanged, so the arm's fraction/topic slots are the SAME seeded prefix of
+        # the full pool → fractions are nested by construction.
+        self.docs_dataset = docs_dataset
         self.gt = load_ground_truth(gt_file)
         self.native = load_native_records(native_file) if (
             mode == DISTRACTOR_NATIVE_NOISE and native_file
@@ -799,6 +806,10 @@ class DistractorController:
 
         if not plans:
             return
+        if self.docs_dataset is not None:
+            # Load-mode: apply pre-synthesized docs from the dataset (no API call).
+            self._apply_from_cache(plans)
+            return
         if self.mode == DISTRACTOR_SUBSTITUTION:
             self._apply_substitution(plans)
         elif self.mode == DISTRACTOR_NATIVE_NOISE:
@@ -809,6 +820,36 @@ class DistractorController:
             self._apply_equal_diverse_synth(plans)
         else:
             self._apply_rewrite(plans)
+
+    # ---- load-mode: apply pre-synthesized distractor docs from a prebuilt dataset ----
+    def _apply_from_cache(self, plans: List[tuple]) -> None:
+        """Apply distractor docs from self.docs_dataset (built once at the full pool) instead of
+        synthesizing via the API. ``idxs`` (the seeded slot selection) is a prefix of the full
+        pool the dataset was built at, so the corrupted slots + their wrong answers are a nested
+        subset — identical to the full-pool run truncated to this arm's fraction/topic."""
+        for (s, idxs, gold) in plans:
+            rec = self.records[s.query_id]
+            pool = self.docs_dataset.get(s.query_id) or {}
+            applied = 0
+            missing = 0
+            for doc_idx in idxs:
+                doc = s.current_docs[doc_idx]
+                entry = pool.get(str(doc.get("doc_id")))
+                if not entry:
+                    missing += 1
+                    continue
+                doc["text"] = entry["text"]
+                doc["distractor"] = True
+                rec.distractors.append({
+                    "doc_id": doc.get("doc_id"),
+                    "injected_entity": entry.get("injected_entity", ""),
+                    "status": entry.get("status", "cached"),
+                })
+                applied += 1
+            rec.n_corrupted = applied
+            if missing:
+                rec.notes.append(f"{missing} selected slot(s) not in the prebuilt dataset")
+            rec.status = "ok" if applied else "no_docs_in_cache"
 
     # ---- substitution: distinct wrong entity per corrupted doc ----
     def _apply_substitution(self, plans: List[tuple]) -> None:

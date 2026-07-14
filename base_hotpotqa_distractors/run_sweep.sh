@@ -121,6 +121,11 @@ case "${DISTRACTOR_AVOID_GOLD:-}" in 1|true|yes) AVOID_GOLD_ARG="--distractor-av
 SHUFFLE_ARG=""
 case "${SHUFFLE_PER_RUN:-}" in 1|true|yes) SHUFFLE_ARG="--shuffle-per-run" ;; esac
 
+# Reproducible mode: apply a PREBUILT distractor-doc pool instead of calling the synthesis API on
+# every arm (built once by build_distractor_pools.sh). Applies only to the distractor arms.
+DOCS_FILE_ARG=""
+[[ -n "${DISTRACTOR_DOCS_FILE:-}" ]] && DOCS_FILE_ARG="--distractor-docs-file $DISTRACTOR_DOCS_FILE"
+
 for VAR in $VARIANTS; do
   echo "==================== variant=$VAR ===================="
   # "replace_all" is a display alias for the hybrid variant (all-synth / no-DB docs), matching the
@@ -160,7 +165,7 @@ for VAR in $VARIANTS; do
           python -u hotpot_pipeline.py "${COMMON[@]}" \
             --distractor-mode equal_diverse_synth \
             --distractor-num-topics "$T" --distractor-docs-per-topic "$DOCS_PER_TOPIC" \
-            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
+            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG $DOCS_FILE_ARG --output-path "$out"
           ;;
       esac
       OUTS+=("$out")
@@ -176,7 +181,7 @@ for VAR in $VARIANTS; do
         *)          # distractor arm: round-0 distractors via DISTRACTOR_MODE
           python -u hotpot_pipeline.py "${COMMON[@]}" \
             --distractor-fraction "$f" --distractor-mode "$DISTRACTOR_MODE" \
-            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG --output-path "$out"
+            --gt-file "$GT_FILE" $NATIVE_ARG $PER_RUN_ARG $AVOID_GOLD_ARG $DOCS_FILE_ARG --output-path "$out"
           ;;
       esac
       OUTS+=("$out")
