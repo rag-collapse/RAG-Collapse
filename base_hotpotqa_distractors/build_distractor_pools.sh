@@ -39,6 +39,15 @@ done
 export LITELLM_API_BASE="${LITELLM_API_BASE:-openai}"
 : "${OPENAI_API_KEY:?set OPENAI_API_KEY (OpenAI direct) in the environment or ./.env}"
 
+# High API concurrency for this one-time build. The conservative pipeline defaults (12 concurrent,
+# 3s pace) made a 1400q build crawl for hours with ZERO rate-limit errors — i.e. unused headroom.
+# ProprietaryLLM reads these from the env; back-off still protects against 429s if we push too hard.
+export LITELLM_BATCH_CHUNK="${LITELLM_BATCH_CHUNK:-48}"
+export LITELLM_BATCH_PACING_SEC="${LITELLM_BATCH_PACING_SEC:-0}"
+# POOLS selects which mode(s) to build, so diverse + equal can run as two PARALLEL jobs:
+#   POOLS=diverse sbatch ... ; POOLS=equal sbatch ...   (default builds both, sequentially)
+POOLS="${POOLS:-diverse equal}"
+
 NATIVE="${NATIVE_FILE:-$SCR/hotpot_dev_distractor_v1.json}"
 GT="${GT_FILE:-$SCR/hotpot_dev_fullwiki_v1.json}"
 CACHE="${CACHE_DIR:-$SCR/hf_cache}"
@@ -59,15 +68,19 @@ common=(--model-name qwen2.5-14b --vllm-api-base "http://127.0.0.1:1/v1"
         --gt-file "$GT" --max-questions "$MAXQ" --seed "$SEED"
         --cache-dir "$CACHE" --index-dir "$INDEX")
 
-echo "### [1/2] diverse_synth pool (full: --distractor-fraction 1.0) -> $POOL_DIR/diverse_synth_pool.json ###"
-python -u hotpot_pipeline.py "${common[@]}" \
-  --distractor-mode diverse_synth --distractor-fraction 1.0 \
-  --dump-distractor-docs "$POOL_DIR/diverse_synth_pool.json"
+if [[ " $POOLS " == *" diverse "* ]]; then
+  echo "### diverse_synth pool (full: --distractor-fraction 1.0) -> $POOL_DIR/diverse_synth_pool.json ###"
+  python -u hotpot_pipeline.py "${common[@]}" \
+    --distractor-mode diverse_synth --distractor-fraction 1.0 \
+    --dump-distractor-docs "$POOL_DIR/diverse_synth_pool.json"
+fi
 
-echo "### [2/2] equal_diverse_synth pool (full: 4 topics x 2 docs) -> $POOL_DIR/equal_diverse_synth_pool.json ###"
-python -u hotpot_pipeline.py "${common[@]}" \
-  --distractor-mode equal_diverse_synth --distractor-num-topics 4 --distractor-docs-per-topic 2 \
-  --dump-distractor-docs "$POOL_DIR/equal_diverse_synth_pool.json"
+if [[ " $POOLS " == *" equal "* ]]; then
+  echo "### equal_diverse_synth pool (full: 4 topics x 2 docs) -> $POOL_DIR/equal_diverse_synth_pool.json ###"
+  python -u hotpot_pipeline.py "${common[@]}" \
+    --distractor-mode equal_diverse_synth --distractor-num-topics 4 --distractor-docs-per-topic 2 \
+    --dump-distractor-docs "$POOL_DIR/equal_diverse_synth_pool.json"
+fi
 
 echo "### done. pools in $POOL_DIR: ###"
 ls -la "$POOL_DIR"
