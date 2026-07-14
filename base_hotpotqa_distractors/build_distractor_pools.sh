@@ -52,6 +52,7 @@ mkdir -p "$POOL_DIR"
 # replace_one keeps all 10 native docs at round 0, so corrupting the non-gold slots yields the FULL
 # 8-doc pool that every variant (search / replace_one / replace_all) draws its nested prefix from.
 common=(--model-name qwen2.5-14b --vllm-api-base "http://127.0.0.1:1/v1"
+        --doc-model-mode api --doc-model-name "$DISTMODEL"
         --distractor-model-mode api --distractor-model-name "$DISTMODEL" --distractor-max-tokens 2048
         --initial-docs native_distractor --native-hotpot-file "$NATIVE"
         --pipeline-variant replace_one --distractor-avoid-gold

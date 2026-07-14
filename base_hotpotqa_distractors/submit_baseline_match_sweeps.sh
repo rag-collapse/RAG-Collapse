@@ -42,11 +42,19 @@ MODELS="${MODELS:-qwen14b}"
 MODES="${MODES:-diverse_synth equal_diverse_synth}"
 VARIANTS_LIST="${VARIANTS_LIST:-search replace_one replace_all}"
 
+# Reproducible mode: arms load the FROZEN distractor pool (built by build_distractor_pools.sh) and
+# apply a nested prefix — no gpt-5-mini calls in the runs. BUILD_DEP=<jobid> chains the arms to
+# start only after the pool-build job succeeds (afterok).
+POOL_DIR="${POOL_DIR:-$HOME/distractor_pools}"
+DEP_ARG=""
+[[ -n "${BUILD_DEP:-}" ]] && DEP_ARG="--dependency=afterok:$BUILD_DEP"
+
 port="${BASE_PORT:-5300}"
 n=0
 for m in $MODELS; do
   for mode in $MODES; do
     if [[ "$mode" == "equal_diverse_synth" ]]; then arms="0 1 2 3 4"; kind=t; else arms="0 0.3 0.5 0.7"; kind=f; fi
+    export DISTRACTOR_DOCS_FILE="$POOL_DIR/${mode}_pool.json"   # frozen pool for this mode (load mode)
     for var in $VARIANTS_LIST; do
       # per-variant walltime headroom (search 30r is the long pole; ~20h/arm at 1400q)
       case "$var" in search) WT=48:00:00;; replace_one) WT=36:00:00;; *) WT=24:00:00;; esac
@@ -62,9 +70,9 @@ for m in $MODELS; do
         tag="bm-${SRV[$m]}-${mode%%_*}-${var}-${kind}${a}"
         echo ">>> $tag  ports ${ANSWER_PORT}/${DOCGEN_PORT}  con '${CON[$m]}'  t=$WT  -> $OUTDIR/base_${var}_${kind}${a}.json"
         if [[ -n "${DRYRUN:-}" ]]; then
-          echo "    DRYRUN: sbatch -J $tag --constraint='${CON[$m]}' -t $WT --mail-user=$MAIL_USER --export=ALL base_hotpotqa_distractors/launch_colocated.sh"
+          echo "    DRYRUN: sbatch -J $tag --constraint='${CON[$m]}' -t $WT $DEP_ARG --mail-user=$MAIL_USER --export=ALL launch_colocated.sh (docs=$DISTRACTOR_DOCS_FILE)"
         else
-          sbatch -J "$tag" --constraint="${CON[$m]}" -t "$WT" --mail-user="$MAIL_USER" --export=ALL \
+          sbatch -J "$tag" --constraint="${CON[$m]}" -t "$WT" $DEP_ARG --mail-user="$MAIL_USER" --export=ALL \
             base_hotpotqa_distractors/launch_colocated.sh
         fi
         n=$((n+1))
