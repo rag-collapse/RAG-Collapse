@@ -50,7 +50,11 @@ DEP_ARG=""
 [[ -n "${BUILD_DEP:-}" ]] && DEP_ARG="--dependency=afterok:$BUILD_DEP"
 
 port="${BASE_PORT:-5300}"
+# Idempotent resubmit: current job names, so a re-run submits only arms that are neither finished
+# (output present) nor already queued/running. Lets a whole-model resubmit fill in just the gaps.
+INQUEUE="$(squeue --me -h -o %j 2>/dev/null || true)"
 n=0
+skipped=0
 for m in $MODELS; do
   for mode in $MODES; do
     if [[ "$mode" == "equal_diverse_synth" ]]; then arms="0 1 2 3 4"; kind=t; else arms="0 0.3 0.5 0.7"; kind=f; fi
@@ -68,7 +72,15 @@ for m in $MODELS; do
         port=$((port+2))
         mkdir -p "$OUTDIR"
         tag="bm-${SRV[$m]}-${mode%%_*}-${var}-${kind}${a}"
-        echo ">>> $tag  ports ${ANSWER_PORT}/${DOCGEN_PORT}  con '${CON[$m]}'  t=$WT  -> $OUTDIR/base_${var}_${kind}${a}.json"
+        out="$OUTDIR/base_${var}_${kind}${a}.json"
+        echo ">>> $tag  ports ${ANSWER_PORT}/${DOCGEN_PORT}  con '${CON[$m]}'  t=$WT  -> $out"
+        # Skip if this arm is already done (output written, ~14MB) or already queued/running.
+        if [[ $(stat -c%s "$out" 2>/dev/null || echo 0) -gt 1000000 ]]; then
+          echo "    skip: output already present"; skipped=$((skipped+1)); continue
+        fi
+        if grep -qxF "$tag" <<<"$INQUEUE"; then
+          echo "    skip: already queued/running"; skipped=$((skipped+1)); continue
+        fi
         if [[ -n "${DRYRUN:-}" ]]; then
           echo "    DRYRUN: sbatch -J $tag --constraint='${CON[$m]}' -t $WT $DEP_ARG --mail-user=$MAIL_USER --export=ALL launch_colocated.sh (docs=$DISTRACTOR_DOCS_FILE)"
         else
@@ -80,5 +92,5 @@ for m in $MODELS; do
     done
   done
 done
-echo "### submitted $n arm-job(s). monitor: squeue --me ; ls -R ~/baseline_match_temp1 ###"
+echo "### submitted $n arm-job(s), skipped $skipped (already done or queued). monitor: squeue --me ; ls -R ~/baseline_match_temp1 ###"
 echo "### post-hoc per (mode,model): python base_hotpotqa_distractors/compare_sweep.py --gt-file <gt> --summary <out> <OUTDIR>/base_<variant>_*.json ###"
