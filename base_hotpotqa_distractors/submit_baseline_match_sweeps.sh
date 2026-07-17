@@ -45,7 +45,7 @@ VARIANTS_LIST="${VARIANTS_LIST:-search replace_one replace_all}"
 # Reproducible mode: arms load the FROZEN distractor pool (built by build_distractor_pools.sh) and
 # apply a nested prefix — no gpt-5-mini calls in the runs. BUILD_DEP=<jobid> chains the arms to
 # start only after the pool-build job succeeds (afterok).
-POOL_DIR="${POOL_DIR:-$HOME/distractor_pools}"
+POOL_DIR="${POOL_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/distractor_pools}"
 DEP_ARG=""
 [[ -n "${BUILD_DEP:-}" ]] && DEP_ARG="--dependency=afterok:$BUILD_DEP"
 
@@ -67,7 +67,7 @@ for m in $MODELS; do
                ANSWER_MAX_NUM_SEQS="${SEQS[$m]}" ANSWER_EXTRA_ARGS="${EXTRA[$m]}" \
                ANSWER_PORT="$port" DOCGEN_PORT="$((port+1))" \
                DISTRACTOR_MODE="$mode" VARIANTS="$var" \
-               OUTDIR="$HOME/baseline_match_temp1/$mode/${SRV[$m]}"
+               OUTDIR="${BASE_OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/baseline_match_temp1}/$mode/${SRV[$m]}"
         if [[ "$kind" == t ]]; then export TOPICS="$a"; unset FRACTIONS; else export FRACTIONS="$a"; unset TOPICS; fi
         port=$((port+2))
         mkdir -p "$OUTDIR"
