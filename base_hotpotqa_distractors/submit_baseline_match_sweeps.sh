@@ -81,10 +81,11 @@ for m in $MODELS; do
         if grep -qxF "$tag" <<<"$INQUEUE"; then
           echo "    skip: already queued/running"; skipped=$((skipped+1)); continue
         fi
+        con="${CONSTRAINT:-${CON[$m]}}"   # CONSTRAINT env overrides the per-model default (e.g. bf16&vram40 to avoid slow L4s)
         if [[ -n "${DRYRUN:-}" ]]; then
-          echo "    DRYRUN: sbatch -J $tag --constraint='${CON[$m]}' -t $WT $DEP_ARG --mail-user=$MAIL_USER --export=ALL launch_colocated.sh (docs=$DISTRACTOR_DOCS_FILE)"
+          echo "    DRYRUN: sbatch -J $tag --constraint='${con}' -t $WT $DEP_ARG --mail-user=$MAIL_USER --export=ALL launch_colocated.sh docs=$DISTRACTOR_DOCS_FILE"
         else
-          sbatch -J "$tag" --constraint="${CON[$m]}" -t "$WT" $DEP_ARG --mail-user="$MAIL_USER" --export=ALL \
+          sbatch -J "$tag" --constraint="${con}" -t "$WT" $DEP_ARG --mail-user="$MAIL_USER" --export=ALL \
             base_hotpotqa_distractors/launch_colocated.sh
         fi
         n=$((n+1))
