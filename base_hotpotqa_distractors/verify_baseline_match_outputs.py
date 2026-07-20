@@ -46,9 +46,13 @@ def _tail(path, n=256):
 
 
 def _grepc(pattern, path):
-    """Count matches of an extended-regex pattern via streaming grep (no full JSON load)."""
-    p = subprocess.run(["grep", "-oE", pattern, path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    return p.stdout.count(b"\n")
+    """Count lines matching a FIXED string via grep -cF (fast; outputs are pretty-printed, so one
+    field per line). Avoids loading the >500MB JSON."""
+    p = subprocess.run(["grep", "-cF", pattern, path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        return int(p.stdout.strip() or b"0")
+    except ValueError:
+        return 0
 
 
 def check(var, path):
@@ -67,8 +71,8 @@ def check(var, path):
     qn = _grepc('"question_id"', path)
     if qn != EXP_Q:
         problems.append(f"questions={qn}!={EXP_Q}")
-    total = _grepc('"answer": *"', path)
-    empty = _grepc('"answer": *""', path)
+    total = _grepc('"answer": "', path)
+    empty = _grepc('"answer": ""', path)
     rate = (empty / total) if total else 1.0
     if rate > EMPTY_MAX:
         problems.append(f"empty-answers={rate:.1%}")
@@ -91,10 +95,11 @@ def main():
                     probs, qn, rate = check(var, path)
                     if probs:
                         bad += 1
-                        print(f"FAIL {tag}: {'; '.join(probs)}")
+                        print(f"FAIL {tag}: {'; '.join(probs)}", flush=True)
                     else:
                         ok += 1
-    print(f"\nOK={ok}  FAIL={bad}  MISSING={missing}  (of {len(MODELS) * 27} expected arms)")
+                        print(f"OK   {tag}  (q={qn}, empty={rate:.1%})", flush=True)
+    print(f"\nOK={ok}  FAIL={bad}  MISSING={missing}  (of {len(MODELS) * 27} expected arms)", flush=True)
     sys.exit(0 if bad == 0 else 1)
 
 
