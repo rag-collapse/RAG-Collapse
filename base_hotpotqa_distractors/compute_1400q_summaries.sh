@@ -23,13 +23,15 @@ conda activate ragenv
 SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
 GT="${GT_FILE:-$SCR/hotpot_dev_fullwiki_v1.json}"
 BASE="${BASE_OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/baseline_match_temp1}"
-MODELS="qwen2.5-14b llama-3.1-8b mistral-7b deepseek-r1-distill-qwen-7b"
+MODELS="${MODELS:-qwen2.5-14b llama-3.1-8b mistral-7b deepseek-r1-distill-qwen-7b}"
+MODES_LIST="${MODES:-diverse_synth equal_diverse_synth}"
+VARS_LIST="${VARIANTS:-search replace_one replace_all}"
 
 n_ok=0; n_fail=0
-for mode in diverse_synth equal_diverse_synth; do
+for mode in $MODES_LIST; do
   for model in $MODELS; do
     D="$BASE/$mode/$model"
-    for var in search replace_one replace_all; do
+    for var in $VARS_LIST; do
       files=$(ls "$D"/base_${var}_*.json 2>/dev/null || true)
       if [[ -z "$files" ]]; then echo "skip $mode/$model/$var (no arm files)"; continue; fi
       out="$D/sweep_summary_${var}.json"
