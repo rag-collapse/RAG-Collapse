@@ -10,7 +10,7 @@
 #SBATCH -p cpu
 #SBATCH -c 4
 #SBATCH --mem=64g
-#SBATCH -t 06:00:00
+#SBATCH -t 04:00:00
 #SBATCH -o logs/compute_summaries_%j.out
 #SBATCH -e logs/compute_summaries_%j.err
 #SBATCH --mail-type=END,FAIL
