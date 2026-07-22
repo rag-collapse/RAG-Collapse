@@ -75,10 +75,17 @@ def _topic_label(t):
     return "0 (baseline)" if t == "0" else f"{t} topic" + ("" if t == "1" else "s")
 
 
-# ---------------- (A) REGEN: Qwen diverse vs equal ----------------
-def regen_qwen():
-    div = {v: load("diverse_synth", "qwen2.5-14b", v) for v in VARIANTS}
-    eq = {v: load("equal_diverse_synth", "qwen2.5-14b", v) for v in VARIANTS}
+# ---------------- (A) REGEN: per-model diverse vs equal (one figure set per model, for HTML tabs) ----------------
+# Filenames use a short per-model key so the artifact can group by tab: <key>_cmp_<metric>_<variant>.png
+# and <key>_dose_<metric>.png. qwen keeps its historical "qwen" key for stable alt-text matching.
+MKEY = {"qwen2.5-14b": "qwen", "llama-3.1-8b": "llama",
+        "mistral-7b": "mistral", "deepseek-r1-distill-qwen-7b": "deepseek"}
+
+
+def regen_model(model):
+    key = MKEY[model]
+    div = {v: load("diverse_synth", model, v) for v in VARIANTS}
+    eq = {v: load("equal_diverse_synth", model, v) for v in VARIANTS}
     n = 0
     # per-round dynamics (full rounds)
     for metric, ylab, ref1, title in METRICS:
@@ -105,8 +112,8 @@ def regen_qwen():
                     ax.axhline(1.0, color=REF, ls=":", lw=1.2)
                 ax.legend(fontsize=8, ncol=2)
             axL.set_ylabel(ylab)
-            fig.suptitle(f"{title} across rounds — Qwen2.5-14B, {VLABEL[v]}", fontsize=14)
-            fig.savefig(FIGDIR / f"qwen_cmp_{MSHORT[metric]}_{v}.png")
+            fig.suptitle(f"{title} across rounds — {MLABEL[model]}, {VLABEL[v]}", fontsize=14)
+            fig.savefig(FIGDIR / f"{key}_cmp_{MSHORT[metric]}_{v}.png")
             plt.close(fig)
             n += 1
     # dose-response @ final round
@@ -128,11 +135,15 @@ def regen_qwen():
                 ax.axhline(1.0, color=REF, ls=":", lw=1.2)
             ax.legend(fontsize=8)
         axL.set_ylabel(ylab)
-        fig.suptitle(f"{title} @ final round — Qwen2.5-14B", fontsize=14)
-        fig.savefig(FIGDIR / f"qwen_dose_{MSHORT[metric]}.png")
+        fig.suptitle(f"{title} @ final round — {MLABEL[model]}", fontsize=14)
+        fig.savefig(FIGDIR / f"{key}_dose_{MSHORT[metric]}.png")
         plt.close(fig)
         n += 1
     return n
+
+
+def regen_all_models():
+    return sum(regen_model(m) for m in MODELS)
 
 
 # ---------------- (B) DOSE: all models, final round, faceted by variant ----------------
@@ -196,8 +207,8 @@ def traj_all_models():
 
 
 if __name__ == "__main__":
-    a = regen_qwen()
+    a = regen_all_models()
     b = dose_all_models()
     c = traj_all_models()
     total = len(list(FIGDIR.glob("*.png")))
-    print(f"REGEN(qwen)={a}  DOSE(all)={b}  TRAJ(all)={c}  ->  {total} PNGs in {FIGDIR}")
+    print(f"REGEN(per-model)={a}  DOSE(all)={b}  TRAJ(all)={c}  ->  {total} PNGs in {FIGDIR}")
