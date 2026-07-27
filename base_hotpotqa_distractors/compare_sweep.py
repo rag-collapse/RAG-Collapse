@@ -5,14 +5,18 @@ Reads the per-fraction run JSONs (fraction parsed from the filename ``base_<vari
 and computes, **over the SAME eligible question cohort for every arm**, the per-round diverse-aware
 metrics — so the no-distractor baseline (fraction 0) and the distractor arms are directly comparable:
 
-  gold_match           fraction of runs whose answer == gold (accuracy / recovery)
-  distractor_adoption  fraction adopting ANY seeded wrong entity (gold-leak already excluded upstream)
-  offtarget            fraction off-gold AND off-every-seeded-entity
+  gold_match           fraction of runs whose answer CONTAINS the gold entity (accuracy / recovery)
+  distractor_adoption  fraction adopting ANY of THIS arm's seeded wrong entities (containment)
+  offtarget            fraction off-gold AND off-every-seeded-entity (non-empty answers only)
   distinct_answers     mean number of distinct normalized answers per question (answer diversity)
 
-The eligible cohort is the set of query_ids that any distractor arm marked eligible (deterministic
-across arms under the same seed); the fraction-0 baseline is scored on that same cohort from its raw
-answers. Writes a summary JSON and prints a compact dose-response table.
+Matching is CONTAINMENT (``contains_entity``), identical to ``hotpot_evaluation`` — the model's full
+answer is checked for the gold/seeded entity, so reasoning-model answers (e.g. DeepSeek) are scored
+correctly rather than failing an exact-string ``==``. The eligible cohort is the INTERSECTION of the
+questions each distractor arm actually seeded (eligible AND >=1 injected entity), so every arm is
+scored on the same questions; the no-distractor baseline (seeds nothing) is scored on that cohort too.
+Each arm is scored against ITS OWN seeded entities (not a union across arms). Writes a summary JSON and
+prints a compact dose-response table.
 """
 import argparse
 import json
@@ -21,7 +25,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
-from pipeline.misinfo import normalize, load_ground_truth
+from pipeline.misinfo import normalize, contains_entity, load_ground_truth
 
 
 def _fraction_of(path):
@@ -30,7 +34,9 @@ def _fraction_of(path):
     elsewhere in a variant/owner token can't mis-parse. Returns the numeric label as a string."""
     base = os.path.basename(path)
     m = re.search(r"_(?:t|f)([0-9.]+)\.json$", base)
-    return m.group(1) if m else base
+    if not m:
+        raise ValueError(f"cannot parse arm label (expected trailing _f<frac> or _t<topics>) from: {base}")
+    return m.group(1)
 
 
 def _qid(q):
@@ -38,7 +44,9 @@ def _qid(q):
 
 
 def _answers_by_round(q):
-    return {it.get("iteration_number"): [normalize(r.get("answer", "")) for r in it.get("runs", [])]
+    """Round -> list of RAW answer strings (one per run). Kept raw so ``contains_entity`` can do its
+    own normalization for containment; distinct-answer counting normalizes inline."""
+    return {it.get("iteration_number"): [r.get("answer", "") or "" for r in it.get("runs", [])]
             for it in q.get("iterations", [])}
 
 
@@ -51,25 +59,36 @@ def main():
 
     gt = load_ground_truth(args.gt_file)
 
-    arms = {}            # frac(str) -> experiment dict
-    eligible = set()     # query_ids eligible for distractors (any arm)
-    seeded = {}          # query_id -> {normalized seeded wrong entities}
+    arms = {}                 # arm label(str) -> experiment dict
+    seeded_by_arm = {}        # arm -> {query_id: {raw seeded wrong entities}}  (PER ARM, not a union)
+    elig_by_arm = {}          # arm -> {query_ids this arm actually seeded (eligible AND >=1 entity)}
     for p in args.runs:
+        frac = _fraction_of(p)
         d = json.load(open(p))
-        arms[_fraction_of(p)] = d
+        arms[frac] = d
+        sb = {}
         for q in d.get("questions", []):
-            rec = q.get("initial_distractor")
-            if rec and rec.get("eligible"):
-                cid = _qid(q)
-                eligible.add(cid)
-                ents = {normalize(x["injected_entity"]) for x in rec.get("distractors", [])
-                        if x.get("injected_entity")}
-                seeded.setdefault(cid, set()).update(ents)
+            rec = q.get("initial_distractor") or {}
+            if not rec.get("eligible"):
+                continue
+            ents = {x["injected_entity"] for x in rec.get("distractors", []) if x.get("injected_entity")}
+            if not ents:      # eligible but nothing seeded (no_docs / no_docs_in_cache) -> not a treated q
+                continue
+            sb[_qid(q)] = ents
+        seeded_by_arm[frac] = sb
+        elig_by_arm[frac] = set(sb)
 
-    summary = {"gt_file": args.gt_file, "eligible_cohort_size": len(eligible), "fractions": {}}
+    # Cohort = INTERSECTION of the treated-question sets across the distractor arms (arms that seeded
+    # something). The no-distractor baseline seeds nothing, so it does not constrain the cohort but is
+    # scored on it. Every arm is thus scored on the SAME questions, each against ITS OWN seeded entities.
+    treated_arms = [a for a in arms if elig_by_arm.get(a)]
+    cohort = set.intersection(*(elig_by_arm[a] for a in treated_arms)) if treated_arms else set()
+
+    summary = {"gt_file": args.gt_file, "eligible_cohort_size": len(cohort), "fractions": {}}
     for frac in sorted(arms, key=lambda f: float(f)):
         d = arms[frac]
-        qmap = {_qid(q): q for q in d.get("questions", []) if _qid(q) in eligible}
+        seeded = seeded_by_arm.get(frac, {})
+        qmap = {_qid(q): q for q in d.get("questions", []) if _qid(q) in cohort}
         rounds = set()
         for q in qmap.values():
             rounds.update(_answers_by_round(q))
@@ -82,12 +101,15 @@ def main():
                 if not abr:
                     continue
                 nq += 1
-                g = normalize(gt.get(cid, ""))
-                sset = seeded.get(cid, set())
-                gm += sum(a == g for a in abr) / len(abr)
-                da += sum(a in sset for a in abr) / len(abr)
-                off += sum(a != g and a not in sset for a in abr) / len(abr)
-                dist += len(set(abr))
+                g = gt.get(cid, "")                    # raw gold; contains_entity normalizes internally
+                sset = seeded.get(cid, set())          # THIS arm's seeded entities only
+                gm += (sum(contains_entity(a, g) for a in abr) / len(abr)) if g else 0.0
+                da += (sum(any(contains_entity(a, e) for e in sset) for a in abr) / len(abr)) if sset else 0.0
+                off += sum(1 for a in abr
+                           if normalize(a)
+                           and not (g and contains_entity(a, g))
+                           and not any(contains_entity(a, e) for e in sset)) / len(abr)
+                dist += len({normalize(a) for a in abr if normalize(a)})
             if nq:
                 per_round[str(it)] = {"gold_match": gm / nq, "distractor_adoption": da / nq,
                                       "offtarget": off / nq, "distinct_answers": dist / nq,
@@ -97,7 +119,7 @@ def main():
     with open(args.summary, "w") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"eligible cohort: {len(eligible)} questions  (metrics computed over this cohort for ALL arms)")
+    print(f"eligible cohort: {len(cohort)} questions  (intersection; metrics computed over it for ALL arms)")
     print(f"{'frac':>5} {'r0_gold':>8} {'rF_gold':>8} {'dgold':>7} {'r0_dist':>8} {'rF_dist':>8} "
           f"{'rF_adopt':>9} {'rF_offtgt':>10}")
     base_rf = None
