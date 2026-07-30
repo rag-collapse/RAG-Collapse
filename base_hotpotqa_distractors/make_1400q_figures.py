@@ -71,6 +71,16 @@ def final_round(fr, arm):
     return str(max(int(r) for r in a))
 
 
+def round0(fr, arm):
+    """Round-0 key (post-seeding, BEFORE self-refinement mixing) for an arm (as str), or None.
+    The dose-response is measured here: at the final round the injected dose is diluted by 10-30
+    rounds of self-refinement, so a final-round dose plot conflates seeding with collapse."""
+    a = fr.get(arm)
+    if not a:
+        return None
+    return str(min(int(r) for r in a))
+
+
 def _topic_label(t):
     return "0 (baseline)" if t == "0" else f"{t} topic" + ("" if t == "1" else "s")
 
@@ -92,7 +102,7 @@ def regen_model(model):
         for v in VARIANTS:
             if not div.get(v) or not eq.get(v):
                 continue
-            fig, (axL, axR) = plt.subplots(1, 2, figsize=(12, 4.6), sharey=True, layout="constrained")
+            fig, (axL, axR) = plt.subplots(1, 2, figsize=(12, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
             for f in DFRACS:
                 a = div[v].get(f)
                 if not a:
@@ -118,15 +128,15 @@ def regen_model(model):
             n += 1
     # dose-response @ final round
     for metric, ylab, ref1, title in METRICS:
-        fig, (axL, axR) = plt.subplots(1, 2, figsize=(12, 4.6), sharey=True, layout="constrained")
+        fig, (axL, axR) = plt.subplots(1, 2, figsize=(12, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
         for v in VARIANTS:
             if div.get(v):
                 xs = [float(f) for f in DFRACS if div[v].get(f)]
-                ys = [div[v][f][final_round(div[v], f)][metric] for f in DFRACS if div[v].get(f)]
+                ys = [div[v][f][round0(div[v], f)][metric] for f in DFRACS if div[v].get(f)]
                 axL.plot(xs, ys, marker="o", color=VC[v], label=VLABEL[v])
             if eq.get(v):
                 xs = [int(t) for t in ETOPICS if eq[v].get(t)]
-                ys = [eq[v][t][final_round(eq[v], t)][metric] for t in ETOPICS if eq[v].get(t)]
+                ys = [eq[v][t][round0(eq[v], t)][metric] for t in ETOPICS if eq[v].get(t)]
                 axR.plot(xs, ys, marker="o", color=VC[v], label=VLABEL[v])
         axL.set_title("diverse_synth"); axL.set_xlabel("distractor fraction")
         axR.set_title("equal_diverse_synth"); axR.set_xlabel("number of topics")
@@ -135,7 +145,7 @@ def regen_model(model):
                 ax.axhline(1.0, color=REF, ls=":", lw=1.2)
             ax.legend(fontsize=8)
         axL.set_ylabel(ylab)
-        fig.suptitle(f"{title} @ final round — {MLABEL[model]}", fontsize=14)
+        fig.suptitle(f"{title} @ round 0 (post-seeding) — {MLABEL[model]}", fontsize=14)
         fig.savefig(FIGDIR / f"{key}_dose_{MSHORT[metric]}.png")
         plt.close(fig)
         n += 1
@@ -152,7 +162,7 @@ def dose_all_models():
     for mode, arms, xlab in (("diverse_synth", DFRACS, "distractor fraction"),
                              ("equal_diverse_synth", ETOPICS, "number of topics")):
         for metric, ylab, ref1, title in METRICS:
-            fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=True, layout="constrained")
+            fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
             for ax, v in zip(axes, VARIANTS):
                 for model in MODELS:
                     fr = load(mode, model, v)
@@ -160,7 +170,7 @@ def dose_all_models():
                         continue
                     xs, ys = [], []
                     for arm in arms:
-                        frnd = final_round(fr, arm)
+                        frnd = round0(fr, arm)
                         if frnd is None:
                             continue
                         xs.append(float(arm) if mode == "diverse_synth" else int(arm))
@@ -172,7 +182,7 @@ def dose_all_models():
                     ax.axhline(1.0, color=REF, ls=":", lw=1.2)
             axes[0].set_ylabel(ylab)
             axes[-1].legend(fontsize=8)
-            fig.suptitle(f"{title} @ final round vs {xlab} — all models ({mode})", fontsize=14)
+            fig.suptitle(f"{title} @ round 0 (post-seeding) vs {xlab} — all models ({mode})", fontsize=14)
             fig.savefig(FIGDIR / f"dose_{mode}_{MSHORT[metric]}.png")
             plt.close(fig)
             n += 1
@@ -184,7 +194,7 @@ def traj_all_models():
     n = 0
     for mode, strong in (("diverse_synth", "0.7"), ("equal_diverse_synth", "4")):
         for metric, ylab, ref1, title in METRICS:
-            fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=True, layout="constrained")
+            fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
             for ax, v in zip(axes, VARIANTS):
                 for model in MODELS:
                     fr = load(mode, model, v)
