@@ -189,30 +189,37 @@ def dose_all_models():
     return n
 
 
-# ---------------- (C) TRAJ: all models, strongest arm, metric x round, faceted by variant ----------------
+# ---------------- (C) TRAJ: all models, EVERY arm, metric x round, faceted by variant ----------------
+# One figure per (mode, arm, metric) so the artifact can tab by distractor fraction / topic count.
+# Filenames: traj_<mode>_<metric>_<f|t><arm>.png
 def traj_all_models():
     n = 0
-    for mode, strong in (("diverse_synth", "0.7"), ("equal_diverse_synth", "4")):
-        for metric, ylab, ref1, title in METRICS:
-            fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
-            for ax, v in zip(axes, VARIANTS):
-                for model in MODELS:
-                    fr = load(mode, model, v)
-                    if not fr or not fr.get(strong):
-                        continue
-                    a = fr[strong]
-                    rs = rounds_of(a)
-                    ax.plot(rs, [a[str(r)][metric] for r in rs], color=MCOL[model], label=MLABEL[model])
-                ax.set_title(VLABEL[v]); ax.set_xlabel("round")
-                if ref1:
-                    ax.axhline(1.0, color=REF, ls=":", lw=1.2)
-            axes[0].set_ylabel(ylab)
-            axes[-1].legend(fontsize=8)
-            arm_desc = f"fraction {strong}" if mode == "diverse_synth" else f"{strong} topics"
-            fig.suptitle(f"{title} across rounds ({arm_desc}) — all models ({mode})", fontsize=14)
-            fig.savefig(FIGDIR / f"traj_{mode}_{MSHORT[metric]}.png")
-            plt.close(fig)
-            n += 1
+    for mode, arms in (("diverse_synth", DFRACS), ("equal_diverse_synth", ETOPICS)):
+        kind = "f" if mode == "diverse_synth" else "t"
+        for arm in arms:
+            if mode == "diverse_synth":
+                arm_desc = f"fraction {arm}" if arm != "0" else "fraction 0 (baseline)"
+            else:
+                arm_desc = _topic_label(arm)
+            for metric, ylab, ref1, title in METRICS:
+                fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=(metric != "distinct_answers"), layout="constrained")
+                for ax, v in zip(axes, VARIANTS):
+                    for model in MODELS:
+                        fr = load(mode, model, v)
+                        if not fr or not fr.get(arm):
+                            continue
+                        a = fr[arm]
+                        rs = rounds_of(a)
+                        ax.plot(rs, [a[str(r)][metric] for r in rs], color=MCOL[model], label=MLABEL[model])
+                    ax.set_title(VLABEL[v]); ax.set_xlabel("round")
+                    if ref1:
+                        ax.axhline(1.0, color=REF, ls=":", lw=1.2)
+                axes[0].set_ylabel(ylab)
+                axes[-1].legend(fontsize=8)
+                fig.suptitle(f"{title} across rounds ({arm_desc}) — all models ({mode})", fontsize=14)
+                fig.savefig(FIGDIR / f"traj_{mode}_{MSHORT[metric]}_{kind}{arm}.png")
+                plt.close(fig)
+                n += 1
     return n
 
 
