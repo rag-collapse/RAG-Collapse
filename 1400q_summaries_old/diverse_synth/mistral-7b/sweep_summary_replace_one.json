@@ -1,0 +1,574 @@
+{
+  "gt_file": "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json",
+  "eligible_cohort_size": 1290,
+  "fractions": {
+    "0": {
+      "0": {
+        "gold_match": 0.2045736434108528,
+        "distractor_adoption": 0.0028682170542635656,
+        "offtarget": 0.792558139534884,
+        "distinct_answers": 5.269767441860465,
+        "n_questions": 1290
+      },
+      "1": {
+        "gold_match": 0.23906976744186037,
+        "distractor_adoption": 0.0035658914728682167,
+        "offtarget": 0.7573643410852714,
+        "distinct_answers": 4.594573643410853,
+        "n_questions": 1290
+      },
+      "2": {
+        "gold_match": 0.2516279069767443,
+        "distractor_adoption": 0.0055813953488372085,
+        "offtarget": 0.7427906976744186,
+        "distinct_answers": 4.375968992248062,
+        "n_questions": 1290
+      },
+      "3": {
+        "gold_match": 0.2574418604651164,
+        "distractor_adoption": 0.006666666666666666,
+        "offtarget": 0.7358914728682174,
+        "distinct_answers": 4.19922480620155,
+        "n_questions": 1290
+      },
+      "4": {
+        "gold_match": 0.25620155038759684,
+        "distractor_adoption": 0.008294573643410854,
+        "offtarget": 0.7355038759689928,
+        "distinct_answers": 4.096899224806202,
+        "n_questions": 1290
+      },
+      "5": {
+        "gold_match": 0.2550387596899223,
+        "distractor_adoption": 0.007054263565891472,
+        "offtarget": 0.7379069767441868,
+        "distinct_answers": 4.022480620155039,
+        "n_questions": 1290
+      },
+      "6": {
+        "gold_match": 0.25682170542635685,
+        "distractor_adoption": 0.007131782945736433,
+        "offtarget": 0.7360465116279068,
+        "distinct_answers": 3.9472868217054264,
+        "n_questions": 1290
+      },
+      "7": {
+        "gold_match": 0.255736434108527,
+        "distractor_adoption": 0.008139534883720928,
+        "offtarget": 0.736124031007752,
+        "distinct_answers": 3.927906976744186,
+        "n_questions": 1290
+      },
+      "8": {
+        "gold_match": 0.25589147286821723,
+        "distractor_adoption": 0.007519379844961241,
+        "offtarget": 0.7365891472868227,
+        "distinct_answers": 3.911627906976744,
+        "n_questions": 1290
+      },
+      "9": {
+        "gold_match": 0.24449612403100782,
+        "distractor_adoption": 0.009069767441860466,
+        "offtarget": 0.7464341085271315,
+        "distinct_answers": 3.9007751937984496,
+        "n_questions": 1290
+      },
+      "10": {
+        "gold_match": 0.2489147286821706,
+        "distractor_adoption": 0.009689922480620155,
+        "offtarget": 0.7413953488372097,
+        "distinct_answers": 3.8868217054263567,
+        "n_questions": 1290
+      },
+      "11": {
+        "gold_match": 0.24240310077519378,
+        "distractor_adoption": 0.009147286821705425,
+        "offtarget": 0.7484496124031008,
+        "distinct_answers": 3.925581395348837,
+        "n_questions": 1290
+      },
+      "12": {
+        "gold_match": 0.24534883720930228,
+        "distractor_adoption": 0.007829457364341087,
+        "offtarget": 0.7468217054263573,
+        "distinct_answers": 3.857364341085271,
+        "n_questions": 1290
+      },
+      "13": {
+        "gold_match": 0.24116279069767427,
+        "distractor_adoption": 0.008604651162790699,
+        "offtarget": 0.7502325581395353,
+        "distinct_answers": 3.7713178294573644,
+        "n_questions": 1290
+      },
+      "14": {
+        "gold_match": 0.23930232558139525,
+        "distractor_adoption": 0.009224806201550388,
+        "offtarget": 0.7514728682170543,
+        "distinct_answers": 3.8596899224806203,
+        "n_questions": 1290
+      },
+      "15": {
+        "gold_match": 0.23813953488372075,
+        "distractor_adoption": 0.007131782945736433,
+        "offtarget": 0.7547286821705428,
+        "distinct_answers": 3.807751937984496,
+        "n_questions": 1290
+      },
+      "16": {
+        "gold_match": 0.23775193798449606,
+        "distractor_adoption": 0.00798449612403101,
+        "offtarget": 0.7542635658914728,
+        "distinct_answers": 3.8286821705426357,
+        "n_questions": 1290
+      },
+      "17": {
+        "gold_match": 0.23426356589147304,
+        "distractor_adoption": 0.007286821705426355,
+        "offtarget": 0.7584496124031008,
+        "distinct_answers": 3.7612403100775196,
+        "n_questions": 1290
+      },
+      "18": {
+        "gold_match": 0.23542635658914707,
+        "distractor_adoption": 0.00813953488372093,
+        "offtarget": 0.7564341085271317,
+        "distinct_answers": 3.73953488372093,
+        "n_questions": 1290
+      },
+      "19": {
+        "gold_match": 0.23643410852713162,
+        "distractor_adoption": 0.008992248062015503,
+        "offtarget": 0.7545736434108528,
+        "distinct_answers": 3.764341085271318,
+        "n_questions": 1290
+      }
+    },
+    "0.3": {
+      "0": {
+        "gold_match": 0.05255813953488373,
+        "distractor_adoption": 0.2324806201550388,
+        "offtarget": 0.7149612403100774,
+        "distinct_answers": 4.996124031007752,
+        "n_questions": 1290
+      },
+      "1": {
+        "gold_match": 0.07240310077519377,
+        "distractor_adoption": 0.27108527131782956,
+        "offtarget": 0.656511627906977,
+        "distinct_answers": 4.329457364341085,
+        "n_questions": 1290
+      },
+      "2": {
+        "gold_match": 0.07589147286821707,
+        "distractor_adoption": 0.28961240310077496,
+        "offtarget": 0.634496124031008,
+        "distinct_answers": 4.010077519379845,
+        "n_questions": 1290
+      },
+      "3": {
+        "gold_match": 0.08155038759689923,
+        "distractor_adoption": 0.3069767441860466,
+        "offtarget": 0.6114728682170546,
+        "distinct_answers": 3.768217054263566,
+        "n_questions": 1290
+      },
+      "4": {
+        "gold_match": 0.07689922480620152,
+        "distractor_adoption": 0.31744186046511597,
+        "offtarget": 0.6056589147286827,
+        "distinct_answers": 3.667441860465116,
+        "n_questions": 1290
+      },
+      "5": {
+        "gold_match": 0.07612403100775193,
+        "distractor_adoption": 0.30635658914728686,
+        "offtarget": 0.6175193798449604,
+        "distinct_answers": 3.610077519379845,
+        "n_questions": 1290
+      },
+      "6": {
+        "gold_match": 0.08131782945736428,
+        "distractor_adoption": 0.3040310077519381,
+        "offtarget": 0.6146511627906979,
+        "distinct_answers": 3.6271317829457366,
+        "n_questions": 1290
+      },
+      "7": {
+        "gold_match": 0.08186046511627905,
+        "distractor_adoption": 0.2996124031007749,
+        "offtarget": 0.6185271317829466,
+        "distinct_answers": 3.5488372093023255,
+        "n_questions": 1290
+      },
+      "8": {
+        "gold_match": 0.08248062015503879,
+        "distractor_adoption": 0.30046511627906985,
+        "offtarget": 0.6170542635658921,
+        "distinct_answers": 3.5395348837209304,
+        "n_questions": 1290
+      },
+      "9": {
+        "gold_match": 0.08124031007751938,
+        "distractor_adoption": 0.2805426356589146,
+        "offtarget": 0.6382170542635672,
+        "distinct_answers": 3.6589147286821704,
+        "n_questions": 1290
+      },
+      "10": {
+        "gold_match": 0.08434108527131787,
+        "distractor_adoption": 0.2734883720930233,
+        "offtarget": 0.6421705426356586,
+        "distinct_answers": 3.7325581395348837,
+        "n_questions": 1290
+      },
+      "11": {
+        "gold_match": 0.0802325581395349,
+        "distractor_adoption": 0.26573643410852693,
+        "offtarget": 0.6540310077519382,
+        "distinct_answers": 3.7038759689922482,
+        "n_questions": 1290
+      },
+      "12": {
+        "gold_match": 0.08046511627906971,
+        "distractor_adoption": 0.2724031007751936,
+        "offtarget": 0.6471317829457368,
+        "distinct_answers": 3.5984496124031007,
+        "n_questions": 1290
+      },
+      "13": {
+        "gold_match": 0.08116279069767443,
+        "distractor_adoption": 0.27023255813953484,
+        "offtarget": 0.6486046511627911,
+        "distinct_answers": 3.566666666666667,
+        "n_questions": 1290
+      },
+      "14": {
+        "gold_match": 0.0823255813953488,
+        "distractor_adoption": 0.27046511627906983,
+        "offtarget": 0.6472093023255819,
+        "distinct_answers": 3.4868217054263564,
+        "n_questions": 1290
+      },
+      "15": {
+        "gold_match": 0.08658914728682172,
+        "distractor_adoption": 0.2773643410852712,
+        "offtarget": 0.6360465116279078,
+        "distinct_answers": 3.4813953488372094,
+        "n_questions": 1290
+      },
+      "16": {
+        "gold_match": 0.08426356589147287,
+        "distractor_adoption": 0.2727906976744185,
+        "offtarget": 0.6429457364341093,
+        "distinct_answers": 3.4852713178294574,
+        "n_questions": 1290
+      },
+      "17": {
+        "gold_match": 0.08271317829457364,
+        "distractor_adoption": 0.27317829457364345,
+        "offtarget": 0.6441085271317837,
+        "distinct_answers": 3.475193798449612,
+        "n_questions": 1290
+      },
+      "18": {
+        "gold_match": 0.082015503875969,
+        "distractor_adoption": 0.2684496124031007,
+        "offtarget": 0.6495348837209305,
+        "distinct_answers": 3.4852713178294574,
+        "n_questions": 1290
+      },
+      "19": {
+        "gold_match": 0.08728682170542637,
+        "distractor_adoption": 0.2706201550387597,
+        "offtarget": 0.6420930232558149,
+        "distinct_answers": 3.4596899224806203,
+        "n_questions": 1290
+      }
+    },
+    "0.5": {
+      "0": {
+        "gold_match": 0.043100775193798464,
+        "distractor_adoption": 0.16124031007751935,
+        "offtarget": 0.7956589147286819,
+        "distinct_answers": 6.05891472868217,
+        "n_questions": 1290
+      },
+      "1": {
+        "gold_match": 0.05604651162790698,
+        "distractor_adoption": 0.20201550387596892,
+        "offtarget": 0.7419379844961239,
+        "distinct_answers": 5.448062015503876,
+        "n_questions": 1290
+      },
+      "2": {
+        "gold_match": 0.06031007751937984,
+        "distractor_adoption": 0.2286046511627907,
+        "offtarget": 0.7110852713178297,
+        "distinct_answers": 4.881395348837209,
+        "n_questions": 1290
+      },
+      "3": {
+        "gold_match": 0.05821705426356589,
+        "distractor_adoption": 0.2506201550387599,
+        "offtarget": 0.6911627906976741,
+        "distinct_answers": 4.630232558139535,
+        "n_questions": 1290
+      },
+      "4": {
+        "gold_match": 0.05906976744186047,
+        "distractor_adoption": 0.2670542635658915,
+        "offtarget": 0.6738759689922483,
+        "distinct_answers": 4.391472868217054,
+        "n_questions": 1290
+      },
+      "5": {
+        "gold_match": 0.060620155038759706,
+        "distractor_adoption": 0.2796899224806204,
+        "offtarget": 0.6596899224806198,
+        "distinct_answers": 4.24031007751938,
+        "n_questions": 1290
+      },
+      "6": {
+        "gold_match": 0.06333333333333331,
+        "distractor_adoption": 0.2955813953488372,
+        "offtarget": 0.6410852713178299,
+        "distinct_answers": 4.004651162790697,
+        "n_questions": 1290
+      },
+      "7": {
+        "gold_match": 0.06736434108527134,
+        "distractor_adoption": 0.30124031007751934,
+        "offtarget": 0.6313953488372097,
+        "distinct_answers": 3.83953488372093,
+        "n_questions": 1290
+      },
+      "8": {
+        "gold_match": 0.0674418604651163,
+        "distractor_adoption": 0.2988372093023255,
+        "offtarget": 0.6337209302325585,
+        "distinct_answers": 3.748062015503876,
+        "n_questions": 1290
+      },
+      "9": {
+        "gold_match": 0.06868217054263569,
+        "distractor_adoption": 0.2893023255813956,
+        "offtarget": 0.6420155038759691,
+        "distinct_answers": 3.8302325581395347,
+        "n_questions": 1290
+      },
+      "10": {
+        "gold_match": 0.06348837209302327,
+        "distractor_adoption": 0.2707751937984497,
+        "offtarget": 0.6657364341085276,
+        "distinct_answers": 3.983720930232558,
+        "n_questions": 1290
+      },
+      "11": {
+        "gold_match": 0.0674418604651163,
+        "distractor_adoption": 0.2706201550387597,
+        "offtarget": 0.6619379844961246,
+        "distinct_answers": 3.887596899224806,
+        "n_questions": 1290
+      },
+      "12": {
+        "gold_match": 0.06798449612403097,
+        "distractor_adoption": 0.271937984496124,
+        "offtarget": 0.6600775193798456,
+        "distinct_answers": 3.762015503875969,
+        "n_questions": 1290
+      },
+      "13": {
+        "gold_match": 0.06720930232558138,
+        "distractor_adoption": 0.27658914728682155,
+        "offtarget": 0.6562015503875972,
+        "distinct_answers": 3.6829457364341085,
+        "n_questions": 1290
+      },
+      "14": {
+        "gold_match": 0.0693798449612403,
+        "distractor_adoption": 0.2703875968992249,
+        "offtarget": 0.6602325581395349,
+        "distinct_answers": 3.6573643410852714,
+        "n_questions": 1290
+      },
+      "15": {
+        "gold_match": 0.0696124031007752,
+        "distractor_adoption": 0.27333333333333315,
+        "offtarget": 0.6570542635658925,
+        "distinct_answers": 3.5527131782945736,
+        "n_questions": 1290
+      },
+      "16": {
+        "gold_match": 0.07116279069767442,
+        "distractor_adoption": 0.2752713178294572,
+        "offtarget": 0.6535658914728685,
+        "distinct_answers": 3.5193798449612403,
+        "n_questions": 1290
+      },
+      "17": {
+        "gold_match": 0.07255813953488376,
+        "distractor_adoption": 0.2675193798449613,
+        "offtarget": 0.659922480620155,
+        "distinct_answers": 3.567441860465116,
+        "n_questions": 1290
+      },
+      "18": {
+        "gold_match": 0.0712403100775194,
+        "distractor_adoption": 0.26736434108527124,
+        "offtarget": 0.6613953488372099,
+        "distinct_answers": 3.5348837209302326,
+        "n_questions": 1290
+      },
+      "19": {
+        "gold_match": 0.0750387596899225,
+        "distractor_adoption": 0.26488372093023266,
+        "offtarget": 0.6600775193798456,
+        "distinct_answers": 3.5015503875968994,
+        "n_questions": 1290
+      }
+    },
+    "0.7": {
+      "0": {
+        "gold_match": 0.03875968992248065,
+        "distractor_adoption": 0.1308527131782944,
+        "offtarget": 0.830387596899223,
+        "distinct_answers": 6.654263565891473,
+        "n_questions": 1290
+      },
+      "1": {
+        "gold_match": 0.05527131782945737,
+        "distractor_adoption": 0.16232558139534872,
+        "offtarget": 0.782403100775193,
+        "distinct_answers": 6.013178294573644,
+        "n_questions": 1290
+      },
+      "2": {
+        "gold_match": 0.06449612403100774,
+        "distractor_adoption": 0.16852713178294562,
+        "offtarget": 0.7669767441860457,
+        "distinct_answers": 5.593023255813954,
+        "n_questions": 1290
+      },
+      "3": {
+        "gold_match": 0.06705426356589146,
+        "distractor_adoption": 0.19302325581395333,
+        "offtarget": 0.7399224806201548,
+        "distinct_answers": 5.296124031007752,
+        "n_questions": 1290
+      },
+      "4": {
+        "gold_match": 0.06457364341085273,
+        "distractor_adoption": 0.22465116279069783,
+        "offtarget": 0.7107751937984496,
+        "distinct_answers": 4.937984496124031,
+        "n_questions": 1290
+      },
+      "5": {
+        "gold_match": 0.06356589147286822,
+        "distractor_adoption": 0.24255813953488348,
+        "offtarget": 0.6938759689922481,
+        "distinct_answers": 4.709302325581396,
+        "n_questions": 1290
+      },
+      "6": {
+        "gold_match": 0.06519379844961241,
+        "distractor_adoption": 0.26232558139534873,
+        "offtarget": 0.6724806201550387,
+        "distinct_answers": 4.3930232558139535,
+        "n_questions": 1290
+      },
+      "7": {
+        "gold_match": 0.06720930232558138,
+        "distractor_adoption": 0.2744186046511629,
+        "offtarget": 0.6583720930232557,
+        "distinct_answers": 4.095348837209302,
+        "n_questions": 1290
+      },
+      "8": {
+        "gold_match": 0.06581395348837209,
+        "distractor_adoption": 0.29093023255813955,
+        "offtarget": 0.6432558139534889,
+        "distinct_answers": 3.9713178294573646,
+        "n_questions": 1290
+      },
+      "9": {
+        "gold_match": 0.0682170542635659,
+        "distractor_adoption": 0.29496124031007726,
+        "offtarget": 0.636821705426357,
+        "distinct_answers": 3.9108527131782944,
+        "n_questions": 1290
+      },
+      "10": {
+        "gold_match": 0.06651162790697672,
+        "distractor_adoption": 0.24906976744186066,
+        "offtarget": 0.684418604651163,
+        "distinct_answers": 4.231782945736434,
+        "n_questions": 1290
+      },
+      "11": {
+        "gold_match": 0.06674418604651164,
+        "distractor_adoption": 0.2579844961240311,
+        "offtarget": 0.6752713178294569,
+        "distinct_answers": 4.0488372093023255,
+        "n_questions": 1290
+      },
+      "12": {
+        "gold_match": 0.06511627906976744,
+        "distractor_adoption": 0.2726356589147284,
+        "offtarget": 0.6622480620155046,
+        "distinct_answers": 3.9627906976744187,
+        "n_questions": 1290
+      },
+      "13": {
+        "gold_match": 0.06860465116279071,
+        "distractor_adoption": 0.27496124031007757,
+        "offtarget": 0.6564341085271322,
+        "distinct_answers": 3.8589147286821706,
+        "n_questions": 1290
+      },
+      "14": {
+        "gold_match": 0.06713178294573639,
+        "distractor_adoption": 0.2746511627906974,
+        "offtarget": 0.6582170542635662,
+        "distinct_answers": 3.7364341085271318,
+        "n_questions": 1290
+      },
+      "15": {
+        "gold_match": 0.06395348837209301,
+        "distractor_adoption": 0.27364341085271315,
+        "offtarget": 0.6624031007751944,
+        "distinct_answers": 3.73953488372093,
+        "n_questions": 1290
+      },
+      "16": {
+        "gold_match": 0.06697674418604649,
+        "distractor_adoption": 0.2758914728682168,
+        "offtarget": 0.657131782945737,
+        "distinct_answers": 3.65968992248062,
+        "n_questions": 1290
+      },
+      "17": {
+        "gold_match": 0.06759689922480623,
+        "distractor_adoption": 0.2752713178294575,
+        "offtarget": 0.6571317829457363,
+        "distinct_answers": 3.6658914728682173,
+        "n_questions": 1290
+      },
+      "18": {
+        "gold_match": 0.0655813953488372,
+        "distractor_adoption": 0.2765891472868216,
+        "offtarget": 0.6578294573643418,
+        "distinct_answers": 3.631782945736434,
+        "n_questions": 1290
+      },
+      "19": {
+        "gold_match": 0.06728682170542637,
+        "distractor_adoption": 0.2791472868217056,
+        "offtarget": 0.6535658914728689,
+        "distinct_answers": 3.55968992248062,
+        "n_questions": 1290
+      }
+    }
+  }
+}
