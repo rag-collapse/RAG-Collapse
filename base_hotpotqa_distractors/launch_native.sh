@@ -12,7 +12,7 @@
 # validated servers in scripts/hotpot-misinfo/.
 set -eo pipefail
 cd "$(dirname "$0")/.." || exit 1          # repo root
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 
 SERVER_TIME="${SERVER_TIME:-24:00:00}"
 CLIENT_TIME="${CLIENT_TIME:-23:00:00}"

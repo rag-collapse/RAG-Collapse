@@ -25,7 +25,7 @@ VLLM_API_BASE=http://gpu028.unity.rc.umass.edu:5151/v1
 DOC_VLLM_API_BASE=http://gpu032.unity.rc.umass.edu:5150/v1
 
 # Ensure a valid cache dir for HF
-CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
+CACHE_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"

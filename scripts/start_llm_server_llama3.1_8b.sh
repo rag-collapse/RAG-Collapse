@@ -11,7 +11,7 @@
 #SBATCH -e outputs/slurm-%j-vllm-llama3.1-8b-error.out
 #SBATCH --mail-type=ALL
 
-model_cache_dir="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
+model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache"
 
 module load conda/latest
 module load cuda/12.6

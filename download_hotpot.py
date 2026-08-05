@@ -1,6 +1,6 @@
 from datasets import load_dataset
 
-cache_dir = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
+cache_dir = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
 
 corpus = load_dataset("mteb/hotpotqa", "corpus", cache_dir=cache_dir)
 queries = load_dataset("mteb/hotpotqa", "queries", cache_dir=cache_dir)

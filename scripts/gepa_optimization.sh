@@ -32,7 +32,7 @@ module load conda/latest
 conda activate ragenv
 
 # --- HF cache (avoids re-downloading models on every run) ---
-CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
+CACHE_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
@@ -80,7 +80,7 @@ mkdir -p logs gepa_runs
 # DATA_DIR="gepa_optimization/data"
 # if [[ ! -f "$DATA_DIR/train.jsonl" ]]; then
 #   echo "Dataset not found — running prepare_dataset.py ..."
-#   INDEX_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpotqa_index"
+#   INDEX_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_index"
 #   mkdir -p "$INDEX_DIR"
 #   python -u gepa_optimization/prepare_dataset.py \
 #     --cache-dir "$CACHE_DIR" \

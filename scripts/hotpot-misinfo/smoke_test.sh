@@ -23,7 +23,7 @@ if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
 module load conda/latest
 conda activate ragenv
 
-SCRATCH=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCRATCH=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 export HF_HOME="${HF_HOME:-$SCRATCH/hf_cache}"
 export HF_HUB_CACHE="$HF_HOME"
 mkdir -p logs

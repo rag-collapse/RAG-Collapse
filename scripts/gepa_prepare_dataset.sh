@@ -36,13 +36,13 @@ module load cuda/12.6
 nvidia-smi
 
 # --- HF cache ---
-CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
+CACHE_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
 mkdir -p "$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 
 # FAISS index is large — store on scratch to avoid re-encoding the full corpus
-INDEX_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpotqa_index"
+INDEX_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_index"
 mkdir -p "$INDEX_DIR" logs
 
 echo "========================================"

@@ -18,7 +18,7 @@
 #SBATCH -e logs/slurm-%j-vllm-docgen-error.out
 #SBATCH --mail-type=END,FAIL
 
-model_cache_dir="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
+model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache"
 
 module load conda/latest
 module load cuda/12.6

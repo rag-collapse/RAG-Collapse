@@ -37,7 +37,7 @@ module load conda/latest
 module load cuda/12.6
 conda activate ragenv
 
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 export HF_HOME="${HF_HOME:-$SCR/hf_cache}"
 export HF_HUB_CACHE="$HF_HOME"
 export GLOO_SOCKET_IFNAME=lo

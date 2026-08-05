@@ -27,7 +27,7 @@ module load cuda/12.6
 conda activate ragenv
 export VLLM_USE_FLASHINFER=0          # avoid a FlashInfer init error on some nodes
 export VLLM_USE_DEEP_GEMM=0           # avoid the DeepGEMM FP8 warmup abort on Hopper GPUs
-CACHE_DIR="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache"
+CACHE_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache"
 mkdir -p "$CACHE_DIR"; export HF_HOME="$CACHE_DIR"; export HF_HUB_CACHE="$CACHE_DIR"
 
 ENTITY_MODEL="${ENTITY_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"   # light extraction model

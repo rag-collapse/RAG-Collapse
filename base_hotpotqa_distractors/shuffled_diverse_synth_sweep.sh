@@ -16,7 +16,7 @@
 # spread of the 10 parallel generations (the doc model inherits this temperature). Uses its OWN server
 # ports (5182/5183) so it can run IN PARALLEL with diverse_synth/equal_diverse_synth on 5180/5181.
 # Needs OPENAI_API_KEY in .env at the repo root.
-SCR="${SCR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse}"
+SCR="${SCR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu}"
 exec env \
   ANSWER_PORT="${ANSWER_PORT:-5182}" \
   DOCGEN_PORT="${DOCGEN_PORT:-5183}" \

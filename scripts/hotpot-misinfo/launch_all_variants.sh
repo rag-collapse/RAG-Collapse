@@ -19,7 +19,7 @@ set -eo pipefail
 cd "$(dirname "$0")/../.." || exit 1     # repo root
 
 # GT_FILE defaults to the native HotpotQA JSON on Unity; override via env if it moves.
-GT_FILE="${GT_FILE:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json}"
+GT_FILE="${GT_FILE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpot_dev_fullwiki_v1.json}"
 VARIANTS="${VARIANTS:-search replace_one hybrid}"
 SERVER_TIME="${SERVER_TIME:-48:00:00}"   # reaper kills servers early; this is just the ceiling
 CLIENT_TIME="${CLIENT_TIME:-47:00:00}"   # < server time so servers always outlive clients

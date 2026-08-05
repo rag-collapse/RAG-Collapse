@@ -22,7 +22,7 @@ if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
 module load conda/latest
 conda activate ragenv
 
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 export HF_HOME="${HF_HOME:-$SCR/hf_cache}"
 export HF_HUB_CACHE="$HF_HOME"
 export CUDA_VISIBLE_DEVICES=""        # server-mode client; search embeddings (MiniLM) run on CPU

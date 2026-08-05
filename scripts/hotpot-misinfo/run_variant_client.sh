@@ -28,7 +28,7 @@ if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
 module load conda/latest
 conda activate ragenv
 
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 export HF_HOME="${HF_HOME:-$SCR/hf_cache}"
 export HF_HUB_CACHE="$HF_HOME"
 export CUDA_VISIBLE_DEVICES=""        # force E5 onto CPU — this is a CPU client
@@ -36,7 +36,7 @@ mkdir -p logs
 
 : "${VLLM_API_BASE:?set VLLM_API_BASE (shared answer server)}"
 : "${DOC_VLLM_API_BASE:?set DOC_VLLM_API_BASE (shared doc-gen server)}"
-GT_FILE="${GT_FILE:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json}"  # default; override via env
+GT_FILE="${GT_FILE:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpot_dev_fullwiki_v1.json}"  # default; override via env
 
 MODEL="${MODEL:-qwen2.5-14b}"
 DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}"

@@ -8,8 +8,8 @@ from transformers import AutoTokenizer, AutoModel
 import json
 
 # ── paths ──────────────────────────────────────────────────────────────────────
-cache_dir   = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
-index_dir   = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpotqa_index/"
+cache_dir   = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
+index_dir   = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_index/"
 os.makedirs(index_dir, exist_ok=True)
 
 # ── config ─────────────────────────────────────────────────────────────────────

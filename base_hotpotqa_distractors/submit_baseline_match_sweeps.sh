@@ -16,7 +16,7 @@
 #   MODES="diverse_synth" VARIANTS_LIST="search" bash ...                         # a slice
 set -eo pipefail
 cd "$(dirname "$0")/.."   # repo root
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 mkdir -p logs
 MAIL_USER="${MAIL_USER:-riddhimaan.senapati@graphitehq.com}"
 

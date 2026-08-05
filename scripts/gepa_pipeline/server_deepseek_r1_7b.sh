@@ -11,7 +11,7 @@
 #SBATCH -e logs/slurm-%j-gepa-vllm-deepseek-r1-7b-error.out
 #SBATCH --mail-type=ALL
 
-model_cache_dir="/scratch4/workspace/rsenapati_umass_edu-rag-collapse/hf_cache"
+model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache"
 
 module load conda/latest
 module load cuda/12.6

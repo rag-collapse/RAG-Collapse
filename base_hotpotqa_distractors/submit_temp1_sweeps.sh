@@ -14,7 +14,7 @@
 #   MODELS="qwen14b" bash ...                                        # just one model (both modes)
 set -eo pipefail
 cd "$(dirname "$0")/.."   # repo root
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 mkdir -p logs
 
 # Slurm emails (BEGIN/END/FAIL/TIME_LIMIT come from launch_colocated.sh's #SBATCH --mail-type).

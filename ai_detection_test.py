@@ -20,7 +20,7 @@ MODEL_REGISTRY = {
         "max_len": 768,
     },
     "desklib-finetuned": {
-        "path": "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache_oz",
+        "path": "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache_oz",
         "type": "desklib",
         "max_len": 768,
     },

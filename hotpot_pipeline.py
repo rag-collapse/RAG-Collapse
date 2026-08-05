@@ -37,8 +37,8 @@ from pipeline.model_runner import build_llm
 from pipeline.output_writer import write_experiments_output
 from pipeline.prompt_builder import build_rag_conversation
 
-CACHE_DIR = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/"
-INDEX_DIR = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpotqa_index/"
+CACHE_DIR = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/"
+INDEX_DIR = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpotqa_index/"
 
 DEFAULT_TOP_K = 10
 DEFAULT_NPROBE = 64

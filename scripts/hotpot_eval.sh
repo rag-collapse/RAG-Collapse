@@ -28,7 +28,7 @@ OUT_DIR="/work/pi_dagarwal_umass_edu/project_4/file_storage/${USER}/evaluation_o
 VISUALS_DIR="visualization_outputs/$MODEL_SUBDIR"
 mkdir -p logs "$OUT_DIR" "$VISUALS_DIR"
 
-GT_FILE="/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hotpot_dev_fullwiki_v1.json"
+GT_FILE="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hotpot_dev_fullwiki_v1.json"
 
 # possible base settings
 # hotpot_search hotpot_replace_one hotpot_replace_all

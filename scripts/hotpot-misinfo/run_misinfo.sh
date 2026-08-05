@@ -31,7 +31,7 @@ module load conda/latest
 module load cuda/12.6
 conda activate ragenv
 
-CACHE_DIR="${CACHE_DIR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse/hf_cache/}"
+CACHE_DIR="${CACHE_DIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache/}"
 export HF_HOME="$CACHE_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 mkdir -p logs

@@ -16,7 +16,7 @@
 #
 # Needs OPENAI_API_KEY in .env at the repo root (run_sweep.sh loads it) for the gpt-5-mini distractors,
 # and NATIVE_FILE pointing at the distractor-setting JSON.
-SCR="${SCR:-/scratch4/workspace/oyilmazel_umass_edu-rag_collapse}"
+SCR="${SCR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu}"
 exec env \
   DOC_MODEL_MODE="${DOC_MODEL_MODE:-server}" \
   DOC_MODEL="${DOC_MODEL:-qwen2.5-7b-docgen}" \

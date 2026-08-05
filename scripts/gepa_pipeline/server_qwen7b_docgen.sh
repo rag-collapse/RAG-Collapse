@@ -15,7 +15,7 @@
 # Generates synthetic web documents from (question, answer) pairs.
 # All pipeline run scripts point DOC_VLLM_API_BASE at port 5153 on this node.
 
-model_cache_dir="/scratch4/workspace/rsenapati_umass_edu-rag-collapse/hf_cache"
+model_cache_dir="/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache"
 
 module load conda/latest
 module load cuda/12.6

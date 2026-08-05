@@ -56,7 +56,7 @@ DROP_GRAPHITE_BASELINE_OWNERS = {"oyilmazel"}
 # for the non-Qwen models and the oracle/desklib/finetuned ablations live here,
 # not in /work). A scratch file is added only if its (dataset, model, filename)
 # isn't already covered by /work.
-SCRATCH_ROOT = "/scratch4/workspace/oyilmazel_umass_edu-rag_collapse"
+SCRATCH_ROOT = "/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu"
 SCRATCH_RERANK_SOURCES = [
     (os.path.join(SCRATCH_ROOT, "oyilmazel_umass_edu"), "oyilmazel"),
     (os.path.join(SCRATCH_ROOT, "ffatima_umass_edu"), "ffatima"),

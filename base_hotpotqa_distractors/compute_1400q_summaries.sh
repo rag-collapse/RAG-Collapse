@@ -20,7 +20,7 @@ if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then cd "$SLURM_SUBMIT_DIR" || exit 1; fi
 module load conda/latest
 conda activate ragenv
 
-SCR=/scratch4/workspace/oyilmazel_umass_edu-rag_collapse
+SCR=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu
 GT="${GT_FILE:-$SCR/hotpot_dev_fullwiki_v1.json}"
 BASE="${BASE_OUTDIR:-/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/baseline_match_temp1}"
 MODELS="${MODELS:-qwen2.5-14b llama-3.1-8b mistral-7b deepseek-r1-distill-qwen-7b}"
