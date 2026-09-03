@@ -180,6 +180,61 @@ DeepSeek/Llama do **not** — so R1–R3 on those two models would need the attr
 
 ---
 
+## R1 + R2 — placebo & threshold reanalysis (Qwen2.5-14B, Replace-One, entity data)
+
+Both computed from stored answers + documents, no regeneration
+(`~/r1_r2.py`; overlap rule = cite `d` iff `overlap(a,d) ≥ τ`).
+
+### R2 — over-citation ratio vs overlap threshold τ
+
+| τ | ctx self-gen % | cited self-gen % | ratio (r1) | ratio (r2) | ratio (r5) |
+|---|---|---|---|---|---|
+| 0.10 | 11.5 | 13.5 | 1.18 | 1.16 | 1.09 |
+| 0.20 | 11.5 | 14.6 | 1.27 | 1.24 | 1.13 |
+| 0.30 | 11.5 | 16.3 | 1.42 | 1.36 | 1.18 |
+| 0.40 | 11.5 | 18.0 | 1.57 | 1.48 | 1.23 |
+
+**The over-citation ratio stays > 1 at every threshold** (round 1: 1.18→1.57), so the
+provenance effect is not an artifact of one cutoff. **But note the magnitude is
+rule-shape-dependent:** a *threshold* rule gives ratio ≈1.2–1.6, whereas the *top-2 / LOO*
+shape used for the paper gives ≈2.2 (§6.2). A threshold rule cites many low-overlap docs
+(diluting the self-gen concentration); top-k concentrates on the highest-overlap docs, which
+skew self-gen. §6.2 should state the rule shape, because the headline 2.2 belongs to top-2, not to a threshold.
+
+### R1 — placebo false-positive rate (docs never in the answer's context)
+
+FP = the overlap rule fires (`overlap ≥ τ`) on a document the answer never saw:
+
+| τ | within-Q self-gen *descendant* FP % | cross-Q self-gen FP % | cross-Q human FP % | skew (descendant − cross-Q) |
+|---|---|---|---|---|
+| 0.10 | 97.97 | 55.54 | 54.87 | +42.4 |
+| 0.20 | 95.56 | 24.19 | 31.97 | +71.4 |
+| 0.30 | 89.93 | 8.05 | 15.77 | +81.9 |
+| 0.40 | 79.53 | 2.49 | 7.13 | +77.0 |
+
+(Round 1; rounds 2 and 5 are within ~3 points.) **This confirms NbXB's concern for a pure
+overlap rule:** a self-generated document that was *never in the answer's context* is matched
+**80–98% of the time**, purely because it is a descendant of the same question's answers and
+shares wording by lineage — vs **~25–55%** for out-of-context documents from *other* questions.
+The false-positive rate is heavily **provenance-skewed toward self-generated content**, so a
+pure-overlap attribution is not provenance-neutral and **would inflate the self-gen citation count.**
+
+**Why this argues *for* the method the paper actually uses (LOO), not against it.** LOO cites a
+document only if *removing it changes the answer* (counterfactual necessity), not if it merely
+shares words. A redundant self-gen descendant that overlaps by lineage but wasn't needed would
+**not** change the answer on removal, so LOO does not credit it — exactly the failure mode R1
+exposes for overlap. This is the strongest reason to (a) describe the method as **LOO, not
+overlap** (W1), and (b) present R1 as evidence that LOO is the right choice.
+
+**Honest limits:** LOO cannot be placebo-tested directly — you can't "leave out" a document that
+isn't in the context — so R1 bounds the *overlap* rule's inflation and motivates LOO rather than
+measuring LOO's own false-positive rate. And C2 shows LOO ≈ overlap-top-2 on *in-context* shares,
+so any residual descent inflation on in-context docs is shared by both; **R3 (query-alignment
+covariates) is the necessary complementary control** for the "self-gen docs are simply more
+query-aligned" confound, which neither R1 nor the attribution method addresses.
+
+---
+
 ## Open questions & ownership
 
 The citation attribution + provenance code is authored by **Rati Rastogi**
@@ -192,6 +247,7 @@ concrete pointer:
 1. **§6.2 exact aggregation.** `evaluation.py:41–62` (`calculate_ai_citation_percentage`) +
    the AI tag `evaluation.py:23–39`. Reconstruction: 27.4% pooled-over-citations /
    28.1% mean-over-questions vs the paper's 26.5%. → Ask Rati which aggregation the paper used.
+   
 2. **Source run for §6.2.** I used `…/all_experiments/graphite/baseline/replace_one/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_replace_one.json`
    (`citations_enabled=true`, `citation_top_m=2`, `max_docs=6`, `change_threshold=0.18`;
    ffatima's canonical run). → Confirm this is the reported run/version.
