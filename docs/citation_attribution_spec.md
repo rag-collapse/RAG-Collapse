@@ -280,7 +280,7 @@ skew is a bit larger than Replace-One because the cross-question baseline drops 
 under retrieval (the cross-Q docs are retrieved neighbours, so they overlap less with
 an unrelated answer's wording).
 
-### R3 — query-alignment control (Qwen2.5-14B, Replace-One + Search)
+### R3 — query-alignment control (Qwen2.5-14B + Mistral-7B, Replace-One + Search)
 
 Run with `~/r3_qalign.py`. For each (question, round, context-doc) row, `y` = citation
 rate = the fraction of the round's runs whose LOO citations include that doc. Covariates:
@@ -321,6 +321,26 @@ variant does not show over-citation at the per-doc level; self-gen docs are cite
 and note the sign flip in §6. This is a caveat the full §6.5 model (with Rati's
 quality-dimension scores) should revisit.
 
+**Second model — Mistral-7B** (the other graphite baseline with `citations_enabled=true`;
+DeepSeek/Llama graphite runs store no citations, so they can't be added without a re-run).
+Same `~/r3_qalign.py`, run on `…/mistralai/Mistral-7B-Instruct-v0.3/para_off/local_{replace_one,search}_nopara.json`
+(job 63967441, archived in `~/rag_rebuttal_scripts/r3_mistral_63967441.out`).
+
+| variant | model | self_gen (A, raw) | self_gen (B, controlled) | qcos (B) | redund (B) |
+|---|---|---|---|---|---|
+| Replace-One | Mistral-7B | +0.0831 (t=12.4) | **+0.1672 (t=18.7)** | +0.4435 (t=20.9) | −0.4004 (t=−19.0) |
+| Search | Mistral-7B | −0.0522 (t=−2.9) | +0.0274 (**t=1.4, n.s.**) | +0.7068 (t=4.9) | −1.3042 (t=−11.9) |
+
+Mistral reproduces the Qwen pattern on **both** variants:
+- **Replace-One:** the self-gen effect *grows* under the query-alignment controls
+  (+0.083 → +0.167), just as for Qwen (+0.068 → +0.131). Two independent models now show
+  over-citation is **not** explained away by query alignment — a robust answer to hAN7.
+- **Search:** the raw effect is slightly negative and the controlled effect is
+  indistinguishable from zero (+0.027, t=1.4). Like Qwen-Search, there is **no positive
+  per-doc over-citation under retrieval**; if anything it attenuates to null. Report the
+  Replace-One result as the headline (2/2 models) and the Search result as the honest
+  retrieval-side caveat (Qwen: −0.056 sig; Mistral: ~0 n.s.).
+
 **Caveats to carry:** R3's embedder is **all-MiniLM-L6-v2** (what the graphite pipeline
 actually used via `make_embed_fn_local`), **not E5** — E5 is the HotpotQA retriever.
 This is the W4 config discrepancy in the camera-ready plan; reconcile in §3/App-B. To
@@ -332,7 +352,7 @@ reconstruction in R3b below runs the query-alignment analysis with **E5** (the H
 retriever), so the W4 embedder concern is covered on both datasets — all-MiniLM on
 graphite (R3), E5 on HotpotQA (R3b).
 
-### R3b — HotpotQA Search retrieval alignment (E5, reconstructed)
+### R3b — HotpotQA retrieval alignment (E5, reconstructed) — Search / Replace-One / Replace-All
 
 This is hAN7's control on the **HotpotQA** Search variant, and it is where retriever
 provenance matters most. The runs' per-round documents are logged with full text, but
@@ -383,6 +403,31 @@ Three things, all pointing the same way:
 Redundancy corroborates: self-gen docs converge toward near-duplicates (mean cosine to the
 round's other context docs rises 0.823 → 0.955), while human docs stay diverse (0.831 →
 0.860). The embedding-space signature of the entity/lexical collapse.
+
+**Replace-One (same reconstruction, job 63966992).** One human doc is replaced per round, so
+the context is fully self-gen by round 10 (`n_human` → 0). Self-gen docs are again more
+query-aligned than the human docs in context, until the human pool empties:
+
+| round | n_self | n_human | self_qsim | human_qsim | Δ | frac(self ≥ h_top10) |
+|---|---|---|---|---|---|---|
+| 1 | 1400 | 12600 | 0.8761 | 0.8516 | +0.0245 | 0.886 |
+| 5 | 7000 | 7000 | 0.8763 | 0.8517 | +0.0246 | 0.883 |
+| 8 | 11200 | 2800 | 0.8762 | 0.8619 | +0.0143 | 0.887 |
+| 9 | 12600 | 1400 | 0.8762 | 0.8809 | −0.0047 | 0.887 |
+| ≥10 | 14000 | 0 | 0.8762 | — | — | 0.886 |
+
+The human_qsim rises to meet self_qsim exactly at round 9 (the last human docs are the most
+query-aligned survivors). The key contrast with Search: `frac(self ≥ h_top10)` is ≈**0.886**
+here, vs **1.000** under Search. That gap is mechanistically informative — **Search *retrieves*
+self-gen docs**, so it selects the most query-aligned ones (every retained self-gen doc out-ranks
+the real top-10 by construction); **Replace-One *inserts* a self-gen doc into a slot regardless
+of score**, so ~11% of inserted self-gen docs are *not* more aligned than the retriever's 10th
+real doc. Redundancy converges identically (self 0.819 → 0.957 vs human ~0.82–0.85).
+
+**Replace-All (hybrid): _pending_** — job 63966992 was still processing this variant at the time
+of writing; fill the table when `~/hotpot_retr_all_63966992.out` completes. Expectation: after
+round 1 the context is entirely self-gen (`n_human` → 0 immediately), so the query-alignment gap
+is only defined at round 1 and the story reduces to the redundancy-convergence signature.
 
 **Caveats.** (a) This is a **retrieval-level** analysis; the HotpotQA runs log no citations
 (§C3), so unlike graphite R3 there is no per-doc citation outcome to regress — it answers
