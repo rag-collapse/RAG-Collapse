@@ -180,12 +180,13 @@ DeepSeek/Llama do **not** — so R1–R3 on those two models would need the attr
 
 ---
 
-## R1 + R2 — placebo & threshold reanalysis (Qwen2.5-14B, Replace-One, entity data)
+## R1 + R2 — placebo & threshold reanalysis (Qwen2.5-14B, entity data)
 
 Both computed from stored answers + documents, no regeneration
-(`~/r1_r2.py`; overlap rule = cite `d` iff `overlap(a,d) ≥ τ`).
+(`~/r1_r2.py`; overlap rule = cite `d` iff `overlap(a,d) ≥ τ`). The tables below
+are the **Replace-One** variant; the **Search** variant is the last subsection.
 
-### R2 — over-citation ratio vs overlap threshold τ
+### R2 — over-citation ratio vs overlap threshold τ (Replace-One)
 
 | τ | ctx self-gen % | cited self-gen % | ratio (r1) | ratio (r2) | ratio (r5) |
 |---|---|---|---|---|---|
@@ -201,7 +202,7 @@ shape used for the paper gives ≈2.2 (§6.2). A threshold rule cites many low-o
 (diluting the self-gen concentration); top-k concentrates on the highest-overlap docs, which
 skew self-gen. §6.2 should state the rule shape, because the headline 2.2 belongs to top-2, not to a threshold.
 
-### R1 — placebo false-positive rate (docs never in the answer's context)
+### R1 — placebo false-positive rate, Replace-One (docs never in the answer's context)
 
 FP = the overlap rule fires (`overlap ≥ τ`) on a document the answer never saw:
 
@@ -232,6 +233,100 @@ measuring LOO's own false-positive rate. And C2 shows LOO ≈ overlap-top-2 on *
 so any residual descent inflation on in-context docs is shared by both; **R3 (query-alignment
 covariates) is the necessary complementary control** for the "self-gen docs are simply more
 query-aligned" confound, which neither R1 nor the attribution method addresses.
+
+### R1/R2 — Search (Qwen2.5-14B, Search variant, entity data)
+
+Same `~/r1_r2.py` reanalysis on the Search run
+(`…/all_experiments/graphite/baseline/search/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_search.json`,
+30 rounds, `citations_enabled=true`, `top_m=2`, `thr=0.18`). The retrieval-driven
+context starts more self-gen than Replace-One (round 1 context self-gen is 17.8% here
+vs 11.5% under Replace-One), so the ratios sit lower even though the same skew holds.
+
+**R2 (Search).** The over-citation ratio stays > 1 at every threshold, and it
+approaches the paper's reported Search value at the high end.
+
+| τ | ctx self-gen % | cited self-gen % | ratio (r1) | ratio (r2) | ratio (r5) |
+|---|---|---|---|---|---|
+| 0.10 | 17.8 | 20.7 | 1.16 | 1.14 | 1.07 |
+| 0.15 | 17.8 | 21.7 | 1.22 | 1.20 | 1.09 |
+| 0.20 | 17.8 | 22.7 | 1.27 | 1.23 | 1.10 |
+| 0.25 | 17.8 | 24.3 | 1.37 | 1.25 | 1.13 |
+| 0.30 | 17.8 | 26.2 | 1.47 | 1.29 | 1.15 |
+| 0.40 | 17.8 | 27.6 | 1.55 | 1.33 | 1.17 |
+
+The ratio stays above 1 across every threshold (round 1: 1.16 → 1.55). At τ=0.40
+round 1 the ratio is 1.55, close to the paper's ~1.6 for Search. So the provenance
+effect is not cutoff-specific under retrieval either. The same rule-shape caveat
+applies: the headline §6.2 ratio belongs to top-2/LOO, not to a threshold rule.
+
+**R1 (Search).** The within-question self-gen "descendant" FP still towers over the
+cross-question rates, and the skew is even larger than Replace-One.
+
+| τ | within-Q self-gen *descendant* FP % | cross-Q self-gen FP % | cross-Q human FP % | skew (descendant − cross-Q) |
+|---|---|---|---|---|
+| 0.10 | 83.51 | 10.45 | 8.32 | +73.06 |
+| 0.15 | 72.14 | 3.64 | 2.62 | +68.50 |
+| 0.20 | 60.16 | 1.68 | 1.20 | +58.48 |
+| 0.25 | 47.85 | 0.85 | 0.71 | +47.00 |
+| 0.30 | 35.99 | 0.41 | 0.34 | +35.59 |
+| 0.40 | 22.78 | 0.18 | 0.15 | +22.60 |
+
+(Round 1; rounds 2 and 5 within ~3 points.) A self-generated descendant of the same
+question's answers is matched by a plain overlap rule 83% of the time at τ=0.10 even
+though it was never in the answer's context, vs ~10% for cross-question self-gen and
+~8% for cross-question human docs. The overlap rule is provenance-skewed toward
+self-generated content under retrieval too, which is the same argument for LOO. The
+skew is a bit larger than Replace-One because the cross-question baseline drops more
+under retrieval (the cross-Q docs are retrieved neighbours, so they overlap less with
+an unrelated answer's wording).
+
+### R3 — query-alignment control (Qwen2.5-14B, Replace-One + Search)
+
+Run with `~/r3_qalign.py`. For each (question, round, context-doc) row, `y` = citation
+rate = the fraction of the round's runs whose LOO citations include that doc. Covariates:
+`self_gen` (provenance tag), `qcos` = cosine(embed(question), embed(doc)), `redund` =
+mean cosine(doc, other context docs), `position` = doc index / n_docs, `loglen` =
+log(1+chars). Linear probability model, question-clustered (CR0) SEs. Model A is
+`y ~ self_gen`; Model B adds the four covariates. The last line is the attenuation of
+the `self_gen` coefficient from A to B.
+
+**Replace-One.** The self-gen effect does not collapse. It *grows*.
+
+| model | self_gen | qcos | redund | pos | loglen |
+|---|---|---|---|---|---|
+| A: `y ~ self_gen` | +0.0679 (SE 0.0065, t=10.4) | — | — | — | — |
+| B: + qcos + redund + pos + loglen | +0.1309 (SE 0.0092, t=14.2) | +0.4114 (0.0229, t=18.0) | −0.3674 (0.0251, t=−14.6) | +0.0081 (0.0091, t=0.9) | +0.0431 (0.0036, t=11.9) |
+
+`self_gen` = +0.0679 (raw) → +0.1309 (controlled), a **−93% attenuation**. The negative
+sign means the opposite of attenuation: once query-cosine and redundancy are
+controlled, the self-gen effect is *larger* and still strongly significant (t=14.2).
+So over-citation is not just query alignment; controlling for how query-aligned a
+self-gen doc is does not explain the effect away. This directly answers hAN7 for the
+Replace-One variant. Report both coefficients.
+
+**Search.** The sign flips: self-gen docs are cited *less* than the regression predicts,
+and controlling for query alignment moves the coefficient toward zero.
+
+| model | self_gen | qcos | redund | pos | loglen |
+|---|---|---|---|---|---|
+| A: `y ~ self_gen` | −0.1189 (SE 0.0192, t=−6.2) | — | — | — | — |
+| B: + qcos + redund + pos + loglen | −0.0559 (SE 0.0221, t=−2.5) | +0.4432 (0.1695, t=2.6) | −0.9208 (0.1266, t=−7.3) | +0.0233 (0.0187, t=1.2) | +0.0926 (0.0191, t=4.9) |
+
+`self_gen` = −0.1189 (raw) → −0.0559 (controlled), a **53% attenuation**. The raw
+self-gen effect under Search is *negative* (t=−6.2), the opposite sign from the
+Replace-One over-citation story. Controlling for query alignment and redundancy
+halves it toward zero, but it stays negative and significant (t=−2.5). So the Search
+variant does not show over-citation at the per-doc level; self-gen docs are cited
+*less* once you condition on the round's doc set. Report the attenuated effect honestly
+and note the sign flip in §6. This is a caveat the full §6.5 model (with Rati's
+quality-dimension scores) should revisit.
+
+**Caveats to carry:** R3's embedder is **all-MiniLM-L6-v2** (what the graphite pipeline
+actually used via `make_embed_fn_local`), **not E5** — E5 is the HotpotQA retriever.
+This is the W4 config discrepancy in the camera-ready plan; reconcile in §3/App-B. To
+rerun R3 with E5 for robustness, swap the model in `~/r3_qalign.py` (E5 is on /work
+hf_cache; use `query:` / `passage:` prefixes). R3 is the *query-alignment* control only;
+it does not include the 8 quality dimensions, which live in Rati's §6.3/§6.5 script.
 
 ---
 
