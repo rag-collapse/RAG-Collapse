@@ -395,6 +395,88 @@ matching how the pipeline embeds generated docs.
 
 ---
 
+## R4 — collapse vs contamination fraction (NbXB)
+
+The three regimes reach a given **contamination fraction** (share of the context that is
+AI-generated) at very different rounds: Replace-All saturates in one round, Replace-One
+ramps ~linearly, Search ramps gradually. Plotting collapse against *round* therefore
+compares regimes at unequal saturation. This re-plots the already-logged metrics with
+contamination on the x-axis so the regimes are compared at **equivalent saturation** —
+a pure re-plot, no recomputation (`scripts/camera_ready/r4_contamination_replot.py`,
+figures in `camera_ready_outputs/R4/`).
+
+- x = mean `ai_reference_percentage` (contamination fraction), from `evaluation_outputs`.
+- y = mean `unique_entities` per round (entity diversity; falls with collapse), from
+  `entity_extraction_output`; a second figure uses `same_answer_percentage` (rises).
+- Entity *similarity* is deliberately **not** the collapse axis: this repo scores an
+  empty-entity answer 0.0 ("diverse"), so degenerate answers pull similarity down and it
+  becomes a confounded signal (`docs/entity_extraction_comparison.md`). Unique-entity
+  count is monotone in collapse.
+
+**Finding (Qwen2.5-14B, entity dataset).** Aligned by contamination, the regimes do *not*
+collapse identically — Search retains substantially more diversity at every matched
+contamination level:
+
+| contamination ≈ | Replace-All | Replace-One | Search |
+|---|---|---|---|
+| 0.0 | 4.3 | 3.8 | 7.2 |
+| 0.25 | — (jumps to 1.0) | 3.2 | 5.9 |
+| 0.6 | — | 2.5 | 4.6 |
+| 0.9–1.0 | 1.0 | 1.1 | 2.3 |
+
+(mean unique entities / round). Replace-All occupies only ~0 and ~1 contamination — it
+traverses the whole axis in a single round — so its line is that 0→1 jump, not a
+trajectory. Replace-One and Replace-All bottom out near 1 unique entity once fully
+contaminated; **Search still holds ~2.3 at 0.92 contamination.** So Search's slower
+collapse is not only that its contamination grows slower — at *equal* contamination it is
+genuinely more diverse, because it retrieves from a growing pool rather than overwriting a
+small fixed context. That is the honest answer to NbXB: on a saturation-matched x-axis the
+regimes are comparable in shape but Search has a higher diversity floor. All four models
+are in the 2×2 panels; the pattern holds (Search above the two replace regimes).
+
+## R5 — downstream harm as per-model effect sizes (all reviewers)
+
+Per-question ΔF1 = F1(final round) − F1(round 0) on HotpotQA, mean with a 95% bootstrap CI
+over the 1400 questions, per model × regime (`scripts/camera_ready/r5_delta_f1.py`, forest
+plot `camera_ready_outputs/R5/delta_f1_forest.png`). F1 is `avg_f1` (mean over the round's
+10 runs) from the detailed `*_hotpot_eval.json`.
+
+| regime | model | ΔF1 | 95% CI | sig |
+|---|---|---|---|---|
+| Search | Qwen2.5-14B | **−0.018** | [−0.034, −0.002] | yes |
+| Search | Llama-3.1-8B | +0.016 | [−0.001, +0.032] | no |
+| Search | Mistral-7B | **+0.058** | [+0.044, +0.071] | yes |
+| Search | DeepSeek-R1-7B | +0.011 | [+0.000, +0.022] | yes |
+| Replace-One | Qwen2.5-14B | **−0.024** | [−0.041, −0.007] | yes |
+| Replace-One | Llama-3.1-8B | +0.008 | [−0.010, +0.027] | no |
+| Replace-One | Mistral-7B | **+0.044** | [+0.031, +0.058] | yes |
+| Replace-One | DeepSeek-R1-7B | −0.002 | [−0.013, +0.009] | no |
+| Replace-All | Qwen2.5-14B | **−0.018** | [−0.034, −0.002] | yes |
+| Replace-All | Llama-3.1-8B | +0.007 | [−0.009, +0.023] | no |
+| Replace-All | Mistral-7B | **+0.062** | [+0.049, +0.075] | yes |
+| Replace-All | DeepSeek-R1-7B | +0.012 | [+0.001, +0.023] | yes |
+
+**Honest reading — this deviates from the plan's expected framing.** The plan anticipated
+"directionally consistent, significant in one of four, underpowered." The data is *not*
+directionally consistent: downstream F1 change is **model-specific and mixed**. Significant
+*degradation* appears **only for Qwen2.5-14B**, and in all three regimes (−0.018 to −0.024)
+— which confirms the earlier "robust only for Qwen2.5-14B" statement with effect sizes and
+CIs. The other models do not degrade: **Mistral-7B significantly improves** (+0.044 to
++0.062), Llama-3.1-8B is flat (n.s.), DeepSeek-R1-7B is a negligible positive.
+
+**Why weaker models can "improve," and the power caveat.** HotpotQA gold answers are 1–3
+tokens, so token-F1 is coarse and highly sensitive to answer *verbosity/format*, not just
+correctness. A weak model that emits verbose round-0 answers scores low on token-F1; as the
+loop collapses its outputs toward short, repeated forms, F1 can *rise* mechanically even
+though nothing was learned. So ΔF1 conflates quality with format, and for low-baseline
+models (Mistral 0.26, DeepSeek 0.19) collapse toward terse modal answers reads as a gain.
+The safe camera-ready statement: **downstream harm is not universal — it is significant only
+for the strongest model (Qwen2.5-14B) across all regimes, while lower-baseline models show
+flat-to-positive ΔF1 on an underpowered, verbosity-sensitive short-answer metric.** Do not
+claim uniform downstream harm; report the per-model effect sizes above and let them stand.
+
+---
+
 ## Exact questions to send
 
 ### To Rati (`ratirastogi@umass.edu`)
