@@ -155,15 +155,66 @@ for several DeepSeek/Llama and all agentic runs — those lack the per-run `cita
 and `citation_index`, though they still store full `documents` (so pools are reconstructible,
 but the per-run retrieved subset under Search is not).
 
+### C3 for HotpotQA (gates R1 / R3 / T1)
+
+Verified on `…/oyilmazel_umass_edu/experiment_outputs/hotpotqa/Qwen/Qwen2.5-14B-Instruct/hotpot_{search,replace_one,replace_all}.json`:
+
+- **Document text IS stored** — each round's `documents` carries `doc_id`, `url`, (`title`,)
+  `text` (full, ~300–2400 chars). So **pools are reconstructible and T1 is feasible**
+  (the (question, round, context) triples exist with text, ready to re-prompt).
+- **No `citations`, no `citation_index`, `citations_enabled` unset**; runs store only
+  `run_id` + `answer`. The citation attribution was never run on HotpotQA (expected — §6
+  over-citation is entity-dataset only; HotpotQA is for downstream F1).
+- **No per-run retrieval metadata** (rank, score, query cosine, position). For **R3** on the
+  Search variant these covariates must be **recomputed** by re-embedding docs+query with
+  E5-small-v2 against the FAISS index (index is on `/work` at
+  `…/rsenapati_umass_edu/hotpotqa_index/`). Position/length/redundancy are recoverable from
+  the stored `documents`; query-embedding cosine and retrieval rank are not, and need recompute.
+- For **R1** (placebo), "documents never in a given answer's context" are available as the
+  `documents` of *other* questions/rounds in the same file, so the false-positive rate is
+  computable without extra logging.
+
+Note the citation reanalysis (R1/R2/R3) targets the **entity/graphite** runs, where
+Qwen2.5-14B and Mistral have `citations_enabled=true` (with `citation_index` per round) but
+DeepSeek/Llama do **not** — so R1–R3 on those two models would need the attribution re-run.
+
 ---
 
-## Ownership (who to ask about §6.3/§6.5)
+## Open questions & ownership
 
 The citation attribution + provenance code is authored by **Rati Rastogi**
-(`ratirastogi@umass.edu`): `git log -S _infer_citation_ids_via_retrieval_loo` and the
-`ai_citation_source`/"explicit" path both trace to Rati, with commits titled "citations".
-Rati is therefore the owner to ask for the parts **not in this repo** — the §6.3/§6.5
-analysis (three-way self / AI-written / human split, GPTZero labeling of round-1 originals,
-the 8-quality-dimension linear model, bootstrap CIs, and the specific numbers 0.281 /
-0.123 / 0.078 and +0.154). That script and its inputs (GPTZero labels, quality-dim scores)
-should come from Rati to write §6.3/§6.5 defensibly.
+(`ratirastogi@umass.edu`): `git log -S _infer_citation_ids_via_retrieval_loo -- pipeline.py`
+and the `ai_citation_source`/"explicit" path both trace to Rati, with commits titled
+"citations". The over-citation *analysis* (§6.3/§6.5) consumes ffatima's Qwen-14B citation
+run but the analysis script itself is not in this repo. Questions to resolve, each with a
+concrete pointer:
+
+1. **§6.2 exact aggregation.** `evaluation.py:41–62` (`calculate_ai_citation_percentage`) +
+   the AI tag `evaluation.py:23–39`. Reconstruction: 27.4% pooled-over-citations /
+   28.1% mean-over-questions vs the paper's 26.5%. → Ask Rati which aggregation the paper used.
+2. **Source run for §6.2.** I used `…/all_experiments/graphite/baseline/replace_one/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_replace_one.json`
+   (`citations_enabled=true`, `citation_top_m=2`, `max_docs=6`, `change_threshold=0.18`;
+   ffatima's canonical run). → Confirm this is the reported run/version.
+3. **§6.3/§6.5 analysis script (BLOCKER).** Not in repo (grepped all `.py` + notebooks).
+   Produces self=0.281 / AI-written=0.123 / human=0.078 and the linear-model +0.154. → Where
+   is the script/notebook (Rati's scratch? local? `collapse-randomness-research` repo)?
+4. **Its inputs (BLOCKER).** The per-doc **GPTZero** labels for round-1 originals (the "30%
+   AI" figure) and the **8 quality-dimension** LLM-judge scores. → Saved anywhere (CSV/JSON),
+   or recomputed each run?
+5. **"Citation rate" denominator (§6.3/§6.5).** Confirm per-reference: fraction of the round's
+   10 runs that cite a given reference, averaged within a provenance group — distinct from
+   §6.2's share-of-all-citations. (Whatever code computes it is presumably in #3.)
+6. **Explicit per-answer data.** Explicit citations survive only as aggregates in
+   `evaluation_outputs/Qwen/citations/Qwen2.5-7B-Instruct_local_replace_one_eval.json`
+   (`metric_metadata.ai_citation_source:"explicit"`); the `/work` raw run
+   `…/ratirastogi_umass_edu/experiment_outputs/Qwen/Qwen2.5-7B-Instruct/local_replace_one.json`
+   has **empty** `citations` arrays. → Do the raw runs with *populated* explicit per-answer
+   citations still exist? If so, the controlled explicit-vs-LOO (C2 / T1) needs no re-run.
+7. **Method naming.** Code is LOO counterfactual (`pipeline.py:101–143`), overlap only a
+   prefilter; paper/reviewers say "overlap". → Should the paper describe it as LOO, or is
+   there a separate pure-overlap attribution that generated the numbers?
+
+**For Ozel** (`oyilmazel@umass.edu`) — HotpotQA logging (see the C3-for-HotpotQA section):
+the runs store full `documents` text (pools reconstructible; T1 OK) but no citations /
+citation_index / per-run retrieval metadata, so R3's retrieval-rank + query-cosine covariates
+must be recomputed from the E5 index. Confirm no richer per-run retrieval log exists elsewhere.
