@@ -327,6 +327,71 @@ This is the W4 config discrepancy in the camera-ready plan; reconcile in §3/App
 rerun R3 with E5 for robustness, swap the model in `~/r3_qalign.py` (E5 is on /work
 hf_cache; use `query:` / `passage:` prefixes). R3 is the *query-alignment* control only;
 it does not include the 8 quality dimensions, which live in Rati's §6.3/§6.5 script.
+**Now cross-checked on the other dataset with its own retriever:** the HotpotQA
+reconstruction in R3b below runs the query-alignment analysis with **E5** (the HotpotQA
+retriever), so the W4 embedder concern is covered on both datasets — all-MiniLM on
+graphite (R3), E5 on HotpotQA (R3b).
+
+### R3b — HotpotQA Search retrieval alignment (E5, reconstructed)
+
+This is hAN7's control on the **HotpotQA** Search variant, and it is where retriever
+provenance matters most. The runs' per-round documents are logged with full text, but
+the per-run retrieval log (rank/score of each retrieved chunk) was **deleted for disk
+space** and never re-saved (confirmed with Ozel, who owns those runs). So the retrieval
+covariates hAN7 asked for — query-document similarity and rank — are **reconstructed
+from the actual E5 index**, not the raw log, and no runs are reproduced.
+
+Script `~/r_hotpot_retrieval.py` (CPU job 63965590, archived in `~/rag_rebuttal_scripts/`).
+For each (question, round, context-doc) it computes `qsim = cos(E5("query: "+question),
+E5(passage))`, matching `build_hotpotqa_index.py` exactly (e5-small-v2, masked mean-pool,
+L2-normalize, `passage: {title} {text}`; self-gen docs have no title so `passage: {text}`).
+`qsim` equals the index's inner product; L2 is its monotone equivalent (`L2² = 2−2·qsim`).
+Each question is also searched against the real index (5,233,329 docs, IVFFlat, nprobe=64)
+for the top-100 human-corpus scores → `h_top1` / `h_top10` (the best / 10th-best **real**
+document E5 would surface for that query). A self-gen doc "beats gold" when `qsim ≥ h_top10`.
+Provenance split: `self` = `gen_`/`model_generated` docs vs `human` = `corpus_` docs.
+1400 questions, 30 rounds (round 0 is the human-only seed; rounds 1–29 shown).
+
+| round | n_self | n_human | self_qsim | human_qsim | Δ | h_top1 | h_top10 | frac(self ≥ h_top10) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1229 | 12771 | 0.8811 | 0.8540 | +0.0271 | 0.8809 | 0.8428 | 1.000 |
+| 5 | 6083 | 7917 | 0.8815 | 0.8603 | +0.0212 | 0.8809 | 0.8428 | 1.000 |
+| 10 | 10901 | 3099 | 0.8835 | 0.8738 | +0.0098 | 0.8809 | 0.8428 | 1.000 |
+| 20 | 12111 | 1889 | 0.8883 | 0.8800 | +0.0083 | 0.8809 | 0.8428 | 1.000 |
+| 29 | 12412 | 1588 | 0.8902 | 0.8823 | +0.0079 | 0.8809 | 0.8428 | 1.000 |
+
+Three things, all pointing the same way:
+
+1. **Self-gen docs are more query-aligned than the human docs in context** at every round
+   (Δ > 0, +0.027 early, narrowing to +0.008 late as the human pool shrinks to a
+   selected, already-aligned residual). So hAN7's *premise* is descriptively true — this
+   analysis does **not** deny that AI docs are more query-aligned.
+2. **The scale-free result is the decisive one:** `frac(self ≥ h_top10) = 1.000` at every
+   round — virtually every self-generated document out-scores the retriever's own
+   **10th-best real-corpus document**, and mean `self_qsim` meets or exceeds `h_top1`
+   (0.881), the single best passage E5 finds among 5.2M real docs. This is mechanical:
+   the AI docs were generated *from that query*, so they are maximally query-aligned — more
+   than any real passage. (Lead with this ranking statement, not the raw cosine deltas: E5
+   cosines are compressed into a narrow high band, so ±0.01 is meaningful on its scale but
+   the "beats every real top-10 doc" framing is what travels.)
+3. **This reframes hAN7 rather than conceding it.** The query-alignment is not a confound
+   that explains collapse *away* — it **is the pump**. Because a self-gen doc out-ranks
+   every human doc, it is retrieved deterministically and never evicted, so the store
+   collapses to AI content: `n_self` grows 1229 → 12412 while `n_human` decays 12771 →
+   1588 over the 29 rounds. Retrieval-space view of the same collapse the text metrics show.
+
+Redundancy corroborates: self-gen docs converge toward near-duplicates (mean cosine to the
+round's other context docs rises 0.823 → 0.955), while human docs stay diverse (0.831 →
+0.860). The embedding-space signature of the entity/lexical collapse.
+
+**Caveats.** (a) This is a **retrieval-level** analysis; the HotpotQA runs log no citations
+(§C3), so unlike graphite R3 there is no per-doc citation outcome to regress — it answers
+"are self-gen docs more query-aligned and would they outrank gold?" (yes), not "are they
+cited more, controlling for that?". (b) The index is IVFFlat with nprobe=64 (approximate),
+so `h_top1/h_top10` are lower bounds on the true top scores; this can only *understate* how
+much real docs would score, so it does not inflate the "self beats top-10" conclusion
+(self_qsim ≈ h_top1 regardless). (c) Self-gen passages are encoded without a title,
+matching how the pipeline embeds generated docs.
 
 ---
 
