@@ -238,3 +238,23 @@ matching `$MODEL` subdirectory.
 ## Example pipeline
 
 ![Pipeline](example.png)
+
+## Reproducing the paper
+
+- **Datasets:** `datasets/umass_data.entity.chatgpt.{50,400}.jsonl` (the entity-annotated
+  questions + reference documents that seed the loop).
+- **Source-level citation labels / direct-elicitation data:** `evaluation_outputs/Qwen/citations/`
+  (the "explicit" citation-elicitation outputs).
+- **Reviewer reanalysis (camera-ready):** `docs/citation_attribution_spec.md` documents the
+  citation-attribution mechanism and the R1–R5 reanalyses; `scripts/camera_ready/` regenerates
+  the R4 (collapse vs contamination) and R5 (per-model ΔF1) figures under `camera_ready_outputs/`.
+- **Determinism:** generation runs at `temperature=0.7` with no fixed RNG seed, so runs are
+  **not** bitwise-reproducible — reproducibility rests on the released experiment/evaluation
+  outputs and the 10-runs-per-round design. For deterministic reruns set `temperature=0` and a
+  `seed` in the sampling params.
+
+## License
+
+Source **code** is released under the MIT License (`LICENSE`). **Data** — the datasets and the
+citation-label / evaluation outputs — is released under CC-BY-4.0 (`DATA_LICENSE.md`). See
+`docs/release_checklist.md` for the release audit and remaining steps. To cite, see `CITATION.cff`.

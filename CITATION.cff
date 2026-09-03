@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software or dataset, please cite the paper below."
+title: "Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?"
+type: software
+repository-code: "https://github.com/rag-collapse/RAG-Collapsement-on-Self-Refined-Generation"
+license: MIT
+# NOTE (fill before public release): the code is MIT (LICENSE); the data is CC-BY-4.0
+# (DATA_LICENSE.md). CFF has one `license` field, so it names the code license here.
+
+# TODO before release: replace the authors block below with the FULL author list from the
+# paper, in the correct order. Do not ship this file with a partial or guessed list.
+authors:
+  - family-names: "TODO"
+    given-names: "TODO — fill from the paper author list, in order"
+
+# Optional: add the venue once known.
+# preferred-citation:
+#   type: conference-paper
+#   title: "Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?"
+#   authors: [ ... ]
+#   collection-title: "TODO venue/workshop"
+#   year: 2026
