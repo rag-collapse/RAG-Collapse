@@ -235,7 +235,72 @@ query-aligned" confound, which neither R1 nor the attribution method addresses.
 
 ---
 
-## Open questions & ownership
+## Exact questions to send
+
+### To Rati (`ratirastogi@umass.edu`)
+
+> Hey Rati, I'm working through the §6 citation stuff for the camera-ready and ran into a
+> few things only you can answer, since you wrote the citation code. Three are blocking me,
+> the rest are quick confirmations.
+>
+> The big one: I can't find the analysis that produces the §6.3/§6.5 numbers anywhere in the
+> repo. The self-generated vs AI-written vs human split, the GPTZero labeling of the round-1
+> originals, the 8 quality-dimension regression, the 0.281 / 0.123 / 0.078 rates and the
+> +0.154 effect. I grepped all the Python and the notebooks and it isn't there. Is it on your
+> scratch, a local notebook, or maybe the collapse-randomness-research repo? Even a messy copy
+> would unblock me.
+>
+> Related to that: the script's inputs. The per-document GPTZero labels for the round-1
+> originals (the "30% are AI" number) and the 8 quality-dimension judge scores. Are those
+> saved somewhere as a file, or does the script recompute them every run? If they're saved I'd
+> rather just reuse them.
+>
+> Third one: the explicit citation runs. The direct-elicitation numbers only survive as
+> aggregates in `evaluation_outputs/Qwen/citations/` (the eval files tagged
+> `ai_citation_source: explicit`). The raw run on /work
+> (`ratirastogi_umass_edu/.../Qwen2.5-7B-Instruct/local_replace_one.json`) has empty
+> `citations` arrays. Do you still have a raw run somewhere where the per-answer citations are
+> actually populated? If so we can line up explicit against the current method on the same
+> items without re-running anything, which is exactly what NbXB asked for.
+>
+> The quick ones:
+>
+> For §6.2, when you computed the citation share, did you pool over all citations in a round
+> or average the per-question shares? I get 27.4% pooling and 28.1% averaging, and the paper
+> says 26.5%, so I just want to match your recipe.
+>
+> Which run produced the §6.2 numbers? I've been using the ffatima Qwen-14B replace_one run at
+> `all_experiments/graphite/baseline/replace_one/.../local_replace_one.json` (it has
+> `citations_enabled`, `top_m=2`, `max_docs=6`, `threshold=0.18`). Is that the one?
+>
+> For the §6.3/§6.5 citation rate, can you confirm it's per-reference? As in, for each
+> reference, the fraction of the 10 runs in a round that cite it, averaged within a provenance
+> group. I want to be sure it isn't the same denominator as the §6.2 share.
+>
+> Last one, and it changes how we write §6 up: the code is actually leave-one-out (it drops a
+> document and checks whether the answer changes), not a plain overlap match, with overlap only
+> picking the top-2 candidates. The reviewers keep calling it "overlap." Should we describe it
+> as leave-one-out in the paper, or is there a separate overlap-only version somewhere that
+> generated the numbers? I ask because I ran the placebo check (R1) and a plain overlap rule
+> fires on ~95% of self-generated docs that were never even in the answer's context, so the
+> leave-one-out framing is what defuses that objection.
+>
+> Thanks. The first three are what's holding up the rewrite.
+
+### To Ozel (`oyilmazel@umass.edu`)
+
+> Hey Ozel, quick one about the HotpotQA runs for the rebuttal. I checked hotpot_search,
+> replace_one, and replace_all for Qwen-14B, and the good news is each round stores the full
+> document text, so we can reconstruct exactly what every answer saw. The runs only keep
+> `run_id` and `answer` per run though, with no citations, no `citation_index`, and no per-run
+> retrieval info (rank, score, or which chunks were retrieved). For the Search reanalysis hAN7
+> wants, I need retrieval rank and query-document similarity, which I can recompute from the E5
+> index, but before I do: is there a richer log anywhere that already has the per-run retrieved
+> chunks or scores? I'd rather not recompute if you already saved it.
+
+---
+
+## Open questions & ownership (annotated, for reference)
 
 The citation attribution + provenance code is authored by **Rati Rastogi**
 (`ratirastogi@umass.edu`): `git log -S _infer_citation_ids_via_retrieval_loo -- pipeline.py`
