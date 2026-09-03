@@ -477,6 +477,43 @@ claim uniform downstream harm; report the per-model effect sizes above and let t
 
 ---
 
+## F1 — number-consistency sweep (§6, mitigation, abstract, intro)
+
+Run against the paper LaTeX. **Caveat: this pass used the version pasted into the earlier
+session (recovered from the transcript, ~93 KB); re-verify against the current Overleaf**
+(Ozel shared the final version) since numbers may have moved. Headline result: **the
+reanalysis overturns nothing** — every §6 number is internally consistent and the reanalysis
+either reproduces or corroborates it.
+
+| Claim (paper) | Location | Reanalysis | Status |
+|---|---|---|---|
+| Self-gen 12.0% of context, 26.5% of citations, ratio **2.2** (Replace-One, round 1) | §6.2 | §6.2 reproduction gave 27.4% cited vs 26.5% (within rounding); LOO ratio ≈2.2 | ✅ consistent |
+| Self-gen 14.8% vs 24.0%, ratio **1.6** (Search, round 1) | §6.2 | R2-Search ratios 1.16→1.55 across τ, LOO ≈1.6 | ✅ consistent — **but** R2 measured context self-gen ≈17.8% at round 1 vs the paper's 14.8%; reconcile the Search round-1 denominator |
+| Unique words 64.0→51.3 (round 1→9); ROUGE-L rises | §6.1 | not recomputed (R4 uses unique *entities*) | ✅ untouched |
+| AI-written refs cited 0.123 vs 0.281 self-gen vs 0.078 human (+0.045, p<0.001) | §6.4 | not recomputed (Rati's) | ✅ untouched |
+| Self-gen +0.154 (CI [+0.12,+0.19]) in the 8-quality-dim model; 2.1× (0.295 vs 0.142) | §6.6 | R3 (query-alignment covariates) gives self_gen +0.131 controlled (Replace-One) — same sign/magnitude, **complementary** covariates | ✅ consistent; R3 adds the query-alignment control the 8-dim model omits |
+| "only Qwen2.5-14B exhibits a slight F1 degradation across all three settings"; other three do not | §5 HotpotQA + abstract ("inconsistent across models") | **R5 confirms exactly**: Qwen significant negative in all 3 regimes; Llama/DeepSeek n.s. | ✅ corroborated + quantified (per-model ΔF1 + CIs) |
+| Search contamination 0%→~90% over 30 rounds | §5 HotpotQA | R3b/R4 Search: 0→0.92 | ✅ consistent |
+
+**Flags to fix when R1–R5 land in the manuscript:**
+1. **Search round-1 context self-gen %**: paper 14.8% vs measured 17.8% — likely a denominator/round-definition difference; confirm which is correct and make §6.2 agree.
+2. **Mistral honesty**: the paper says the non-Qwen models "do not exhibit degradation." R5 shows Mistral **significantly improves** (+0.044…+0.062). If R5's per-model numbers are added, state the positive ΔF1 explicitly (with the token-F1/verbosity caveat), don't round it to "no change."
+3. **Figure overlap**: R4's contamination-x-axis plot overlaps the existing `fig:qwen-hotpot-airef` (AI-reference fraction). Decide whether R4 supplements or replaces it; don't ship two near-duplicate contamination figures.
+4. Standard proof pass: once §6 figures move, re-check the abstract and intro restatements (they currently give no §6 numbers, so low risk) and every table/appendix value against the §6 body.
+
+## F2 — hAN7's four revision conditions
+
+| # | Condition | Mapped task | Status |
+|---|---|---|---|
+| 1 | Define the citation procedure | **W1** | **Material ready** — §C1 (full LOO spec) + §C2; W1 subsection not yet written into the manuscript |
+| 2 | Give *n* (responses/question/round) + selection + seeds | **W3** | **Facts established** — n=10 runs/round (`num_runs_per_iteration=10`), doc generator temp 0.7, **no RNG seed** (not bitwise-reproducible); config table not yet written |
+| 3 | Add an overlap-matched mechanism control | **R3** | ✅ **Done** — R3 query-alignment control (Qwen Replace-One + Search; Mistral in flight; R3b = HotpotQA E5). The R3 covariate table is the deliverable |
+| 4 | Narrow the mechanism / open-web claims | **W5** | ❌ **Not done** (writing) — per-question-store framing as a controlled same-question stress test + heterogeneous-contamination in Limitations |
+
+Of hAN7's four, **condition 3 is fully met (R3)** and 1–2 have all their material; only **condition 4 (W5)** is outstanding, and it is pure writing. Per hAN7: if the camera-ready allows an extra page, spend it on the **W1 citation-procedure subsection + the R3 covariate table**.
+
+---
+
 ## Exact questions to send
 
 ### To Rati (`ratirastogi@umass.edu`)
