@@ -739,6 +739,50 @@ entity sets instead of tokens.
 
 ---
 
+## R1 / R2 / prefilter across models and agentic (overlap family, done)
+
+The overlap-family analyses need only answers and documents, so they run on every model and variant
+regardless of whether citations were logged. Job 63999894 (`scripts/camera_ready/allruns_overlap.py`,
+CPU, on `/work`) ran them on all four models across Replace-All, Replace-One, Search, and Agentic RAG.
+`ratio1` is the round-1 over-citation ratio under the τ=0.20 overlap rule, `amp1` the round-1 prefilter
+amplification, `desc/xq` the R1 placebo false-positive rates (within-question descendant vs cross-Q).
+
+| variant | model | ctx1% | ratio1 | prefilter amp1 | placebo desc / xq-self |
+|---|---|---|---|---|---|
+| Replace-One | Qwen2.5-14B | 11.5 | 1.27 | **2.86** | 96% / 24% |
+| Replace-One | Llama-3.1-8B | 11.5 | 1.23 | **2.75** | 97% / 23% |
+| Replace-One | Mistral-7B | 11.5 | 1.19 | **2.48** | 99% / 30% |
+| Replace-One | DeepSeek-R1-7B | 11.5 | 1.23 | **1.99** | 99% / 33% |
+| Search | (4 models) | ~18 | 1.21–1.63 | 1.71–1.94 | 41–71% / 1–3% |
+| Agentic RAG | Qwen / Llama / Mistral | ~18 | 1.27–1.46 | 1.76–2.04 | 61–70% / 1–3% |
+| Replace-All | (4 models) | 100 | 1.00 | 1.00 | ~98% / ~30% |
+
+Three results, all generalizing beyond Qwen:
+1. **Over-citation (ratio > 1) holds for every model and for Agentic RAG** under Replace-One, Search,
+   and agentic. Replace-All is 1.00 only because its context is 100% self-gen from round 1, so there
+   is nothing to over-cite relative to. The τ=0.20 overlap-rule magnitudes (~1.2) sit below the paper's
+   top-2 LOO 2.2 because the rule is looser, not because the effect is absent (rule-shape dependence,
+   see R2).
+2. **The prefilter ancestry amplification is universal, not a Qwen artifact.** The top-2 overlap gate
+   over-selects self-gen documents by ~2–2.9× under Replace-One in all four models, and ~1.7–2.0× under
+   Search and agentic. This is the single most important cross-model result here: the confound that
+   inflates the citation-share ratio is a property of the overlap rule, and it reproduces across the
+   whole model set.
+3. **The R1 placebo descendant-skew is universal.** Under Replace-One the within-question descendant
+   false-positive rate is 96–99% against ~23–33% cross-question in every model. Ancestry, not exposure,
+   drives overlap hits regardless of model.
+
+**One run not to trust.** DeepSeek-R1 Agentic RAG reports a median answer length of 0 long-tokens
+(its stored agentic answers are essentially empty, the R1-distill model emits reasoning traces), so its
+row is degenerate and excluded from the reading above.
+
+These are the overlap-family results. The **LOO-citation family (R3 across all models, real citations
+for the runs that never logged them) is Option B**, in progress: a validated model-agnostic
+`loo_attribution.py` regenerates citations per run, then R3 runs on all of them. See the run log for
+job status.
+
+---
+
 ## Exact questions to send
 
 ### To Rati (`ratirastogi@umass.edu`)
