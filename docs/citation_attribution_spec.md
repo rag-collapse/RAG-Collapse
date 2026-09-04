@@ -424,10 +424,15 @@ the real top-10 by construction); **Replace-One *inserts* a self-gen doc into a 
 of score**, so ~11% of inserted self-gen docs are *not* more aligned than the retriever's 10th
 real doc. Redundancy converges identically (self 0.819 → 0.957 vs human ~0.82–0.85).
 
-**Replace-All (hybrid): _pending_** — job 63966992 was still processing this variant at the time
-of writing; fill the table when `~/hotpot_retr_all_63966992.out` completes. Expectation: after
-round 1 the context is entirely self-gen (`n_human` → 0 immediately), so the query-alignment gap
-is only defined at round 1 and the story reduces to the redundancy-convergence signature.
+**Replace-All (hybrid), job 63966992 (COMPLETED).** As expected, the context is entirely
+self-gen from round 1 onward (`n_human` = 0 every round), so `human_qsim`/Δ are undefined and
+the query-alignment comparison does not apply. Self-gen `qsim` sits at ≈0.876 and `frac(self ≥
+h_top10)` ≈ 0.887 at every round (same level as Replace-One's inserted docs). The distinctive
+signal is redundancy: it is **already saturated at round 1** (self_redund ≈ 0.956, vs Replace-One
+which climbs 0.82 → 0.96 over 10 rounds and Search over ~20) and stays flat — Replace-All floods
+the whole context with restatements of one answer in a single step, the retrieval-space image of
+its one-round collapse. So Replace-All contributes the redundancy-saturation endpoint, not a
+query-alignment story.
 
 **Caveats.** (a) This is a **retrieval-level** analysis; the HotpotQA runs log no citations
 (§C3), so unlike graphite R3 there is no per-doc citation outcome to regress — it answers
@@ -556,6 +561,96 @@ either reproduces or corroborates it.
 | 4 | Narrow the mechanism / open-web claims | **W5** | ❌ **Not done** (writing) — per-question-store framing as a controlled same-question stress test + heterogeneous-contamination in Limitations |
 
 Of hAN7's four, **condition 3 is fully met (R3)** and 1–2 have all their material; only **condition 4 (W5)** is outstanding, and it is pure writing. Per hAN7: if the camera-ready allows an extra page, spend it on the **W1 citation-procedure subsection + the R3 covariate table**.
+
+---
+
+## T1 — both attribution methods on the same items (NbXB)
+
+Re-prompted 300 stored `(question, round, context)` triples from the reported Qwen-14B
+Replace-One run with a **direct citation-elicitation** prompt (the model answers using the
+numbered documents, then emits `CITED: [n, …]`), served by vLLM on an A100 at temperature 0
+(job 63967793; `scripts/camera_ready/t1_{sample,generate,compare}.py`). All 300 answers
+produced a parseable `CITED:` line. This puts the **direct** method and the stored **LOO**
+method on identical items — C2's cross-version agreement as a statistic computed here, not a
+pointer to the earlier version.
+
+Over-citation ratio = (self-gen share of citations) / (self-gen share of context), same items:
+
+| subset | context self-gen | **LOO** ratio | **Direct** ratio |
+|---|---|---|---|
+| **round 1** (the §6.2 condition, ctx self-gen 11.5%) | 0.115 | **2.57** | **2.49** |
+| pooled rounds 1–19 | 0.640 | 1.06 | 1.34 |
+
+Doc-level agreement (pooled): Jaccard 0.346; direct precision/recall vs the LOO union 0.429 / 0.725;
+≈5.04 direct citations/item vs LOO's 1.27 per run.
+
+**Reading.** At **round 1 — the exact condition §6.2 reports — the two independent attribution
+methods agree tightly: LOO 2.57 and direct 2.49**, both ≈ the paper's stated **2.2**. That is the
+cleanest possible form of the C2 claim: one over-citation effect, measured two ways, on the same
+items, ~2.5× in both. The **pooled** ratios (1.06 / 1.34) look weaker only because they average over
+rounds where the context is already 64% self-gen; as the context saturates, *any* rule's ratio is
+mechanically compressed toward 1 (you cannot cite self-gen at 2× its share when it is already 90% of
+the context), so the pooled number understates the round-1 effect and is not the quantity to quote —
+report the round-1 ratios against §6.2. Where the two methods *do* differ is verbosity, not
+direction: direct elicitation lists ≈4× more documents per answer than the strict LOO counterfactual
+(5.04 vs 1.27) and recovers 72.5% of LOO's cited docs while adding its own, so their doc-level
+overlap is moderate (Jaccard 0.35) even though their self-gen *skew* coincides.
+
+**One caveat before this goes in the paper.** The elicitation prompt is a **reconstruction** (Rati
+owns the original); it doubles as the W2 appendix text and should be reconciled with her wording,
+though the ~2.5× round-1 agreement is robust to phrasing. (Re-run `t1_compare` on the full round-1
+set to firm up the number beyond the 100 round-1 items in this sample.)
+
+---
+
+## Mediator vs confounder — why prior-answer similarity must not be a covariate
+
+A reviewer-facing subtlety worth stating explicitly, because it looks like a control we skipped
+but is one we must **not** add.
+
+The data-generating structure is a **chain, not a fork**: `A₁ → D₁ → A₂`. A round's answer `A₁`
+is rewritten into a synthetic document `D₁`, which is fed as context and shapes the next answer
+`A₂`. If self-generated references are genuinely influential, **`D₁` is the channel by which `A₁`
+reaches `A₂`** — its similarity to the prior answer is the **mediator**, i.e. it lies *on* the
+causal path. Conditioning on a mediator removes the very effect you are trying to measure, so
+adding "overlap with the prior answer" as a regression covariate would **subtract the collapse
+signal itself** and drive the estimate to zero — wrongly.
+
+This distinguishes two similarity covariates that look alike but sit in different causal positions:
+
+| covariate | causal role | in a citation/collapse regression |
+|---|---|---|
+| **query–document similarity** (query `Q → D`, `Q → A₂`) | **confounder** (common cause) | **adjust** — closes a backdoor path, isolates `D → A₂`. This is what **R3** does (query-cosine). |
+| **prior-answer overlap** (`A₁ → D → A₂`) | **mediator** (on the path) | **do not adjust** — closes the front door, nets out the effect. |
+
+The reviewer worry — "maybe `D` is just similar to the prior answer, not influential" — conflates
+these. When `D` is a **faithful restatement** of `A₁`, that similarity *is* the mechanism of
+influence; the two hypotheses (influence vs. mere ancestry) are **observationally equivalent** on
+overlap, so no regression on the same data can separate them. **What separates them is contrast,
+not adjustment** — and our design already uses it in two places, with a third available:
+
+1. **The reported attribution is leave-one-out ablation, not a regression.** LOO removes `D` and
+   asks whether `A` changes; it adjusts for nothing. It is the with/without contrast, so the
+   mediator objection **does not apply to the headline attribution at all.** (Best single sentence
+   for the rebuttal.)
+2. **R1 (placebo) is the difference-in-differences** the objection calls for: the same document,
+   scored when it was in context vs. when it never was. Ancestry is present in both arms; influence
+   is possible only in the exposed arm; the difference is influence — nothing is subtracted from the
+   treated measurement.
+3. **Novelty restriction (proposed next analysis; call it R7/T3).** Restrict to material `D₁`
+   *introduced* that `A₁` did not contain (the document generator's hallucinated entities/specifics),
+   and measure how often `A₂` adopts it. Under pure ancestry `A₂` has no route to that material;
+   under influence it does. This **selects a subset of the signal** (a lower bound on influence)
+   rather than netting anything out, so it never touches the collapse effect. It is buildable from
+   stored answers + documents, and §5 already observes the phenomenon qualitatively ("the document
+   generator hallucinates entities … and the answer generator conditions on these fabricated facts").
+
+One honest flag on R3's covariate set: `redund` (mean cosine to the round's *other* context docs)
+is the one covariate to defend carefully — it measures duplication among neighbours, not similarity
+to the specific ancestral answer, so it is a retrieval nuisance rather than the `A₁→D→A₂` mediator;
+keep it, but be ready to show the effect survives without it. **Principle: never adjust for anything
+on the path from document to answer; find where the two stories predict different things, and measure
+there.**
 
 ---
 
