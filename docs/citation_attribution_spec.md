@@ -659,6 +659,50 @@ keep it, but be ready to show the effect survives without it. **Principle: never
 on the path from document to answer; find where the two stories predict different things, and measure
 there.**
 
+## Prefilter provenance bias — the over-citation ratio is largely gate selection (measured)
+
+Running the mediator logic against the code turned up a real problem, and it is measured, not
+argued (`scripts/camera_ready/prefilter_bias.py`, on the reported Qwen-14B Replace-One run).
+
+Only the top `citation_top_m=2` documents by lexical overlap with the answer are eligible to be
+cited (`pipeline.py:76`). Self-generated documents share wording with the answer by ancestry, so
+they win that gate above their share of the context, **before any cite decision runs**. Replicating
+the pipeline's own token set and overlap score and comparing the self-gen share of the top-2
+eligible set to the self-gen share of the whole context:
+
+| round | context self-gen | top-2 eligible self-gen | gate amplification |
+|---|---|---|---|
+| 1 | 11.5% | 32.8% | **2.86×** |
+| 2 | 23.0% | 56.5% | 2.46× |
+| 3 | 34.5% | 67.5% | 1.96× |
+| 5 | 57.4% | 80.1% | 1.40× |
+| ≥10 | 100% | 100% | 1.00× |
+
+At round 1 the gate alone lifts self-gen eligibility 11.5% → 32.8%, a **2.86× amplification that is
+as large as the entire reported over-citation ratio of 2.2**. It is a monotone function of the gate
+width (round 1): top-1 3.69×, top-2 2.86×, top-4 1.83×, top-8 1.14×, all-docs 1.00×.
+
+**What this does and does not mean.**
+- The **raw citation-share over-citation ratio (§6.2, 2.2×) is substantially a prefilter-selection
+  artifact.** Self-gen docs are eligible more because they lexically descend from the answer, not
+  (only) because they influence it. This is the ancestry/overlap confound made numeric, and it is
+  the same phenomenon R1 found as the within-question descendant false-positive rate. **Do not
+  present the raw citation share as clean evidence of influence.**
+- The **cite decision does not add this bias — it slightly corrects it.** The eligible set is 32.8%
+  self-gen at round 1; the *cited* set (§6.2) is 26.5%. The leave-one-out change test therefore
+  removes some ancestry-selected self-gen docs (plausibly the redundant ones, whose removal does not
+  move the answer). So the counterfactual step is the honest part of the pipeline, the prefilter is
+  the contaminated part.
+- **The whole citation metric is overlap-gated, so R3 inherits some of this too.** R3 regresses the
+  gated citation-rate on `self_gen` while controlling for *query* cosine, but not for *answer* overlap
+  (the mediator). So R3 sharpens the story without fully escaping the confound either.
+
+**Consequence for the plan.** The only analysis that is immune to this — because it does not go
+through overlap at all — is the **novelty-restriction** measure (R7/T3 above): does `A₂` adopt
+material `D₁` introduced that `A₁` never contained. That is now the **load-bearing influence
+evidence, not an optional extra.** It should be built, and §6.2 should lead with the counterfactual
+and the novelty result, not the raw citation share.
+
 ---
 
 ## Exact questions to send
