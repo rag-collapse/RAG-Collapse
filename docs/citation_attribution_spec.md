@@ -629,10 +629,17 @@ influence; the two hypotheses (influence vs. mere ancestry) are **observationall
 overlap, so no regression on the same data can separate them. **What separates them is contrast,
 not adjustment** — and our design already uses it in two places, with a third available:
 
-1. **The reported attribution is leave-one-out ablation, not a regression.** LOO removes `D` and
-   asks whether `A` changes; it adjusts for nothing. It is the with/without contrast, so the
-   mediator objection **does not apply to the headline attribution at all.** (Best single sentence
-   for the rebuttal.)
+1. **The cite decision is a counterfactual regeneration, not a regression on overlap.** For each
+   answer the method takes the top 2 documents by lexical overlap with that answer
+   (`citation_top_m=2`, `pipeline.py:76`), regenerates the answer with each one removed
+   (`pipeline.py:874`, `:879`), and cites it when the regenerated answer differs from the original
+   by at least 0.18 lexically (`_answer_change_score`, `pipeline.py:66`, `:101`). The decide step
+   never conditions on prior-answer overlap, so the mediator objection does not reach it. It has two
+   honest limits and they are not the mediator bias. Only the top-2 overlap candidates are ever
+   eligible, so a low-overlap but influential document is missed. That is a recall limit. And the
+   change score is lexical, a token-overlap proxy for whether the answer moved, not a semantic one.
+   State it as a **counterfactual decision over overlap-selected candidates**, not a full
+   leave-one-out over all n references. It reruns 2 candidates per answer, not n.
 2. **R1 (placebo) is the difference-in-differences** the objection calls for: the same document,
    scored when it was in context vs. when it never was. Ancestry is present in both arms; influence
    is possible only in the exposed arm; the difference is influence — nothing is subtracted from the
