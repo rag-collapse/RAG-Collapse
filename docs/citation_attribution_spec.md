@@ -703,6 +703,40 @@ material `D₁` introduced that `A₁` never contained. That is now the **load-b
 evidence, not an optional extra.** It should be built, and §6.2 should lead with the counterfactual
 and the novelty result, not the raw citation share.
 
+## R7 — novelty-restriction influence (token-level, done; entity-level next)
+
+Built and run on the reported Qwen-14B Replace-One run (`scripts/camera_ready/r7_novelty.py`, no
+generation). The document `gen_k_0` is generated from answer `A_{k-1}` (verified: `gen_1_0` covers
+100% of the round-0 answer's tokens), and first enters the round-k context. `novel(D)` is the token
+set `D` introduced beyond its source answer, the other round-k context docs, and the question. We
+measure how often the next answer `A_k` adopts `novel(D)`, against a cross-question placebo (the same
+novel set scored on a different question's `A_k`, where `D` was never present).
+
+| subset | novel \|D\| | same-Q adoption | cross-Q placebo | influence (Δ) |
+|---|---|---|---|---|
+| round 1 | 47 | 0.015 | 0.005 | **+0.010** |
+| round 2 | 40 | 0.008 | 0.005 | +0.003 |
+| round 3 | 38 | 0.006 | 0.004 | +0.002 |
+| rounds 4–19 | ~40 | ~0.002 | ~0.005 | ≈ 0 to −0.003 |
+| pooled (7600 pairs) | — | 0.003 | 0.005 | −0.001 |
+
+**Reading (honest, and it points to the entity-level run).** There is a **small, real, early
+influence signal**: at round 1 the next answer adopts D's invented tokens at 3× the placebo rate
+(1.5% vs 0.5%), positive through round 2–3, decaying to null once everything has collapsed and D
+introduces nothing new. But the **token unit is the wrong microscope**. `novel(D)` is ~40 tokens
+dominated by the article generator's *prose* ("showcase", "rising", "dominating"); the terse
+list-style answers cannot adopt prose however influential the document is, which floors the
+adoption rate. This is *entity* collapse, the paper's own claim is about entities ("the document
+generator hallucinates entities … the answer generator conditions on these fabricated facts"), and
+entities are a small, high-signal subset of `novel(D)`. So token-level **motivates** the entity-level
+test rather than settling it. Do not over-read the near-null pooled number, and do not over-read the
++0.010 either. The decisive version restricts `novel(D)` to named entities.
+
+**Entity-level (next, one job).** Needs entities extracted from the documents (answers already have
+them in `entity_extraction_output`, documents do not). That is one fast job with the small
+`Qwen2.5-1.5B` extractor over ~7k unique documents, then the same novelty/adoption/placebo math on
+entity sets instead of tokens.
+
 ---
 
 ## Exact questions to send
