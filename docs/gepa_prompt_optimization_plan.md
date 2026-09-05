@@ -48,7 +48,7 @@ class RAGDataInst:
     question: str
     docs: list[dict]   # each always has "text"; UMass docs add "url"; HotpotQA docs add "doc_id"="corpus_<id>", "title"
 ```
-`title`/`doc_id` are metadata only — `references_to_documents()` generates its own `doc_id` and propagates `url` + `text` into the pipeline.
+`title`/`doc_id` are metadata only. `references_to_documents()` generates its own `doc_id` and propagates `url` + `text` into the pipeline.
 
 **Run it (GPU, one-time):**
 ```bash
@@ -87,7 +87,7 @@ Faithfulness is weighted higher because grounding is the primary concern. Falls 
 
 ## Adapter (`gepa_optimization/rag_adapter.py`)
 
-`RAGSystemPromptAdapter(GEPAAdapter)` — constructed with `task_model, doc_gen_model, judge_model, api_base, api_key, n_rounds=10, embed_model, chars_per_doc=800, logger`.
+`RAGSystemPromptAdapter(GEPAAdapter)`, constructed with `task_model, doc_gen_model, judge_model, api_base, api_key, n_rounds=10, embed_model, chars_per_doc=800, logger`.
 
 `evaluate(batch, candidate, capture_traces)` for each `RAGDataInst`:
 1. Build `original_context` from `docs` (kept as ground truth for quality judging).
@@ -97,8 +97,8 @@ Faithfulness is weighted higher because grounding is the primary concern. Falls 
 5. Return `EvaluationBatch(outputs, scores, trajectories, objective_scores)` where `scores = [avg_anti_collapse, …]` and `objective_scores = [{"anti_collapse":…, "quality":…}, …]` (multi-objective → Pareto).
 
 `make_reflective_dataset(candidate, eval_batch, components_to_update)` builds, per question, a record:
-- **`Inputs`**: `{"System Prompt": candidate["system_prompt"]}` — *only the system prompt* (the question, context, and per-round structure are deliberately withheld to prevent the reflection LM from reward-hacking the round structure).
-- **`Generated Outputs`**: per variant `{"answer": <final-round answer>}` — final answer only, not the round sequence.
+- **`Inputs`**: `{"System Prompt": candidate["system_prompt"]}`, *only the system prompt* (the question, context, and per-round structure are deliberately withheld to prevent the reflection LM from reward-hacking the round structure).
+- **`Generated Outputs`**: per variant `{"answer": <final-round answer>}`, final answer only, not the round sequence.
 - **`Feedback`**: per variant `{anti_collapse, unique_entities, quality, diagnosis}`, where `diagnosis` concatenates any triggered flags:
   - anti_collapse < 0.30 → *"The answer lacks entity diversity … the prompt may cause the model to fixate on a narrow subset of entities …"*
   - quality < 0.50 → *"Final answer drifted from original context …"*
@@ -120,7 +120,7 @@ Reuse the real `pipeline/` context-building code; the LLM is `ProprietaryLLM` (L
 
 ## Running the optimization (`gepa_optimization/run_optimization.py`)
 
-`run_optimization.py` takes **no CLI args** — it is configured entirely by environment variables.
+`run_optimization.py` takes **no CLI args**. It is configured entirely by environment variables.
 
 ```python
 result = gepa.optimize(
@@ -146,9 +146,9 @@ best_score = result.val_aggregate_scores[result.best_idx]   # avg anti_collapse 
 | `REFLECTION_MODEL` | `openai/claude-opus-4-1` | reads failure reports, proposes new prompts |
 | `EMBED_MODEL` | `all-MiniLM-L6-v2` | local SentenceTransformer for `simulate_search` |
 | `MAX_METRIC_CALLS` | `300` | GEPA evaluation budget |
-| `GEPA_RUN_DIR` | `gepa_runs/rag_system_prompt_<timestamp>` | run output (logs, candidates, state — resumable) |
+| `GEPA_RUN_DIR` | `gepa_runs/rag_system_prompt_<timestamp>` | run output (logs, candidates, state, resumable) |
 
-**Run it (CPU — all generation is via the API):**
+**Run it (CPU, all generation is via the API):**
 ```bash
 export API_KEY="your-keymaker-key"
 sbatch --export=ALL scripts/gepa_optimization.sh
@@ -201,7 +201,7 @@ gepa_runs/rag_system_prompt_<id>/
 
 ## Results / caveats
 
-- **Outcome so far:** the optimization runs to date did **not** beat the seed — the decompose-strategy seed prompt was already near the Pareto frontier on (anti-collapse, quality). Frame any reported numbers as "no improvement over an already-strong seed," not as a win.
-- **Known code issues (not doc issues — flagged for fixing):**
+- **Outcome so far:** the optimization runs to date did **not** beat the seed. The decompose-strategy seed prompt was already near the Pareto frontier on (anti-collapse, quality). Frame any reported numbers as "no improvement over an already-strong seed," not as a win.
+- **Known code issues (not doc issues, flagged for fixing):**
   1. `scripts/gepa_optimization.sh` contains `export API_KEY=""` just before the key check, which blanks a key passed via `--export=ALL`. Set the key *after* that line or remove it.
   2. In `rag_adapter.py`, `evaluate()` runs the candidate prompt through `self._doc_gen_llm`; the `self._task_llm` built from `TASK_MODEL` is currently unused, so generation is effectively done by `DOC_GEN_MODEL`.
