@@ -7,7 +7,7 @@
 | `/home/rsenapati_umass_edu` | 58.80 GB | 107.37 GB | 55% |
 | `/project/pi_dagarwal_umass_edu` | 16.10 TB | 16.49 TB | 98% ⚠️ near full |
 | `/work/pi_dagarwal_umass_edu` | 2.37 TB | 3.22 TB | 74% |
-| `/scratch4/workspace/rsenapati_umass_edu-rag-collapse` | — | 15 TB | active |
+| `/scratch4/workspace/rsenapati_umass_edu-rag-collapse` | n/a | 15 TB | active |
 
 **Key paths:**
 - Experiment outputs: `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/experiment_outputs/`
@@ -17,9 +17,9 @@
 
 ## Scratch space (HPC Workspace)
 
-Unity uses the `ws_*` tool to manage scratch workspaces. Scratch has no snapshots — do not store the only copy of important files there. New workspaces are auto-assigned to whichever scratch filesystem (`scratch`, `scratch3`, `scratch4`) has the most free space.
+Unity uses the `ws_*` tool to manage scratch workspaces. Scratch has no snapshots, so do not store the only copy of important files there. New workspaces are auto-assigned to whichever scratch filesystem (`scratch`, `scratch3`, `scratch4`) has the most free space.
 
-### Create the workspace (done — expires 2026-07-03)
+### Create the workspace (done, expires 2026-07-03)
 
 ```bash
 ws_allocate -m rsenapati@umass.edu -r 3 rag-collapse 30
@@ -70,7 +70,7 @@ ws_share unshare rag-collapse <other_username>
 
 ## Running the GEPA pipeline jobs
 
-### Step 1 — Start servers (5 jobs)
+### Step 1. Start servers (5 jobs)
 
 ```bash
 sbatch scripts/gepa_pipeline/server_qwen7b_docgen.sh   # shared doc-gen, port 5153
@@ -85,7 +85,7 @@ Wait until each prints `Uvicorn running on http://0.0.0.0:<port>/v1`, then note 
 Reachable at: http://gpu032.unity.rc.umass.edu:5151/v1
 ```
 
-### Step 2 — Edit and submit pipeline jobs
+### Step 2. Edit and submit pipeline jobs
 
 Fill in the two URL placeholders at the top of each run script, then submit:
 
@@ -99,14 +99,14 @@ sbatch scripts/gepa_pipeline/run_llama3.1_8b.sh
 
 Each run script executes replace_all → replace_one → search sequentially with `--use-gepa-prompt`. Walltime is 4 days.
 
-### Step 3 — Monitor
+### Step 3. Monitor
 
 ```bash
 squeue -u rsenapati_umass_edu
 tail -f logs/gepa_mistral7b_<jobid>.out
 ```
 
-### Step 4 — Parse results after a GEPA optimization run
+### Step 4. Parse results after a GEPA optimization run
 
 ```bash
 python gepa_optimization/parse_results.py \

@@ -21,7 +21,7 @@ A focused compare-and-contrast of the **entity-extraction code** in the two repo
 | Fn | `extract_entities_batch` | `get_entities` / `extract_entities` |
 | Prompt input | **question + response** | **response only** (`ENTITIES_PROMPT` is just `{response}`) |
 | Instruction | "extract only entities that **directly answer the question**" | "the main named entities that are **compared** … all of the same type" |
-| LLM call | free-form text → `parse_json_from_response` (regex/JSON fallbacks) | `generate_openai_structured(..., NamedEntities)` — **schema-guaranteed** |
+| LLM call | free-form text → `parse_json_from_response` (regex/JSON fallbacks) | `generate_openai_structured(..., NamedEntities)`, **schema-guaranteed** |
 | Model | configurable (`gpt-4o` API default, or local vLLM) | pinned `gpt-5.2` |
 | Concurrency | `llm.inference_batch` (vLLM batching), batch_size=20 | `multiprocessing.Pool`, one process per generation |
 | On failure | returns `[]` (silent) | structured output → effectively can't malform |
@@ -36,9 +36,9 @@ A focused compare-and-contrast of the **entity-extraction code** in the two repo
 | Output shape | dict `canonical → [mentions]`, then `mention.lower() → canonical` | dict `surface → representative` |
 | Canonical label | LLM chooses the **most complete** name | **shortest** mention wins (`sorted by (len, e)`) |
 | Coverage guard | fallback "each mention is its own cluster" if parse fails | `fix_entities_map` re-checks every input mention, fixes casing, prints `NOT FOUND` warnings |
-| Despite the name | — | `..._with_embeddings_map` does **not** use embeddings; it's pure LLM grouping |
+| Despite the name | n/a | `..._with_embeddings_map` does **not** use embeddings; it's pure LLM grouping |
 
-**Contrast:** Both cluster via LLM. The reference actively **reconciles dropped/мis-cased mentions** (`fix_entities_map`) so every input mention lands in the map; this repo instead lets an unmapped mention become its own canonical at use-time (`process_experiment_file`, ~line 338), which can leave case-variant near-duplicate canonicals. Opposite label heuristics (shortest vs. most-complete).
+**Contrast:** Both cluster via LLM. The reference actively **reconciles dropped/mis-cased mentions** (`fix_entities_map`) so every input mention lands in the map; this repo instead lets an unmapped mention become its own canonical at use-time (`process_experiment_file`, ~line 338), which can leave case-variant near-duplicate canonicals. Opposite label heuristics (shortest vs. most-complete).
 
 ### 3. Recover entities the extractor missed
 
@@ -54,7 +54,7 @@ A focused compare-and-contrast of the **entity-extraction code** in the two repo
 
 | | This repo | Reference |
 |---|---|---|
-| "Unique entities" | `len(canonical_in_round)` — distinct canonical entities seen across runs that round | `len(entity_counts)` from `get_entity_data` — distinct mapped entities that round |
+| "Unique entities" | `len(canonical_in_round)`, distinct canonical entities seen across runs that round | `len(entity_counts)` from `get_entity_data`, distinct mapped entities that round |
 | Both | count of distinct canonical entities per round | same concept |
 
 Equivalent in spirit.
@@ -77,10 +77,10 @@ Equivalent in spirit.
 
 - **Ranking similarity (Kendall-τ):** `get_ranking` + `_find_entity_position` + `_find_words_in_order` + `ranked_list_similarity`. Orders entities by their **position** in the response, with exact → alias → case-insensitive → "words-in-order-with-gaps" matching, then compares orderings with Kendall-τ. This repo has **no positional/ranking metric** and no fuzzy position finder.
 - **Entity entropy:** `get_count_entropy` over the per-round entity count distribution. Absent here.
-- **AI entity influence:** `input_to_generation_entity_similarity(_by_round)` — how much generated answers' entities track AI-authored input pages vs. original pages. Absent here.
+- **AI entity influence:** `input_to_generation_entity_similarity(_by_round)`, how much generated answers' entities track AI-authored input pages vs. original pages. Absent here.
 - **Cost tracking:** reference threads `increment_cost`; this repo does not.
 
-(This repo computes ROUGE-1/2/L and TES in `evaluation.py`, which the reference's `metrics.py` does not — it uses embedding cosine "mean similarity" instead. So divergence runs both ways, but those are outside entity extraction.)
+(This repo computes ROUGE-1/2/L and TES in `evaluation.py`, which the reference's `metrics.py` does not. It uses embedding cosine "mean similarity" instead. So divergence runs both ways, but those are outside entity extraction.)
 
 ---
 
@@ -94,12 +94,12 @@ Equivalent in spirit.
 | Unmapped mentions | becomes own canonical | reconciled by `fix_entities_map` | ⚠️ dup risk here |
 | Missed-entity recovery | case-insensitive substring | case-sensitive substring | ✅ similar (this repo recovers more) |
 | Unique-entities-per-round | distinct canonical / round | distinct canonical / round | ✅ equivalent |
-| Empty-response similarity | `0.0` (diverse) | `1.0` (collapsed) | ❌ **opposite — flips collapse signal** |
+| Empty-response similarity | `0.0` (diverse) | `1.0` (collapsed) | ❌ **opposite, flips collapse signal** |
 | Ranking (Kendall-τ), entropy, AI-influence | absent | present | ❌ missing here |
 
 ### If the goal is comparability with the reference's published numbers
-1. **Align the empty-response similarity convention** (`compute_entity_similarity`, the `else 0.0` branch) — this is the one that can change conclusions.
-2. **Decide on question-conditioning** in extraction — keep targeted, or drop the question to match the reference's recall-oriented set; document the choice in Methods.
+1. **Align the empty-response similarity convention** (`compute_entity_similarity`, the `else 0.0` branch). This is the one that can change conclusions.
+2. **Decide on question-conditioning** in extraction: keep targeted, or drop the question to match the reference's recall-oriented set; document the choice in Methods.
 3. Optionally port **Kendall-τ ranking similarity** and **AI entity influence** to close the metric gap.
 
 ### Where this repo is arguably better
