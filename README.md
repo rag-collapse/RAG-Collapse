@@ -29,8 +29,8 @@ experiment_outputs/    evaluation_outputs/        entity_extraction_output/
 | [`docs/entity_extraction_comparison.md`](docs/entity_extraction_comparison.md) | Entity-extraction code vs the `collapse-randomness-research` repo |
 | [`docs/pipeline_comparison.md`](docs/pipeline_comparison.md) | Full pipeline (baselines + metrics) vs `collapse-randomness-research` |
 | [`docs/misinfo_error_compounding.md`](docs/misinfo_error_compounding.md) | Misinformation error-compounding experiment (HotpotQA) + `scripts/hotpot-misinfo/` |
-| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) · [interactive artifact]() | Round-0 distractor experiments — `diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth` — with 3-variant collapse results, metric definitions & figures. Plots via [`distractor_sweep_visualization.ipynb`](distractor_sweep_visualization.ipynb). |
-| [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) · [interactive artifact]() | `cross-model-baseline` — a main model reads documents synthesized from a *different* (side) model's answers, plus the GPU-scheduling hack (`bf16` constraint + `DOC_ON_MAIN` 2-GPU mode) that got it to run on Unity. |
+| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) · [interactive artifact]() | Round-0 distractor experiments (`diverse_synth`, `equal_diverse_synth`, `shuffled_diverse_synth`) with 3-variant collapse results, metric definitions, and figures. Plots via [`distractor_sweep_visualization.ipynb`](distractor_sweep_visualization.ipynb). |
+| [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) · [interactive artifact]() | `cross-model-baseline`. A main model reads documents synthesized from a *different* (side) model's answers, plus the GPU-scheduling hack (`bf16` constraint + `DOC_ON_MAIN` 2-GPU mode) that got it to run on Unity. |
 | [`visualization_outputs/README.md`](visualization_outputs/README.md) | Plots and how to regenerate them |
 
 ### Interactive HTML docs (published Claude artifacts)
@@ -74,8 +74,8 @@ is updated between rounds:
 prompt in `formatters.py`; that text becomes the synthetic document(s) for the next round.
 
 **System prompt:** by default the baseline `_RAG_GENERATION_SYSTEM_PROMPT` is used. Pass
-`--use-gepa-prompt` to instead use `GEPA_RAG_GENERATION_SYSTEM_PROMPT` (the GEPA-optimized prompt) —
-see [GEPA prompt optimization](#gepa-prompt-optimization).
+`--use-gepa-prompt` to instead use `GEPA_RAG_GENERATION_SYSTEM_PROMPT` (the GEPA-optimized prompt).
+See [GEPA prompt optimization](#gepa-prompt-optimization).
 
 **Output:** one JSON per run with `experiment_metadata`, `questions`, and per-iteration
 `documents` + `runs` (e.g. `local_replace_all.json`, `local_search.json`, `local_agentic_rag.json`).
@@ -249,12 +249,12 @@ matching `$MODEL` subdirectory.
   citation-attribution mechanism and the R1–R5 reanalyses; `scripts/camera_ready/` regenerates
   the R4 (collapse vs contamination) and R5 (per-model ΔF1) figures under `camera_ready_outputs/`.
 - **Determinism:** generation runs at `temperature=0.7` with no fixed RNG seed, so runs are
-  **not** bitwise-reproducible — reproducibility rests on the released experiment/evaluation
+  **not** bitwise-reproducible. Reproducibility rests on the released experiment/evaluation
   outputs and the 10-runs-per-round design. For deterministic reruns set `temperature=0` and a
   `seed` in the sampling params.
 
 ## License
 
-Source **code** is released under the MIT License (`LICENSE`). **Data** — the datasets and the
-citation-label / evaluation outputs — is released under CC-BY-4.0 (`DATA_LICENSE.md`). See
+Source **code** is released under the MIT License (`LICENSE`). **Data** (the datasets and the
+citation-label / evaluation outputs) is released under CC-BY-4.0 (`DATA_LICENSE.md`). See
 `docs/release_checklist.md` for the release audit and remaining steps. To cite, see `CITATION.cff`.
