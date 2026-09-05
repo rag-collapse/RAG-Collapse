@@ -824,10 +824,27 @@ confirms the §6.2 over-citation effect generalizes across the model set with th
 not only the overlap proxy. (DeepSeek's citations are still the lower-confidence ones because its
 reasoning traces make the change score noisier, but the ratio is clearly >1.)
 
-**Still to do under Option B:** run R3 (query-alignment control) on these six new citation sets
-(`r3_from_sidecar`, reads the sidecar as the citation outcome), then Phase 2b (agentic, 4 models) and
-Phase 2c (paraphrase, rerank). HotpotQA held as optional-and-caveated (short answers make the change
-score near-degenerate).
+**R3 on the new citations (done, job 64015995, `scripts/camera_ready/r3_from_sidecar.py`).** The
+query-alignment control now runs on all four models. self_gen coefficient, raw (A) → controlled (B):
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Replace-One (A→B) | +0.068 → **+0.131** | +0.083 → **+0.167** | +0.051 → **+0.127** (t=16.5) | +0.038 → **+0.134** (t=14.0) |
+| Search (A→B) | −0.056 sig | +0.027 n.s. | −0.045 → +0.003 **n.s.** | +0.068 → **+0.127** (t=10.0) |
+
+- **Replace-One: the over-citation effect survives and grows under the query-alignment controls in all
+  four models** (controlled self_gen +0.13 to +0.17, all t≥14). Controlling for how query-aligned a
+  self-gen doc is does not explain the effect away for any model. This is the robust cross-model answer
+  to hAN7.
+- **Search: three of four models wash to null** (Qwen negative-significant, Llama and Mistral ~0 n.s.),
+  with **DeepSeek the exception** (+0.13, t=10). DeepSeek is the lower-confidence model (reasoning
+  traces inflate the change score), so treat its lone positive Search result with caution. Report
+  Replace-One as the headline (4/4) and Search as the honest split (3/4 null, DeepSeek positive).
+- Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
+
+**Still open under Option B:** Phase 2b (agentic, real tool-calling flow — approach A/B to be chosen)
+and Phase 2c (paraphrase, rerank, running now as jobs 64015739–742). HotpotQA held as
+optional-and-caveated (short answers make the change score near-degenerate).
 
 ---
 
