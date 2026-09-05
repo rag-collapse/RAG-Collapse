@@ -91,7 +91,7 @@ Three model modes (`--model-mode`):
 Only `pipeline.py` (server mode) and `llm_service/inference_example.py` need `VLLM_API_BASE`;
 `evaluation.py` and `entity_extraction.py` load their own (small) models locally.
 
-### Step 1 — start a vLLM server (server mode)
+### Step 1. Start a vLLM server (server mode)
 
 ```bash
 vllm serve <model> --served-model-name qwen2.5-14b --tensor-parallel-size 2 --port 5150 --host 0.0.0.0
@@ -110,7 +110,7 @@ model family (verified against current vLLM):
 
 Ready-made server scripts: `scripts/start_llm_server_*.sh`.
 
-### Step 2 — run
+### Step 2. Run
 
 ```bash
 mkdir -p experiment_outputs
@@ -134,7 +134,7 @@ python -u pipeline.py \
 - search-only: `--search-embedding-mode {local,api}`, `--search-embedding-model` (default `all-MiniLM-L6-v2`), `--search-top-k` (10), `--search-chunk-size` (500), `--search-chunk-overlap` (50)
 - agentic-only: `--agentic-max-tool-calls` (10)
 
-**Quick smoke test** (1 question, 2 rounds) — swap `--pipeline-variant` per variant:
+**Quick smoke test** (1 question, 2 rounds). Swap `--pipeline-variant` per variant:
 ```bash
 python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --model-name qwen2.5-14b \
   --pipeline-variant search --dataset-path datasets/umass_data.entity.chatgpt.50.jsonl \
@@ -145,7 +145,7 @@ python -u pipeline.py --model-mode server --vllm-api-base "$VLLM_API_BASE" --mod
 
 After the pipeline, two scripts compute the collapse metrics from the experiment JSON.
 
-**`evaluation.py`** — text-similarity metrics per round: pairwise embedding cosine similarity,
+**`evaluation.py`**. Text-similarity metrics per round: pairwise embedding cosine similarity,
 sentence-level TES, ROUGE-1/2/L, `unique_words`, `ai_reference_percentage` (fraction of context
 docs that are AI-generated), `ai_citation_percentage`, and `same_answer_percentage` (an LLM
 paraphrase judge, model from `SAME_ANSWER_MODEL_NAME`, sampled over 10 answer pairs).
@@ -154,7 +154,7 @@ python evaluation.py <experiment.json> <eval.json> [--cache-dir <hf_cache>]
 # or: sbatch scripts/eval.sh   # set MODEL_SUBDIR and the `for base in ...` variant loop inside
 ```
 
-**`entity_extraction.py`** — entity-collapse metrics: extracts answer entities (LLM), clusters
+**`entity_extraction.py`**. Entity-collapse metrics: extracts answer entities (LLM), clusters
 to canonical forms, recovers missed mentions, and reports `unique_entities` per round and
 pairwise entity-set similarity (mean/min/max/std).
 ```bash
@@ -171,10 +171,10 @@ using GEPA's reflective Pareto search over **anti-collapse** × **quality**. Ful
 [`docs/gepa_flowchart.md`](docs/gepa_flowchart.md).
 
 ```bash
-# 1. Build the dataset (UMass + HotpotQA via E5+FAISS retrieval) — GPU, one-time
+# 1. Build the dataset (UMass + HotpotQA via E5+FAISS retrieval), GPU, one-time
 sbatch scripts/gepa_prepare_dataset.sh
 
-# 2. Run optimization (CPU; all generation via the keymaker API) — env-var driven
+# 2. Run optimization (CPU; all generation via the keymaker API), env-var driven
 export API_KEY="your-keymaker-key"
 sbatch --export=ALL scripts/gepa_optimization.sh
 

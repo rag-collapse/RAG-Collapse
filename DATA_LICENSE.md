@@ -1,4 +1,4 @@
-# Data license — CC-BY-4.0
+# Data license: CC-BY-4.0
 
 The **data** in this repository is released under the Creative Commons
 Attribution 4.0 International License (CC-BY-4.0):

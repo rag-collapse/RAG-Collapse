@@ -1,4 +1,4 @@
-# Handoff — RAG-collapse / HotpotQA work (fresh-start context)
+# Handoff: RAG-collapse / HotpotQA work (fresh-start context)
 
 Everything below is built, reviewed, and smoke-validated. The only thing not yet done is the
 full-scale HotpotQA runs. This doc covers three things to know, in order. First the `all_experiments`
@@ -81,7 +81,7 @@ Run the full native experiment (the next step). On Unity, after `git pull`:
 ```bash
 bash base_hotpotqa_distractors/smoke_native.sh                  # fast re-check (downloads distractor file if missing)
 bash base_hotpotqa_distractors/launch_native.sh                 # qwen14b: distractor-setting + gold-only, replace_one, 400q, num_runs 10
-# other models — distinct ports + model flags (see launch_native.sh header / §3 example):
+# other models: distinct ports + model flags (see launch_native.sh header / §3 example):
 ANSWER_MODEL_ID=meta-llama/Llama-3.1-8B-Instruct ANSWER_SERVED=llama3.1-8b ANSWER_MAX_NUM_SEQS=128 \
   ANSWER_PORT=5190 DOCGEN_PORT=5191 OUTDIR=$HOME/native_llama bash base_hotpotqa_distractors/launch_native.sh
 ```

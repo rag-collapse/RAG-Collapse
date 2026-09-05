@@ -1,4 +1,4 @@
-# GEPA Prompt Optimization — Architecture & Metrics
+# GEPA Prompt Optimization: Architecture and Metrics
 
 ## High-Level Loop
 
@@ -23,7 +23,7 @@ flowchart TD
 
 ---
 
-## evaluate() — Per Question
+## evaluate(): Per Question
 
 ```mermaid
 flowchart TD
@@ -31,7 +31,7 @@ flowchart TD
 
     OC --> SIM
 
-    subgraph SIM [Run 3 Collapse Simulations — pipeline_simulator.py]
+    subgraph SIM [Run 3 Collapse Simulations, pipeline_simulator.py]
         RA[simulate_replace_all\nHybridConfig: 10 synth, 0 db\n10 rounds\nentire context replaced each round]
         RO[simulate_replace_one\nreal refs capped at 10\n10 rounds\none slot replaced per round\nslot = iteration mod len docs]
         SE[simulate_search\nChunkedRetrievalStore\nall-MiniLM-L6-v2 embeddings\n10 rounds\ntop-k=10 retrieved each round\nanswer added to store after each round]
@@ -39,7 +39,7 @@ flowchart TD
 
     SIM --> SC
 
-    subgraph SC [Score Each Variant — scoring.py]
+    subgraph SC [Score Each Variant, scoring.py]
         AC[anti_collapse_score\nquestion + answers list\njudge_model via litellm]
         QJ[judge_quality_score\nquestion + original_context\nfinal answer only\njudge_model via litellm]
     end
@@ -50,36 +50,36 @@ flowchart TD
 
 ---
 
-## Collapse Simulations — Round-by-Round
+## Collapse Simulations: Round-by-Round
 
 ```mermaid
 flowchart TD
-    subgraph RA [replace_all — fastest collapse]
+    subgraph RA [replace_all, fastest collapse]
         RA0[Round 0: original refs as context] --> RAG0[LLM generates answer_0]
         RAG0 --> RA1[Round 1: answer_0 becomes ALL 10 docs]
         RA1 --> RAG1[LLM generates answer_1]
         RAG1 --> RA2[Round N: answer_{N-1} becomes ALL 10 docs\n...]
     end
 
-    subgraph RO [replace_one — slow decay]
+    subgraph RO [replace_one, slow decay]
         RO0[Round 0: original refs as context up to 10] --> ROG0[LLM generates answer_0]
         ROG0 --> RO1[Round 1: slot 1 mod len replaced by answer_0]
         RO1 --> ROG1[LLM generates answer_1]
         ROG1 --> RO2[Round N: slot N mod len replaced by answer_{N-1}\noriginal refs decay out one slot at a time]
     end
 
-    subgraph SE [search — retrieval contamination]
+    subgraph SE [search, retrieval contamination]
         SE0[Seed store with original refs] --> SEQ0[Retrieve top-10 by cosine similarity]
         SEQ0 --> SEG0[LLM generates answer_0]
         SEG0 --> SEA0[Add answer_0 to store]
-        SEA0 --> SEQ1[Retrieve top-10 — AI text now competes\nwith original refs for top slots]
+        SEA0 --> SEQ1[Retrieve top-10, AI text now competes\nwith original refs for top slots]
         SEQ1 --> SEG1[LLM generates answer_1\n...]
     end
 ```
 
 ---
 
-## anti_collapse_score — Step by Step
+## anti_collapse_score: Step by Step
 
 ```mermaid
 flowchart TD
@@ -87,7 +87,7 @@ flowchart TD
 
     CLEAN --> EXT
 
-    subgraph EXT [Step 1 — Entity Extraction]
+    subgraph EXT [Step 1, Entity Extraction]
         EXT1[One litellm call per answer\nENTITY_EXTRACTION_SYSTEM_PROMPT\nENTITY_EXTRACTION_USER_PROMPT\ntemperature=0, max_tokens=256]
         EXT1 --> EXT2[Returns list of entity strings per answer\nper_answer_entities: list of list of str]
     end
@@ -96,33 +96,33 @@ flowchart TD
 
     UNION --> CLUSTER
 
-    subgraph CLUSTER [Step 2 — Entity Clustering]
+    subgraph CLUSTER [Step 2, Entity Clustering]
         CL1[One litellm call for all mentions\nENTITY_CLUSTERING_SYSTEM_PROMPT\nENTITY_CLUSTERING_USER_PROMPT\ntemperature=0, max_tokens=512]
         CL1 --> CL2[Returns canonical_map\ncanonical_name → list of surface mentions\nfallback: each mention maps to itself]
     end
 
     CLUSTER --> VEC
 
-    subgraph VEC [Step 3 — Binary Entity Vectors]
+    subgraph VEC [Step 3, Binary Entity Vectors]
         V1[Build mention_to_canonical lookup\nlowercased keys]
         V1 --> V2[For each answer build binary vector\nlength = number of canonical entities\nvec_i = 1.0 if canonical_i mentioned else 0.0]
     end
 
     VEC --> SIM
 
-    subgraph SIM [Step 4 — Pairwise Cosine Similarity]
+    subgraph SIM [Step 4, Pairwise Cosine Similarity]
         S1[compute_entity_similarity from entity_extraction.py\nall pairs of entity vectors\ncosine similarity for each pair]
-        S1 --> S2[Returns mean_entity_similarity\nalso min, max, std — not used here]
+        S1 --> S2[Returns mean_entity_similarity\nalso min, max, std, not used here]
     end
 
-    SIM --> SCORE[Step 5 — Invert\nscore = 1.0 − mean_entity_similarity\nunique_entity_count = len canonical_map]
+    SIM --> SCORE[Step 5, Invert\nscore = 1.0 − mean_entity_similarity\nunique_entity_count = len canonical_map]
 
     SCORE --> OUT([Returns: score float, unique_entity_count int\nHigher score = more diverse entity sets = less collapse\nLower score = same entities repeated = collapsed])
 ```
 
 ---
 
-## judge_quality_score — Step by Step
+## judge_quality_score: Step by Step
 
 ```mermaid
 flowchart TD
@@ -140,7 +140,7 @@ flowchart TD
 
 ---
 
-## make_reflective_dataset — Feedback to Reflection LM
+## make_reflective_dataset: Feedback to Reflection LM
 
 ```mermaid
 flowchart TD
@@ -151,9 +151,9 @@ flowchart TD
         C2{quality < 0.50?}
     end
 
-    C1 -->|Yes| D1[Diagnosis: answer lacks entity diversity —\nthe prompt may cause the model to fixate\non a narrow subset of entities]
+    C1 -->|Yes| D1[Diagnosis: answer lacks entity diversity,\nthe prompt may cause the model to fixate\non a narrow subset of entities]
     C1 -->|No| D3[Scores acceptable]
-    C2 -->|Yes| D2[Diagnosis: Final answer drifted\nfrom original context — the prompt\nmay not anchor the model to retrieved facts]
+    C2 -->|Yes| D2[Diagnosis: Final answer drifted\nfrom original context, the prompt\nmay not anchor the model to retrieved facts]
 
     D1 --> REC[Build record per question\nInputs: System Prompt only\nGenerated Outputs: final-round answer per variant\nFeedback: scores + diagnosis per variant\nScores: avg_anti_collapse, avg_quality, avg_unique_entities]
     D2 --> REC
@@ -164,7 +164,7 @@ flowchart TD
 
 ---
 
-## Pareto Frontier — Candidate Selection
+## Pareto Frontier: Candidate Selection
 
 ```mermaid
 flowchart TD
@@ -172,8 +172,8 @@ flowchart TD
 
     AVG2 --> DOM{Is any existing frontier member\nbetter on BOTH objectives?}
 
-    DOM -->|Yes — dominated| DISC[Discard candidate]
-    DOM -->|No — not dominated| ADD[Add to Pareto frontier\nremove any frontier members\nnow dominated by new candidate]
+    DOM -->|Yes, dominated| DISC[Discard candidate]
+    DOM -->|No, not dominated| ADD[Add to Pareto frontier\nremove any frontier members\nnow dominated by new candidate]
 
     ADD --> BEST[best_candidate = frontier member\nwith highest anti_collapse score\nresult.val_aggregate_scores at result.best_idx]
 
@@ -210,7 +210,7 @@ flowchart TD
 | Model env var | Default | Role |
 |---|---|---|
 | `TASK_MODEL` | `openai/claude-haiku-4-5` | Intended to run the RAG generation under the candidate prompt (see note) |
-| `DOC_GEN_MODEL` | `openai/gemma-3-12b-it` | Generates AI contamination documents — and currently also runs generation (see note) |
+| `DOC_GEN_MODEL` | `openai/gemma-3-12b-it` | Generates AI contamination documents, and currently also runs generation (see note) |
 | `JUDGE_MODEL` | `openai/gpt4o` | Entity extraction, entity clustering, quality judging |
 | `REFLECTION_MODEL` | `openai/claude-opus-4-1` | Reads failure reports and proposes a new system prompt |
 | `EMBED_MODEL` | `all-MiniLM-L6-v2` | Local SentenceTransformer for `simulate_search` ChunkedRetrievalStore |

@@ -1,4 +1,4 @@
-# R6 — Repo release checklist (camera-ready)
+# R6: Repo release checklist (camera-ready)
 
 NbXB counted "planned for release" against the paper. hAN7 explicitly did **not** count the
 datasets against it because they were disclosed. Releasing removes the cheapest objection on

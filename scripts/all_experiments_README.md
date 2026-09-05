@@ -1,4 +1,4 @@
-# all_experiments — consolidated RAG-collapse data
+# all_experiments: consolidated RAG-collapse data
 
 Single copy of the experiment JSONs, gathered from the per-user output trees
 under `/work/pi_dagarwal_umass_edu/project_4/file_storage/`, plus **reranker-only
