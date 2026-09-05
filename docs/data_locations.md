@@ -39,7 +39,7 @@ encodes the experiment variant**:
 | `*_oracle_*`, `*_desklib_*`, `*_finetuned_*` | reranker ablations | HotpotQA / Graphite |
 
 File suffix: `_eval.json` (evaluation), `_entity_results.json` (entity),
-`.json` (raw pipeline), `.checkpoint.json` (resumable mid-run state — ignore).
+`.json` (raw pipeline), `.checkpoint.json` (resumable mid-run state, ignore).
 
 ---
 
@@ -55,13 +55,13 @@ File suffix: `_eval.json` (evaluation), `_entity_results.json` (entity),
 
 ---
 
-## 3. Graphite dataset — the data behind the aggregate collapse plots
+## 3. Graphite dataset: the data behind the aggregate collapse plots
 
 These are the files used by `agentic-rag-visualization.ipynb` for the combined
 multi-model collapse bar chart. For collapse you need the **`entity_extraction_output`**
 files; eval files give the per-round similarity metrics.
 
-### 3.1 Qwen2.5-14B-Instruct  (primary model — has all 6 variants)
+### 3.1 Qwen2.5-14B-Instruct  (primary model, has all 6 variants)
 
 **Replace All**
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/evaluation_outputs/Qwen/Qwen2.5-14B-Instruct/para_off/local_replace_all_eval.json`
@@ -89,7 +89,7 @@ files; eval files give the per-round similarity metrics.
 
 > **Note on Search Paraphrase entity files:** the entity results live in the
 > `rerun-paraphrase/` subfolder (filename `cpu_search_paraphrased_entity_results.json`),
-> **not** `rerun-paraphrase-cpu-server/` which Slack referenced — that folder is
+> **not** `rerun-paraphrase-cpu-server/` which Slack referenced. That folder is
 > empty on disk. The eval files are under `rerun-paraphrase-cpu/`. Other paraphrase
 > variants (`cpu_replace_one_*`, `cpu_hybrid_*`) exist alongside them.
 
@@ -115,7 +115,7 @@ files; eval files give the per-round similarity metrics.
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/evaluation_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_agentic_rag_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/entity_extraction_output/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/local_agentic_rag_entity_results.json`
 
-**Paraphrase (extra — Search variant)**
+**Paraphrase (extra, Search variant)**
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/evaluation_outputs/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/rerun-paraphrase/cpu_search_paraphrased_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/entity_extraction_output/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/rerun-paraphrase/cpu_search_paraphrased_entity_results.json`
 
@@ -137,7 +137,7 @@ files; eval files give the per-round similarity metrics.
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/evaluation_outputs/meta-llama/Llama-3.1-8B-Instruct/local_agentic_rag_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/entity_extraction_output/meta-llama/Llama-3.1-8B-Instruct/local_agentic_rag_entity_results.json`
 
-**Paraphrase (extra — Search variant)**
+**Paraphrase (extra, Search variant)**
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/evaluation_outputs/meta-llama/Llama-3.1-8B-Instruct/rerun-paraphrase/cpu_search_paraphrased_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/entity_extraction_output/meta-llama/Llama-3.1-8B-Instruct/rerun-paraphrase/cpu_search_paraphrased_entity_results.json`
 
@@ -159,7 +159,7 @@ files; eval files give the per-round similarity metrics.
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/evaluation_outputs/mistralai/Mistral-7B-Instruct-v0.3/local_agentic_rag_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/entity_extraction_output/mistralai/Mistral-7B-Instruct-v0.3/local_agentic_rag_entity_results.json`
 
-**Paraphrase (extra — Search variant)**
+**Paraphrase (extra, Search variant)**
 - eval:   `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/evaluation_outputs/mistralai/Mistral-7B-Instruct-v0.3/rerun-paraphrase/cpu_search_paraphrased_eval.json`
 - entity: `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/entity_extraction_output/mistralai/Mistral-7B-Instruct-v0.3/rerun-paraphrase/cpu_search_paraphrased_entity_results.json`
 
@@ -218,7 +218,7 @@ Reranker **finetuned / oracle / desklib** HotpotQA ablations are in **scratch on
 | `Qwen/Qwen2.5-1.5B-Instruct`| ratirastogi | `/work/pi_dagarwal_umass_edu/project_4/file_storage/ratirastogi_umass_edu/evaluation_outputs/Qwen/Qwen2.5-1.5B-Instruct/local_search_eval.json` |
 | `Qwen/Qwen3-4B-Instruct(-2507)` | oyilmazel / ratirastogi | `/work/pi_dagarwal_umass_edu/project_4/file_storage/oyilmazel_umass_edu/evaluation_outputs/Qwen/Qwen3-4B-Instruct/local_search_eval.json` |
 | `openai/gpt-oss-20b` | oyilmazel | `/work/pi_dagarwal_umass_edu/project_4/file_storage/oyilmazel_umass_edu/evaluation_outputs/openai/gpt-oss-20b/local_search_eval.json` |
-| `50-questions-run/*` | ffatima / rsenapati | `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/entity_extraction_output/Qwen/50-questions-run/Qwen2.5-14B-Instruct/` — early 50-question smoke runs, **not** the full benchmark |
+| `50-questions-run/*` | ffatima / rsenapati | `/work/pi_dagarwal_umass_edu/project_4/file_storage/ffatima_umass_edu/entity_extraction_output/Qwen/50-questions-run/Qwen2.5-14B-Instruct/`, early 50-question smoke runs, **not** the full benchmark |
 
 ---
 
@@ -233,7 +233,7 @@ From PR history on this repo (`main` + `gepa` merge, PR #28):
 | `entity_extraction_output/` | `scripts/entity_extraction.sh` | `entity_extraction.py` |
 | GEPA prompt optimization | `scripts/gepa_optimization.sh`, `scripts/gepa_prepare_dataset.sh` | (GEPA driver) |
 | GEPA pipeline (new, non-agentic, `--use-gepa-prompt`) | `scripts/gepa_pipeline/run_*.sh` + `server_*.sh` | `pipeline.py --use-gepa-prompt` |
-| vLLM model servers | `scripts/start_llm_server_*.sh` | — |
+| vLLM model servers | `scripts/start_llm_server_*.sh` | n/a |
 
 Variant selection is a CLI flag on `pipeline.py` (`--mode replace_all|replace_one|search|agentic_rag`);
 `--use-gepa-prompt` swaps in `GEPA_RAG_GENERATION_SYSTEM_PROMPT` from `formatters.py`.

@@ -10,7 +10,7 @@ A detailed compare-and-contrast of the two RAG-collapse experiment pipelines, fo
 | Generation models | **open / local** (Mistral-7B, Qwen2.5-14B, Llama-3.1-8B, DeepSeek-R1-7B) via vLLM | **frontier APIs** (`gpt-5.2-chat-latest`, Claude, Gemini) via OpenAI Responses API |
 | Real corpus | pre-built dataset with references attached | **live-scraped** citation URLs (Zyte + trafilatura + LLM filter) |
 
-> Orientation on the reference repo: it has two subsystems. **`model_collapse/`** is the iterative collapse pipeline compared here. **`randomness/`** is a *separate* single-shot non-determinism/variance study — but its `randomness/core/{data,generate,metrics}.py` are the **shared library** the collapse pipeline imports (so `randomness/core/metrics.py` is the canonical metrics module for both).
+> Orientation on the reference repo: it has two subsystems. **`model_collapse/`** is the iterative collapse pipeline compared here. **`randomness/`** is a *separate* single-shot non-determinism/variance study , but its `randomness/core/{data,generate,metrics}.py` are the **shared library** the collapse pipeline imports (so `randomness/core/metrics.py` is the canonical metrics module for both).
 
 ---
 
@@ -25,7 +25,7 @@ A detailed compare-and-contrast of the two RAG-collapse experiment pipelines, fo
 
 Consequence: this repo's metrics are recomputable from stored outputs without re-running generation (cheaper iteration, and why the consolidated dataset keeps the three trees separate). The reference repo couples generation + measurement, so changing a metric means re-running (expensive, since generation is frontier-API).
 
-**Loop ordering.** This repo is **iteration-major across all questions** (batch every question's `num_runs` answers for round *r*, then advance) — built for vLLM batch throughput. The reference is **question-major** (`main` loops questions; `run_simulation` runs all rounds for one question) with per-round `multiprocessing.Pool` over the 10 generations — built for parallel API calls.
+**Loop ordering.** This repo is **iteration-major across all questions** (batch every question's `num_runs` answers for round *r*, then advance), built for vLLM batch throughput. The reference is **question-major** (`main` loops questions; `run_simulation` runs all rounds for one question) with per-round `multiprocessing.Pool` over the 10 generations, built for parallel API calls.
 
 ---
 
@@ -36,7 +36,7 @@ Consequence: this repo's metrics are recomputable from stored outputs without re
 | Real docs | Supplied in the dataset JSONL (`{"question", "references":[{"url","text"}]}`), `data_loader.py::load_dataset` | **Scraped** from the question's citation URLs: Zyte API render (`scrape.py::zyte_parallel_download`) → trafilatura extract → **LLM main-content filter** (`filter_main_content`, `gpt-5.2`), cached to a JSONL page cache |
 | Min citations | skip if `< 5` refs (`MIN_CITATIONS`) | skip if `< 5` citations, and skip if `< 5` survive scraping |
 | Doc length control | `--chars-per-doc` (e.g. 400) truncation when building context | sort pages by relevant-text length, truncate to `citation_limit` (10) |
-| Synthetic "AI" doc | `formatters.py::get_create_document_conversation` — "professional content writer" rewrites (question, answer) into a web doc | `simulation.py::get_replacement_with_generation` — rewrites a generation into an `Article` via `convert_to_article` (`translate`/`expand`/`expand_long`) |
+| Synthetic "AI" doc | `formatters.py::get_create_document_conversation` , "professional content writer" rewrites (question, answer) into a web doc | `simulation.py::get_replacement_with_generation` , rewrites a generation into an `Article` via `convert_to_article` (`translate`/`expand`/`expand_long`) |
 | AI tag | `doc_id="gen_{iter}_{i}"`, `url="model_generated"` (`feedback_loop.py`) | `url=f"generation_{n}"` (`simulation.py`) |
 
 Both **tag AI documents with a synthetic id/URL**, and every AI-contamination metric keys off that tag (not content classification). The big difference is the **source of truth for real docs**: the reference repo does its own live scraping + LLM cleaning (heavy, costly, frontier-model-dependent); this repo trusts a curated dataset.
@@ -60,7 +60,7 @@ Shared design choices in both:
 
 Key backend divergence in `search`: this repo retrieves with an **in-memory normalized-cosine** store over local embeddings; the reference delegates chunking + retrieval to **OpenAI's vector store**. The reference also separates `shuffled_pages` (full pool) from `shuffled_inputs` (retrieved subset) so it can measure retrieval dynamics (see §6); this repo records only the retrieved `documents` per round.
 
-Axes only the reference has: **entity vs editorial** dataset (`use_entities` toggles the whole entity-metric suite), and **article-prompt style** (`translate`/`expand`/`expand_long`). This repo fixes the entity dataset (umass entity-comparison 400) and a single create-document prompt. This repo's extra axis is **agentic_rag** (model issues its own retrieval tool calls) — no analog in the reference.
+Axes only the reference has: **entity vs editorial** dataset (`use_entities` toggles the whole entity-metric suite), and **article-prompt style** (`translate`/`expand`/`expand_long`). This repo fixes the entity dataset (umass entity-comparison 400) and a single create-document prompt. This repo's extra axis is **agentic_rag** (model issues its own retrieval tool calls) , no analog in the reference.
 
 ---
 
@@ -80,14 +80,14 @@ Both stop early only if `stop_if_converged` and 4 consecutive fully-collapsed ro
 
 ## 5. Models & generation backend
 
-- **This repo** targets **open-weight models served by vLLM** — `server` mode (`ServerLLM`, OpenAI-compatible HTTP) is the production path; `local` (in-process vLLM) and `api` (LiteLLM via `thekeymaker.umass.edu`) also exist. Default experiment model **Mistral-7B-Instruct-v0.3**; the project sweeps Qwen2.5-14B, Llama-3.1-8B, DeepSeek-R1-7B. Generation `temperature=0.7, max_tokens=512, top_p=0.9`. Embeddings: local SentenceTransformer `all-MiniLM-L6-v2`. A separate doc-generation model can be wired (`--doc-model-mode`, second vLLM server).
+- **This repo** targets **open-weight models served by vLLM** . `server` mode (`ServerLLM`, OpenAI-compatible HTTP) is the production path; `local` (in-process vLLM) and `api` (LiteLLM via `thekeymaker.umass.edu`) also exist. Default experiment model **Mistral-7B-Instruct-v0.3**; the project sweeps Qwen2.5-14B, Llama-3.1-8B, DeepSeek-R1-7B. Generation `temperature=0.7, max_tokens=512, top_p=0.9`. Embeddings: local SentenceTransformer `all-MiniLM-L6-v2`. A separate doc-generation model can be wired (`--doc-model-mode`, second vLLM server).
 - **Reference repo** targets **frontier APIs**. `generate.py` dispatches by model-name substring to OpenAI **Responses API** (`gpt-5.2-chat-latest`), Anthropic, or Gemini, all with structured output + prompt caching. Metrics/judge/scrape-filter model = **`gpt-5.2`**; embeddings = **`text-embedding-3-small`**. Global **cost tracking** (`increment_cost`) across generation, scraping, entity extraction, dedup, judging, embeddings.
 
 This is the deepest conceptual difference: **the reference studies collapse in frontier closed models; this repo studies it in small open models** (and adds an agentic variant). It also drives the metric-model gap below (Qwen-7B judge vs gpt-5.2 judge).
 
 ---
 
-## 6. Metrics — the core comparison
+## 6. Metrics : the core comparison
 
 Both measure collapse as **convergence of the 10 per-round answers toward each other** plus **AI self-reinforcement**. But the metric sets only partially overlap.
 
@@ -96,7 +96,7 @@ Both measure collapse as **convergence of the 10 per-round answers toward each o
 | Metric | This repo | Reference |
 |---|---|---|
 | Whole-answer embedding cosine | ✅ `avg/max/min/std_pairwise_similarity` (`calculate_pairwise_similarities`) | ✅ `mean similarity` (embeddings of generations) |
-| Sentence-level embedding (TES) | ✅ `avg/std_pairwise_tes` — truncate to min sentence count, per-sentence aligned cosine | ❌ none |
+| Sentence-level embedding (TES) | ✅ `avg/std_pairwise_tes` , truncate to min sentence count, per-sentence aligned cosine | ❌ none |
 | ROUGE-1/2/L (F-measure) | ✅ `avg/std_pairwise_rouge1/2/L` | ❌ none |
 | Generations-to-input similarity | ❌ | ✅ `mean similarity generations to input` (round-0 inputs × current gens) |
 
@@ -116,7 +116,7 @@ Both: sample **10** answer pairs, ask an LLM **"are these paraphrases?"**, score
 - This repo: `calculate_same_answer_percentage`, **seeded** (seed 42), judge = **Qwen2.5-7B** (small, local), `temperature 0`, returns 0–100.
 - Reference: `get_same_answer_score`, judge = **gpt-5.2** (frontier), returns 0–1; its accuracy is human-validated in `evaluate_same_answer.py`.
 
-Same algorithm, **very different judge quality** — the reference's frontier judge is more reliable; this repo's choice is constrained by cost/local-only.
+Same algorithm, **very different judge quality** . The reference's frontier judge is more reliable; this repo's choice is constrained by cost/local-only.
 
 ### 6d. Entity metrics (the collapse signal)
 
@@ -131,7 +131,7 @@ This repo computes these in the **separate** `entity_extraction.py`; the referen
 | AI entity influence | ❌ | ✅ `input_to_generation_entity_similarity` (AI-input share of generation entities) |
 | Extraction model | configurable (gpt-4o / local), question-conditioned, JSON-parsed | `gpt-5.2`, question-agnostic, structured output |
 
-⚠️ **Opposite empty-vector convention** (carried over from the metrics modules): for an answer with no entities, the reference scores the pair **1.0 (collapsed)** while this repo scores **0.0 (diverse)** — these push the collapse curve in opposite directions for degenerate output. Same caveat applies to the reference's "no-citation → 1.0" and "Kendall-τ NaN → 1.0".
+⚠️ **Opposite empty-vector convention** (carried over from the metrics modules): for an answer with no entities, the reference scores the pair **1.0 (collapsed)** while this repo scores **0.0 (diverse)** . These push the collapse curve in opposite directions for degenerate output. Same caveat applies to the reference's "no-citation → 1.0" and "Kendall-τ NaN → 1.0".
 
 ### 6e. AI self-reinforcement / contamination
 
@@ -142,17 +142,17 @@ This repo computes these in the **separate** `entity_extraction.py`; the referen
 | AI retrieval rate (search) | ❌ | ✅ `ai retrieval rate`, `expected ai retrieval rate`, `over expected` |
 | AI context length | ❌ | ✅ `mean context length ai` vs `orig` |
 
-The reference has a **richer self-reinforcement suite** — it normalizes AI-citation and AI-retrieval rates against their *expected* prevalence (does the model cite/retrieve AI docs **more than** their share?), which is the sharper collapse signal. This repo reports the raw AI fraction and a raw AI-citation %.
+The reference has a **richer self-reinforcement suite** . It normalizes AI-citation and AI-retrieval rates against their *expected* prevalence (does the model cite/retrieve AI docs **more than** their share?), which is the sharper collapse signal. This repo reports the raw AI fraction and a raw AI-citation %.
 
 ### 6f. AI-content detection method
 
-Both detect "AI" by **document metadata tag** (`gen_`/`model_generated` here; `generation_` prefix there) — not content analysis. This repo additionally ships a neural detector (`desklib/ai-text-detector`, `ai_detector.py`) but uses it **only at generation time** for a mitigation prompt, **not** in evaluation.
+Both detect "AI" by **document metadata tag** (`gen_`/`model_generated` here; `generation_` prefix there) , not content analysis. This repo additionally ships a neural detector (`desklib/ai-text-detector`, `ai_detector.py`) but uses it **only at generation time** for a mitigation prompt, **not** in evaluation.
 
 ---
 
 ## 7. Output schemas
 
-**This repo** — nested JSON, generation and eval separated:
+**This repo** : nested JSON, generation and eval separated:
 ```
 experiment: questions[ {question_id, question_text, iterations[ {iteration_number,
             documents[{doc_id,iteration,url,text}], runs[{run_id,answer,citations,...}] } ] } ]
@@ -161,21 +161,21 @@ eval:       questions[ {question_id, iterations[ {iteration_number, metrics{...}
 ```
 Cross-round aggregation is **not** done in `evaluation.py` (placeholder = 1); the notebook does it from per-iteration metrics.
 
-**Reference repo** — one JSONL line per question, generation + metrics combined:
+**Reference repo** : one JSONL line per question, generation + metrics combined:
 ```
 {question, generations[round][gen], replacements, entity_counts, entity_map,
  config, metrics{name:[per-round]}, raw_entities, input_generation_sims,
  raw_input_entities, git_commit, original_pages, shuffled_pages, retrievals,
  converged_in_round}
 ```
-It stores **per-round metric arrays**, the full corpus evolution (`replacements`, `shuffled_pages`, `retrievals`), and the **git commit** for provenance — richer self-contained records, at the cost of coupling.
+It stores **per-round metric arrays**, the full corpus evolution (`replacements`, `shuffled_pages`, `retrievals`), and the **git commit** for provenance . Richer self-contained records, at the cost of coupling.
 
 ---
 
 ## 8. Summary: what's the same, what diverges
 
 **Same (the experimental design is genuinely parallel):**
-- Three collapse regimes — replace_all (full overwrite), replace_one (single-slot), search (growing retrievable pool) — with identical update semantics.
+- Three collapse regimes : replace_all (full overwrite), replace_one (single-slot), search (growing retrievable pool) , with identical update semantics.
 - 10 generations/round; replace_all 10 rounds, replace_one 20 rounds.
 - AI docs created by rewriting answers into web-doc/article form, tagged with synthetic ids, reinjected; AI detection via those tags.
 - Collapse measured by answer-similarity convergence + a 10-pair LLM paraphrase judge + entity-set similarity + AI self-reference.
@@ -184,8 +184,8 @@ It stores **per-round metric arrays**, the full corpus evolution (`replacements`
 1. **Models**: open/local (Mistral/Qwen/Llama/DeepSeek via vLLM) vs frontier APIs (gpt-5.2/Claude/Gemini). Different collapse dynamics entirely.
 2. **Corpus source**: curated dataset references vs live Zyte+trafilatura+LLM scraping of citation URLs.
 3. **Search backend**: local SentenceTransformer cosine store vs OpenAI vector store.
-4. **Metric sets**: this repo adds ROUGE + TES (lexical/sentence); the reference adds entity entropy, Kendall-τ ranking, AI entity influence, AI-citation/retrieval-over-expected, context-length — a richer self-reinforcement & ordering suite.
-5. **Judge / entity model**: Qwen2.5-7B (local) vs gpt-5.2 (frontier) — large reliability gap.
+4. **Metric sets**: this repo adds ROUGE + TES (lexical/sentence); the reference adds entity entropy, Kendall-τ ranking, AI entity influence, AI-citation/retrieval-over-expected, context-length . A richer self-reinforcement and ordering suite.
+5. **Judge / entity model**: Qwen2.5-7B (local) vs gpt-5.2 (frontier) . Large reliability gap.
 6. **Empty/degenerate conventions**: reference biases empty/NaN → 1.0 (collapsed) for entity-similarity, AI-citations, Kendall-τ; this repo's entity similarity uses 0.0 (diverse) and AI-reference is a plain metadata fraction. **These can flip the collapse signal** and should be reconciled before cross-repo comparison.
 7. **Aggregation**: reference aggregates per-round inline + stores arrays; this repo leaves aggregation to the notebook and has a hardcoded `avg_collapse_rate` placeholder.
 8. **Extra scope**: this repo adds an **agentic_rag** variant and a 30-round search; the reference adds **entity-vs-editorial** datasets, **article-prompt** styles, and rerank/oracle ablations.

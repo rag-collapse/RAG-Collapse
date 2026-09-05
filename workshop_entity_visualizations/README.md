@@ -12,28 +12,28 @@ outputs: nested `<org>/<model>/<method>/` folders, each with overlaid line chart
 question-round is "collapsed" when **all runs share an identical canonical entity set**; bars show
 % collapsed at the first round, at the last round, and the % of rounds collapsed. Each is treated as a
 binomial proportion and the **error bars are 95% Wilson score intervals** (`scipy.stats.binomtest(...).
-proportion_ci(method="wilson")`) — start/end over the 400 questions, rounds pooled over all
+proportion_ci(method="wilson")`), start/end over the 400 questions, rounds pooled over all
 (question, round) cells. (Earlier versions plotted the raw per-question standard deviation as `yerr`,
-which is ~20× wider and doesn't tighten with n — that's fixed.) It is entity-based, so it is produced
+which is ~20× wider and doesn't tighten with n, and that's fixed.) It is entity-based, so it is produced
 here from the same `*.entities_by_round.jsonl` inputs. (The single-variant `agentic_rag/` group gets
-line charts only — collapse-by-simulation needs ≥2 simulations to compare.)
+line charts only, since collapse-by-simulation needs ≥2 simulations to compare.)
 
-- **baseline** (4 models: Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) — Replace All /
+- **baseline** (4 models: Qwen2.5-14B, Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B), Replace All /
   Replace One / Search overlaid → `<org>/<model>/baseline/`.
-- **comparison** (Qwen2.5-14B) — the three baseline regimes + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`.
-- **agentic_rag** (Qwen2.5-14B) — Agentic RAG on its own → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`.
-- **rerun-paraphrase** — paraphrase Replace All / One / Search, for all four models (Qwen2.5-14B,
+- **comparison** (Qwen2.5-14B): the three baseline regimes + Agentic RAG → `Qwen/Qwen2.5-14B-Instruct/comparison/`.
+- **agentic_rag** (Qwen2.5-14B): Agentic RAG on its own → `Qwen/Qwen2.5-14B-Instruct/agentic_rag/`.
+- **rerun-paraphrase**: paraphrase Replace All / One / Search, for all four models (Qwen2.5-14B,
   Llama-3.1-8B, Mistral-7B, DeepSeek-R1-Distill-7B) → `<org>/<model>/rerun-paraphrase/`.
-- **rerank** — Qwen2.5-14B has two panels: the full λ-sweep (λ = 0.1 / 0.5 / 0.7 oracle) →
+- **rerank**: Qwen2.5-14B has two panels: the full λ-sweep (λ = 0.1 / 0.5 / 0.7 oracle) →
   `Qwen/Qwen2.5-14B-Instruct/rerank/`, and a **λ=0.7 oracle-vs-desklib** focus →
   `Qwen/Qwen2.5-14B-Instruct/rerank_lambda0.7/`. The appendix models (Llama-3.1-8B, Mistral-7B,
   DeepSeek-R1-Distill-7B) only have λ=0.7 in the dump, so their single rerank panel is the same
   **oracle vs desklib** focus at λ=0.7 → `<org>/<model>/rerank/`.
-- **cross_baseline** — the cross-model baseline, where **Qwen2.5-14B is the main (measured) model reading
+- **cross_baseline**: the cross-model baseline, where **Qwen2.5-14B is the main (measured) model reading
   documents written from each side model's answers**. One group per side model (DeepSeek-R1-Distill-7B,
   Llama-3.1-8B, Mistral-7B), Replace All / One / Search overlaid → `cross_baseline/qwen2.5-14b/<side-model>/`.
   (Inputs are the `..._handoff_<side>_<variant>_local_<variant>.entities_by_round.jsonl` files; the two
-  `graphite_cross_model_*` files remain excluded here — they belong to `cross-model-baseline-visualization.ipynb`.)
+  `graphite_cross_model_*` files remain excluded here, they belong to `cross-model-baseline-visualization.ipynb`.)
 
 Metrics: `unique_entities_per_round` = unique mapped entities per round (union across the 10 runs,
 averaged across questions); `entity_similarity_per_round` = mean pairwise cosine similarity of binary
@@ -84,7 +84,7 @@ Counts: 18 `unique_entities_per_round.png` + 18 `entity_similarity_per_round.png
 
 1. Download the entity re-run folder from Google Drive and unzip it into the **repo root** as
    `entity re-run for workshop paper-<timestamp>-3-001/` (gitignored; the timestamp changes per download).
-   **Do not use Windows Explorer to copy/extract** — the nested filenames exceed the 260-char `MAX_PATH`
+   **Do not use Windows Explorer to copy/extract**. The nested filenames exceed the 260-char `MAX_PATH`
    limit and Explorer refuses them (even with `LongPathsEnabled=1`). Extract from the command line instead,
    which honors long paths:
    ```powershell
@@ -98,7 +98,7 @@ Counts: 18 `unique_entities_per_round.png` + 18 `entity_similarity_per_round.png
    dumps (`deepseek-ai_DeepSeek-R1-Distill-Qwen-7B` vs the served name `deepseek_deepseek-r1-distill-qwen-7b`);
    the notebook tolerates either.
 
-Inputs are `*.entities_by_round.jsonl` (per-question, `gpt-5.2`-tagged) — a different artifact from
+Inputs are `*.entities_by_round.jsonl` (per-question, `gpt-5.2`-tagged), a different artifact from
 the aggregate `entity_extraction_output/.../local_<variant>_entity_results.json` used by the main
 `visualization.ipynb` / `agentic-rag-visualization.ipynb`. See the "Workshop entity re-run visualization"
 section in `CLAUDE.md` for full details.
