@@ -27,8 +27,8 @@ def norm(es):
 if not os.path.exists(DOCENT):
     raise SystemExit(f"missing {DOCENT} -- fetch ~/r7_doc_entities.json from Unity (job 63999619) first")
 
-doc_ent = json.load(open(DOCENT))                     # {qi: {doc_id: [ent]}}
-ad = json.load(open(ANS))
+doc_ent = json.load(open(DOCENT, encoding="utf-8"))                     # {qi: {doc_id: [ent]}}
+ad = json.load(open(ANS, encoding="utf-8"))
 
 # answer entities per question index: ans_runs[qi][round] = list of run entity-sets
 ans_runs = []

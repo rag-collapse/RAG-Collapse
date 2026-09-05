@@ -732,10 +732,33 @@ entities are a small, high-signal subset of `novel(D)`. So token-level **motivat
 test rather than settling it. Do not over-read the near-null pooled number, and do not over-read the
 +0.010 either. The decisive version restricts `novel(D)` to named entities.
 
-**Entity-level (next, one job).** Needs entities extracted from the documents (answers already have
-them in `entity_extraction_output`, documents do not). That is one fast job with the small
-`Qwen2.5-1.5B` extractor over ~7k unique documents, then the same novelty/adoption/placebo math on
-entity sets instead of tokens.
+**Entity-level (done, job 63999619 extracted entities for 11,083 documents).** Same novelty math on
+named entities (`scripts/camera_ready/r7_novelty_entity.py`). The document introduces ~3 novel
+entities per round, and the next answer adopts them **almost never**.
+
+| subset | novel entities | same-Q adoption | cross-Q placebo | influence |
+|---|---|---|---|---|
+| rounds 2–4 | ~2.9 | 0.004–0.008 | 0.000 | +0.004 to +0.008 |
+| pooled (2628 pairs) | ~3.2 | 0.001 | 0.000 | **+0.001** |
+
+**This is a near-null, and it is the cleanest influence measure we have.** The over-citation effect
+does **not** translate into propagation of the document's invented entities. What little adoption
+happens is question-specific (cross-Q is exactly 0, so it does require the document), but the
+magnitude is under 1%. The implication is that entity collapse on this dataset is **ancestry-driven**
+— answers re-stating and narrowing the entity set that is already present — not the answer injecting
+the document generator's hallucinated entities. This does not contradict §5's "the answer generator
+conditions on these fabricated facts", because that line is about HotpotQA F1, a different dataset and
+mechanism. It does mean the entity-dataset over-citation should be described as ancestry and
+reinforcement of existing entities, not novel-content injection. (The novelty test cannot see
+reinforcement of already-present entities, only injection of new ones, so it bounds one pathway, not
+all influence.)
+
+**LOO generator validated (Option B gate passed).** `~/loo_attribution.py` regenerated citations for
+60 questions of Qwen Replace-One (job 64000222). Against the stored citations on the same items it
+agrees at **Jaccard 0.69** with matching cite counts (1.38 vs 1.30 per cell) and a round-1 ratio of
+2.95 vs the stored 2.75 on that subsample. That is as tight as a stochastic temperature-0.7
+leave-one-out agrees with itself, so the generator faithfully reproduces the paper's method and Option
+B (real LOO citations for the runs that never logged them) can proceed.
 
 ---
 
