@@ -799,10 +799,35 @@ Three results, all generalizing beyond Qwen:
 (its stored agentic answers are essentially empty, the R1-distill model emits reasoning traces), so its
 row is degenerate and excluded from the reading above.
 
-These are the overlap-family results. The **LOO-citation family (R3 across all models, real citations
-for the runs that never logged them) is Option B**, in progress: a validated model-agnostic
-`loo_attribution.py` regenerates citations per run, then R3 runs on all of them. See the run log for
-job status.
+These are the overlap-family results.
+
+## Option B — real LOO citations cross-model (Phase 2a: baselines, done)
+
+`loo_attribution.py` regenerates citations with the paper's exact method (top_m=2, change threshold
+0.18, temperature 0.7) by serving each run's own model and re-answering with each top-2 candidate
+removed. Validated against Qwen Replace-One (Jaccard 0.69 vs stored, ratio matches). Phase 2a ran it
+for the two baseline models that never logged citations, **Llama-3.1-8B (job 64004050) and
+DeepSeek-R1-7B (job 64004051)**, over all three regimes. Sidecars in
+`camera_ready_outputs/loo_citations/`. Round-1 over-citation ratio (cited self-gen share / context
+self-gen share) under the **real LOO method**:
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Replace-One | ~2.75–2.95 | ~2.2 (native) | **2.57** | **1.98** |
+| Search | ~1.6 (native) | native | **1.68** | **1.94** |
+| Replace-All | 1.00 | 1.00 | 1.00 | 1.00 |
+
+**All four models over-cite self-generated references under the actual leave-one-out method** on
+Replace-One (1.98–2.95) and Search (1.68–1.94). Replace-All is 1.00 only because its context is 100%
+self-gen from round 1. This is the real-LOO complement to the overlap-family sweep above, and it
+confirms the §6.2 over-citation effect generalizes across the model set with the reported attribution,
+not only the overlap proxy. (DeepSeek's citations are still the lower-confidence ones because its
+reasoning traces make the change score noisier, but the ratio is clearly >1.)
+
+**Still to do under Option B:** run R3 (query-alignment control) on these six new citation sets
+(`r3_from_sidecar`, reads the sidecar as the citation outcome), then Phase 2b (agentic, 4 models) and
+Phase 2c (paraphrase, rerank). HotpotQA held as optional-and-caveated (short answers make the change
+score near-degenerate).
 
 ---
 
