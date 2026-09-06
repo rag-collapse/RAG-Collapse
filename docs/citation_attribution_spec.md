@@ -911,14 +911,36 @@ n.s.) at λ=0.1/0.5/0.7.
   here because the baseline coefficient sits at ≈0.
 - Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
-**Still open under Option B:** Phase 2b agentic (real tool-calling flow, Option A) is re-running as jobs
-64031581 (Qwen), 64031552 (Llama), 64031553 (Mistral) after the first attempt was corrupted by a
-node/port collision (all three co-scheduled on one node sharing `--port 8000`, so every client
-auto-discovered and hammered one server; fixed with a per-job unique port and a served-name readiness
-check). Qwen needed one more resubmit with `--max-model-len 16384` after its first fixed run landed on
-a small vram40 card where the default 32k context left too little KV cache. DeepSeek agentic is a full re-run first (job 64025428) because its original run was degenerate
-under `max_tokens=512`. HotpotQA stays optional-and-caveated (short answers make the change score
-near-degenerate).
+## Option B Phase 2b — agentic LOO cross-model (Qwen/Llama/Mistral done, DeepSeek re-running)
+
+Real agentic LOO (Option A, the faithful tool-calling flow over the recorded store, `~/agentic_loo.py`)
+ran for Qwen, Llama, and Mistral (jobs 64031581/552/553, all COMPLETED, ~4h each, sidecar empty rates
+1/10/2%). Ratios in `camera_ready_outputs/loo_citations/overcite_ratio_agentic.tsv`. Round-1
+over-citation ratio (cited self-gen share / context self-gen share):
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Agentic RAG (round-1) | 1.82 | 1.75 | 1.76 | (re-running) |
+
+Pooled over all rounds the ratio is 1.00 to 1.03, so the self-gen citation skew concentrates at round 1
+and washes out as the growing store saturates. Round-1 context self-gen share is ~18%, higher than the
+plain-RAG variants (~11 to 14%) because the agent retrieves from a growing store that already holds some
+generated docs by round 1.
+
+**The first agentic batch was corrupted and re-run.** All three jobs were co-scheduled on one node and
+served vLLM on the same `--port 8000`. `ServerLLM` auto-discovers the served model from its endpoint
+([llm_service/server_llm.py:113](../llm_service/server_llm.py)), so every client latched onto one server
+and 404-stormed (empty rates 64/73/98%, unusable). The fix is a per-job unique port plus a `/v1/models`
+readiness check that verifies the expected served name. Qwen also needed `--max-model-len 16384` after
+landing on a small vram40 card where the default 32k context left too little KV cache. The re-run is
+clean (0 model-404s, verified served name).
+
+**R3 on the agentic citations (running, job 64038912).** Fill the self_gen A→B row here when it prints.
+
+**Still open under Option B:** DeepSeek agentic. Its original run was degenerate under `max_tokens=512`,
+so a full re-run comes first (job 64025428, ~1 day left), then `agentic_loo.py` over that run with the
+fixed serving (`--reasoning-parser deepseek_r1 --tool-call-parser hermes`, `max_tokens=4096`). HotpotQA
+stays optional-and-caveated (short answers make the change score near-degenerate).
 
 ---
 

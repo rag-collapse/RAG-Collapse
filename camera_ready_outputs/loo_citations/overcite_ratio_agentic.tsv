@@ -1,0 +1,4 @@
+label	r1_ctx%	r1_cited%	r1_ratio	pool_ctx%	pool_cited%	pool_ratio	r1_cites	pool_cites
+qwen_agentic	18.2	33.1	1.82	83.4	86.1	1.03	7889	220060
+llama_agentic	17.8	31.4	1.76	83.1	82.8	1.00	7524	190379
+mistral_agentic	18.2	31.8	1.75	83.7	86.0	1.03	7894	216727
