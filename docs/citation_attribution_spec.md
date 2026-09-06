@@ -842,9 +842,55 @@ query-alignment control now runs on all four models. self_gen coefficient, raw (
   Replace-One as the headline (4/4) and Search as the honest split (3/4 null, DeepSeek positive).
 - Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
-**Still open under Option B:** Phase 2b (agentic, real tool-calling flow — approach A/B to be chosen)
-and Phase 2c (paraphrase, rerank, running now as jobs 64015739–742). HotpotQA held as
-optional-and-caveated (short answers make the change score near-degenerate).
+## Option B Phase 2c — paraphrase + rerank cross-model (ratio done, R3 running)
+
+Real LOO citations were regenerated for the paraphrase and rerank mitigations across all four models,
+same method as Phase 2a (top_m=2, change threshold 0.18, temperature 0.7, served per model). The
+DeepSeek pieces came in last on job 64015742. Ratios are computed by
+`scripts/camera_ready/overcite_ratio.py` from the sidecars, output in
+`camera_ready_outputs/loo_citations/overcite_ratio_para_rerank.tsv`. Round-1 over-citation ratio
+(cited self-gen share / context self-gen share):
+
+**Paraphrase.**
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Replace-One | 3.40 | 3.57 | 3.32 | 3.20 |
+| Search | 1.85 | 1.95 | 1.88 | 1.70 |
+| Replace-All (hybrid) | 1.00 | 1.00 | 1.00 | 1.00 |
+
+**Rerank (λ=0.7).**
+
+| config | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| oracle | 1.56 | 1.66 | 1.48 | 1.41 |
+| desklib | 1.58 | 2.00 | 1.72 | 1.81 |
+
+Qwen also has the λ sweep on desklib: 1.62 (λ=0.1), 1.55 (λ=0.5), 1.58 (λ=0.7). The ratio is flat in λ.
+
+Two findings.
+
+- **Paraphrasing the documents does not remove the over-citation skew.** Replace-One round-1 ratio is
+  3.2 to 3.6 across all four models, higher than the baseline Replace-One (1.98 to 2.95). Paraphrase
+  rewrites the surface form but the model still preferentially cites the self-generated ancestor.
+- **Reranking attenuates the skew when pooled across rounds.** Round-1 rerank ratios sit at 1.4 to 2.0,
+  but the pooled-over-all-rounds ratio lands at 0.92 to 1.00 (Qwen 0.93 to 0.96, Llama 0.92 to 0.94,
+  Mistral 0.98 to 1.00, DeepSeek 0.95 to 1.00). By contrast paraphrase pooled ratios stay above 1
+  (Replace-One 1.13 to 1.17, Search 1.11 to 1.12). Rerank is the mitigation that pulls the pooled
+  self-gen citation share back to its context share.
+
+**R3 on the paraphrase + rerank citations (running, job 64031569, same `r3_from_sidecar.py`).** The
+query-alignment control over these sidecars is queued. Fill the self_gen A→B table here when it prints.
+It auto-skips the hybrids (context all self-gen, so self_gen has no variation).
+
+**Still open under Option B:** Phase 2b agentic (real tool-calling flow, Option A) is re-running as jobs
+64031581 (Qwen), 64031552 (Llama), 64031553 (Mistral) after the first attempt was corrupted by a
+node/port collision (all three co-scheduled on one node sharing `--port 8000`, so every client
+auto-discovered and hammered one server; fixed with a per-job unique port and a served-name readiness
+check). Qwen needed one more resubmit with `--max-model-len 16384` after its first fixed run landed on
+a small vram40 card where the default 32k context left too little KV cache. DeepSeek agentic is a full re-run first (job 64025428) because its original run was degenerate
+under `max_tokens=512`. HotpotQA stays optional-and-caveated (short answers make the change score
+near-degenerate).
 
 ---
 
