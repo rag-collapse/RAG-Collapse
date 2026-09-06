@@ -935,7 +935,16 @@ readiness check that verifies the expected served name. Qwen also needed `--max-
 landing on a small vram40 card where the default 32k context left too little KV cache. The re-run is
 clean (0 model-404s, verified served name).
 
-**R3 on the agentic citations (running, job 64038912).** Fill the self_gen A→B row here when it prints.
+**R3 on the agentic citations (done, job 64038912).** self_gen coefficient, raw (A) → controlled (B):
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Agentic RAG (A→B) | +0.043 → **+0.074** (t=5.7) | +0.037 → **+0.082** (t=6.0) | −0.004 → +0.021 (n.s.) | (re-running) |
+
+Qwen and Mistral over-cite self-gen per-doc and the effect grows under the query-alignment controls
+(controlled t≥5.7). Llama is null both raw and controlled (n.s.). So the round-1 ratio (1.75 to 1.82) is
+carried by the round-1 concentration; per-doc under controls the agentic over-citation holds for 2 of
+the 3 models and washes to null for Llama.
 
 **Still open under Option B:** DeepSeek agentic. Its original run was degenerate under `max_tokens=512`,
 so a full re-run comes first (job 64025428, ~1 day left), then `agentic_loo.py` over that run with the

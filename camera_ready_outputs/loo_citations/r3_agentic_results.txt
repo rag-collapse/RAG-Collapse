@@ -1,0 +1,19 @@
+loading all-MiniLM-L6-v2 ...
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights:  55%|█████▌    | 57/103 [00:00<00:00, 512.64it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 627.48it/s]
+=== R3 qwen_agentic (rows=100110) ===
+   A self_gen = +0.0432 (t=4.8)
+   B self_gen = +0.0736 (t=5.7) | qcos -0.122 redund -0.359
+   attenuation -71%
+
+=== R3 llama_agentic (rows=100009) ===
+   A self_gen = -0.0042 (t=-0.4)
+   B self_gen = +0.0207 (t=1.6) | qcos +0.027 redund -0.404
+   attenuation 591%
+
+=== R3 mistral_agentic (rows=99424) ===
+   A self_gen = +0.0367 (t=4.0)
+   B self_gen = +0.0824 (t=6.0) | qcos +0.031 redund -0.522
+   attenuation -124%
+
+### r3_from_sidecar done ###
+### job done ###
