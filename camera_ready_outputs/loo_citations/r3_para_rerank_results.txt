@@ -1,0 +1,103 @@
+R3 over 22 pairs (hybrids auto-skip inside the script)
+loading all-MiniLM-L6-v2 ...
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights:  48%|████▊     | 49/103 [00:00<00:00, 452.73it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 579.14it/s]
+=== R3 qwen_para_hybrid: self_gen has no variation (context all self-gen, e.g. replace_all) — R3 not applicable ===
+
+=== R3 qwen_para_replace_one (rows=66177) ===
+   A self_gen = +0.1123 (t=25.4)
+   B self_gen = +0.1783 (t=27.7) | qcos +0.422 redund -0.554
+   attenuation -59%
+
+=== R3 qwen_para_search (rows=108054) ===
+   A self_gen = +0.0541 (t=8.3)
+   B self_gen = +0.0698 (t=9.7) | qcos +0.025 redund -0.306
+   attenuation -29%
+
+=== R3 qwen_rerank_0.1_desklib (rows=111051) ===
+   A self_gen = -0.0260 (t=-3.1)
+   B self_gen = -0.0048 (t=-0.4) | qcos +0.246 redund -0.295
+   attenuation 81%
+
+=== R3 qwen_rerank_0.5_desklib (rows=111060) ===
+   A self_gen = -0.0312 (t=-3.5)
+   B self_gen = -0.0102 (t=-0.8) | qcos +0.154 redund -0.257
+   attenuation 67%
+
+=== R3 qwen_rerank_0.7_desklib (rows=111120) ===
+   A self_gen = -0.0408 (t=-4.4)
+   B self_gen = -0.0170 (t=-1.4) | qcos +0.158 redund -0.264
+   attenuation 58%
+
+=== R3 qwen_rerank_0.7_oracle (rows=111007) ===
+   A self_gen = -0.0382 (t=-4.4)
+   B self_gen = -0.0103 (t=-0.9) | qcos +0.136 redund -0.210
+   attenuation 73%
+
+=== R3 llama_para_hybrid: self_gen has no variation (context all self-gen, e.g. replace_all) — R3 not applicable ===
+
+=== R3 llama_para_replace_one (rows=66177) ===
+   A self_gen = +0.1187 (t=31.9)
+   B self_gen = +0.1721 (t=28.3) | qcos +0.288 redund -0.486
+   attenuation -45%
+
+=== R3 llama_para_search (rows=107679) ===
+   A self_gen = +0.0537 (t=9.3)
+   B self_gen = +0.0744 (t=11.4) | qcos +0.191 redund -0.567
+   attenuation -39%
+
+=== R3 llama_rerank_0.7_desklib (rows=111082) ===
+   A self_gen = -0.0410 (t=-4.7)
+   B self_gen = -0.0188 (t=-1.6) | qcos +0.240 redund -0.314
+   attenuation 54%
+
+=== R3 llama_rerank_0.7_oracle (rows=111098) ===
+   A self_gen = -0.0515 (t=-6.0)
+   B self_gen = -0.0072 (t=-0.7) | qcos +0.183 redund -0.324
+   attenuation 86%
+
+=== R3 mistral_para_hybrid: self_gen has no variation (context all self-gen, e.g. replace_all) — R3 not applicable ===
+
+=== R3 mistral_para_replace_one (rows=66177) ===
+   A self_gen = +0.1527 (t=41.1)
+   B self_gen = +0.2089 (t=37.8) | qcos +0.413 redund -0.590
+   attenuation -37%
+
+=== R3 mistral_para_search (rows=106769) ===
+   A self_gen = +0.0695 (t=11.9)
+   B self_gen = +0.0897 (t=13.9) | qcos +0.136 redund -0.538
+   attenuation -29%
+
+=== R3 mistral_rerank_0.7_desklib (rows=110903) ===
+   A self_gen = +0.0017 (t=0.2)
+   B self_gen = +0.0270 (t=2.2) | qcos +0.263 redund -0.361
+   attenuation -1521%
+
+=== R3 mistral_rerank_0.7_oracle (rows=110845) ===
+   A self_gen = -0.0120 (t=-1.4)
+   B self_gen = +0.0445 (t=4.0) | qcos +0.363 redund -0.485
+   attenuation 471%
+
+=== R3 deepseek_para_hybrid: self_gen has no variation (context all self-gen, e.g. replace_all) — R3 not applicable ===
+
+=== R3 deepseek_para_replace_one (rows=66177) ===
+   A self_gen = +0.0962 (t=31.2)
+   B self_gen = +0.1126 (t=23.2) | qcos +0.202 redund -0.257
+   attenuation -17%
+
+=== R3 deepseek_para_search (rows=106856) ===
+   A self_gen = +0.0546 (t=10.0)
+   B self_gen = +0.0682 (t=11.8) | qcos +0.051 redund -0.275
+   attenuation -25%
+
+=== R3 deepseek_rerank_0.7_desklib (rows=110844) ===
+   A self_gen = +0.0037 (t=0.5)
+   B self_gen = +0.0187 (t=2.2) | qcos -0.005 redund -0.169
+   attenuation -406%
+
+=== R3 deepseek_rerank_0.7_oracle (rows=110920) ===
+   A self_gen = -0.0322 (t=-4.8)
+   B self_gen = +0.0073 (t=0.9) | qcos +0.055 redund -0.165
+   attenuation 123%
+
+### r3_from_sidecar done ###
+### job done ###

@@ -879,9 +879,37 @@ Two findings.
   (Replace-One 1.13 to 1.17, Search 1.11 to 1.12). Rerank is the mitigation that pulls the pooled
   self-gen citation share back to its context share.
 
-**R3 on the paraphrase + rerank citations (running, job 64031569, same `r3_from_sidecar.py`).** The
-query-alignment control over these sidecars is queued. Fill the self_gen A→B table here when it prints.
-It auto-skips the hybrids (context all self-gen, so self_gen has no variation).
+**R3 on the paraphrase + rerank citations (done, job 64036818, same `r3_from_sidecar.py`).** The
+query-alignment control ran on all four models. It auto-skips the hybrids (context all self-gen, so
+self_gen has no variation). self_gen coefficient, raw (A) → controlled (B):
+
+**Paraphrase.**
+
+| variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| Replace-One (A→B) | +0.112 → **+0.178** (t=27.7) | +0.153 → **+0.209** (t=37.8) | +0.119 → **+0.172** (t=28.3) | +0.096 → **+0.113** (t=23.2) |
+| Search (A→B) | +0.054 → **+0.070** (t=9.7) | +0.070 → **+0.090** (t=13.9) | +0.054 → **+0.074** (t=11.4) | +0.055 → **+0.068** (t=11.8) |
+
+**Rerank (λ=0.7), self_gen A→B.**
+
+| config | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| oracle | −0.038 → −0.010 (n.s.) | −0.012 → +0.045 (t=4.0) | −0.052 → −0.007 (n.s.) | −0.032 → +0.007 (n.s.) |
+| desklib | −0.041 → −0.017 (n.s.) | +0.002 → +0.027 (t=2.2) | −0.041 → −0.019 (n.s.) | +0.004 → +0.019 (t=2.2) |
+
+Qwen λ sweep on desklib is flat and null: raw −0.026/−0.031/−0.041 → controlled −0.005/−0.010/−0.017 (all
+n.s.) at λ=0.1/0.5/0.7.
+
+- **Paraphrase: over-citation survives and grows under the controls in all four models, on both
+  Replace-One and Search** (controlled self_gen +0.07 to +0.21, every t≥9). This is stronger than the
+  baseline, where Search washed to null for 3/4 models. Rewriting the document surface form does not
+  break the per-doc self-gen preference; the query-alignment controls widen it (negative attenuation on
+  all eight paraphrase cells).
+- **Rerank neutralizes the per-doc effect.** The self_gen coefficient is essentially null both raw and
+  controlled (|β|≤0.045, most cells n.s., signs mixed), matching the pooled ratio ≈1.0 above.
+  Reranking is the mitigation that removes the per-doc over-citation. The attenuation ratio is undefined
+  here because the baseline coefficient sits at ≈0.
+- Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
 **Still open under Option B:** Phase 2b agentic (real tool-calling flow, Option A) is re-running as jobs
 64031581 (Qwen), 64031552 (Llama), 64031553 (Mistral) after the first attempt was corrupted by a
