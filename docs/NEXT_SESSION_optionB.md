@@ -1,107 +1,126 @@
-# Handoff: Option B citation program (fresh-start context)
+# Handoff: Option B citation program — DeepSeek agentic is the only remainder
 
-Continue the camera-ready rebuttal work. Everything through Phase 2a is committed to `main`. Five
-Unity jobs are still running. This file says what is done, what is running, how to collect each
-result, and what to write into the spec doc. Read `docs/citation_attribution_spec.md` first. It is
-the deliverable and holds every result.
+The Option B rebuttal work is complete for three of the four models. Everything is committed and pushed
+to `main` (latest `474d0c9`). One cell of the cross-model table is still empty: DeepSeek agentic. This
+file says what is done, the single task that remains, the exact recipe, and the caveats. The deliverable
+is `docs/citation_attribution_spec.md`. It holds every result.
 
 Commit trailer for this repo:
 ```
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 ```
 
-## What the program is
+## What is done and committed
 
-Reviewers questioned the §6 citation attribution. The reported method is leave-one-out (LOO)
-counterfactual, not pure overlap. "Option B" generates real LOO citations for every model and
-variant that never logged them, then runs the over-citation ratio and R3 (query-alignment control)
-on all of them. The generator is `~/loo_attribution.py` on Unity (plain-RAG variants) and
-`~/agentic_loo.py` (agentic, faithful tool-calling). Both validated. HotpotQA is excluded on
+The over-citation program regenerates real leave-one-out (LOO) citations for every model and variant
+that never logged them, then runs the over-citation ratio and R3 (query-alignment control) on them.
+Plain-RAG generator is `~/loo_attribution.py`. Agentic generator is `~/agentic_loo.py` (faithful
+tool-calling, Option A over the recorded store). Ratio folder is
+`scripts/camera_ready/overcite_ratio.py`. R3 is `~/r3_from_sidecar.py`. HotpotQA is excluded on
 purpose. Its 1-to-3-token answers make the lexical change score degenerate.
 
-## Done and committed to `main`
+Cross-model coverage of the Option B table in `docs/citation_attribution_spec.md` (ratio and R3 both):
 
-C1, C2, C3. R1 (placebo), R2 (threshold sweep), R3 (query-alignment, all four models via
-`r3_from_sidecar`), R3b (HotpotQA retrieval alignment, all three variants), R4 (collapse vs
-contamination), R5 (per-model dF1 with CIs), T1 (direct-vs-LOO on same items, round-1 ratio 2.57 vs
-2.49), T2 (extractor-agreement kit), F1 (number sweep), F2 (hAN7 conditions), R7 (novelty
-restriction, token and entity, both near-null), the prefilter-bias finding (top-2 gate over-selects
-self-gen 2-2.9x across all models), the overlap-family cross-model sweep (`allruns_overlap.py`), the
-Phase 2a real-LOO baseline citations for all four models, and cross-model R3. All of `scripts/camera_ready/`
-and the sidecars in `camera_ready_outputs/loo_citations/` are committed. Every markdown file except
-`docs/citation_attribution_spec.md` was deslopped (see the deslop commits).
+| regime | Qwen2.5-14B | Llama-3.1-8B | Mistral-7B | DeepSeek-R1-7B |
+|---|---|---|---|---|
+| baseline (RA/RO/Search) | done | done | done | done |
+| paraphrase (RA/RO/Search) | done | done | done | done |
+| rerank (λ=0.7 oracle/desklib) | done | done | done | done |
+| agentic RAG | done | done | done | **remaining** |
 
-## Running on Unity now (check with `squeue -u $USER`)
+This session's four commits: `d09ccf7` (para+rerank ratios), `e25c756` (para+rerank R3), `b933441`
+(agentic ratios), `474d0c9` (agentic R3). Sidecars live on Unity in `~/loo_cite_*.json` and are archived
+in `~/rag_rebuttal_scripts/`. Derived artifacts are committed under `camera_ready_outputs/loo_citations/`
+(the two `overcite_ratio_*.tsv` and the two `r3_*_results.txt`).
 
-| Job | Name | What it makes | Walltime left |
-|---|---|---|---|
-| 64015742 | loobc-deepseek | DeepSeek paraphrase + rerank LOO citations | ~12h, nearly done |
-| 64025428 | ds-agentic-rerun | Full DeepSeek agentic experiment RE-RUN (fixed config) | ~42h of 48h |
-| 64025426 | agloo-qwen | Qwen agentic LOO (Option A) | ~6h, will NOT finish 400q |
-| 64025427 | agloo-llama | Llama agentic LOO | ~4h, will NOT finish 400q |
-| 64025431 | agloo-mistral | Mistral agentic LOO | ~4h, will NOT finish 400q |
+## The one remaining task: DeepSeek agentic
 
-Sidecars land as `~/loo_cite_<model>_<variant>.json` on Unity. Paraphrase and rerank are done for
-Llama, Mistral, Qwen. DeepSeek's last file `loo_cite_deepseek_rerank_0.7_oracle.json` is the only
-paraphrase/rerank piece still pending.
+DeepSeek's original agentic run was degenerate (84% empty answers) because it was served with
+`max_tokens=512`, which truncated DeepSeek-R1's long reasoning before the final answer. So a full agentic
+re-run comes first, then the agentic LOO pass over that re-run.
 
-## The agentic LOO jobs will time out. Resume them.
+**Dependency.** Job `64025428` (`~/run_deepseek_agentic_rerun.sh`) is producing
+`~/deepseek_agentic_rerun.json`. As of this handoff it has ~1 day of walltime left. The user is watching
+it. Do not start the steps below until it prints its done marker and the JSON is complete.
 
-Agentic LOO is ~5 min per question for 400 questions, roughly 33h per model. The current jobs have
-10-to-12h walltimes, so each will checkpoint out partway. `~/agentic_loo.py` checkpoints per question
-and resumes (it skips questions already in the output). When a job ends before printing
-`### agentic loo done ###`, resubmit its script to resume. Bump the walltime first so it finishes in
-one more pass:
-```bash
-sed -i 's/#SBATCH -t .*/#SBATCH -t 48:00:00/' ~/run_agloo_qwen.sh    # and _llama, _mistral
-sbatch ~/run_agloo_qwen.sh
+### Step 1 — patch the max_tokens truncation (critical, do not skip)
+
+`~/agentic_loo.py` line 25 hardcodes `max_tokens=512`:
 ```
-The scripts already carry the correct GPU constraint (`--gres=gpu:1 --constraint="vram40|vram48|vram80"`)
-and the tool-call parser per model (Qwen hermes, Llama llama3_json, Mistral mistral). Do not use
-`--gres=gpu:a100:1` (A100 queue is congested) and do not drop the vram constraint (small GPUs OOM the
-14B and even the 8B, and old GPUs fail the CUDA kernel).
+llm, _ = build_llm(model_mode="server", model_name=MODEL, temperature=0.7, max_tokens=512, ...)
+```
+For DeepSeek this is the exact bug that made the original run degenerate. It truncates the reasoning
+trace before the answer. Bump it to `max_tokens=4096` before the DeepSeek pass (smoke confirmed the fix
+takes the empty rate from 92% to 17%). The other three models already ran at 512 without harm, so change
+it only for this DeepSeek run (edit, run, and note it, or add a small env override).
 
-## When jobs finish, do this
+### Step 2 — create and submit the DeepSeek agentic job
 
-1. **Over-citation ratio (local, cheap).** For each `(run.json, sidecar.json)` compute the round-1
-   and pooled ratio = self-gen share of citations / self-gen share of context. Reuse the counting in
-   the T1 compare (`scripts/camera_ready/t1_compare.py`) or the round-1 block in `~/loo_attribution.py`.
-   The run JSONs are under `all_experiments/graphite/{agentic_rag,paraphrase,rerank}/...` (local and on
-   `/work`). Replace-All and hybrid are ratio 1.0 by construction (context is 100% self-gen at round 1).
-2. **R3 (query-alignment).** Submit one CPU job that runs `~/r3_from_sidecar.py` over the new
-   paraphrase, rerank, and agentic sidecars, same as job 64015995 did for the baselines. It loads
-   all-MiniLM-L6-v2 and prints the self_gen A->B attenuation. It auto-skips variants where self_gen has
-   no variation (replace_all, hybrid). Model the job on `~/run_r3_sidecar.sh`.
-3. **Fold both into `docs/citation_attribution_spec.md`**, in the "Option B" section, as a cross-model
-   agentic + paraphrase + rerank table. Commit and push to `main`.
-4. **DeepSeek re-run (64025428).** Output `~/deepseek_agentic_rerun.json`. When done, run
-   `~/agentic_loo.py "$HOME/deepseek_agentic_rerun.json" deepseek-r1-distill-qwen-7b <served_api> <out>`
-   against a DeepSeek server started with `--reasoning-parser deepseek_r1 --enable-auto-tool-choice
-   --tool-call-parser hermes` and `max_tokens 4096`. Then fold its ratio in. This is the only way
-   DeepSeek joins the agentic set with real data.
+There is no `run_agloo_deepseek.sh` yet. Copy `~/run_agloo_qwen.sh` (it carries the collision fixes from
+this session, see below) and change:
+- serve line: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`, `--served-model-name deepseek-r1-distill-qwen-7b`,
+  and the DeepSeek flags `--reasoning-parser deepseek_r1 --enable-auto-tool-choice --tool-call-parser hermes`.
+- `SERVED=deepseek-r1-distill-qwen-7b` (so the readiness check greps the right name).
+- run JSON = `$HOME/deepseek_agentic_rerun.json` (the re-run output, NOT the old all_experiments file).
+- out = `$HOME/loo_cite_deepseek_agentic.json`.
+- keep `--max-model-len 16384`, the unique `PORT=$((20000 + SLURM_JOB_ID % 10000))`, and the `/v1/models`
+  readiness check unchanged. Keep `-t 48:00:00`.
+
+Submit, then verify the run is clean the same way this session did: the out file prints
+`server up on <port> serving deepseek-r1-distill-qwen-7b`, the `does not exist` 404 count stays 0, and
+the final sidecar empty rate is in the single-to-low-double digits (not 60%+). The 7B is ~4h like the
+others.
+
+### Step 3 — fold the two DeepSeek agentic cells
+
+Both empty cells are marked `(re-running)` in `docs/citation_attribution_spec.md` under
+"Option B Phase 2b".
+
+1. **Over-citation ratio.** Round-1 and pooled:
+   ```
+   AG=/work/.../all_experiments/graphite/agentic_rag/experiment_outputs   # not needed; use the rerun JSON
+   python3 ~/overcite_ratio.py "$HOME/deepseek_agentic_rerun.json|$HOME/loo_cite_deepseek_agentic.json|deepseek_agentic"
+   ```
+   Write the round-1 ratio into the DeepSeek column of the "Agentic RAG (round-1)" table. Update
+   `camera_ready_outputs/loo_citations/overcite_ratio_agentic.tsv` with the row.
+2. **R3.** Add the DeepSeek agentic pair to a copy of `~/run_r3_agentic.sh` (lean cpu-preempt job, ~6 min)
+   and submit. Write the self_gen A→B result into the DeepSeek column of the agentic R3 table. Append the
+   output to `camera_ready_outputs/loo_citations/r3_agentic_results.txt`.
+3. Commit and push both. The agent cannot push from Unity, so commit and push from the laptop.
+
+## Lessons from this session (reuse them, do not repeat the bug)
+
+- **The agentic vLLM jobs must use a unique port.** The first agentic batch was corrupted (empty rates
+  64/73/98%) because all three jobs were co-scheduled on one node and served vLLM on the same
+  `--port 8000`. `ServerLLM` auto-discovers the served model from its endpoint
+  (`llm_service/server_llm.py:113`), so every client latched onto one server and 404-stormed. The fix,
+  already in `~/run_agloo_qwen.sh`: `PORT=$((20000 + SLURM_JOB_ID % 10000))` used in both `vllm serve
+  --port` and the client api_base, plus a `/v1/models` readiness check that greps the expected served
+  name. See memory `agentic-loo-vllm-job-pitfalls`.
+- **Cap `--max-model-len 16384`.** The 14B failed vLLM engine init on a small vram40 card because the
+  default 32k context left too little KV cache. The cap fixes it with room to spare and the agentic
+  context is tiny.
+- **CPU-queue congestion.** The first R3 job sat 6h on `(Priority)` in partition `cpu`. Submitting lean
+  (`-p cpu-preempt -c 8 --mem 24g -t 02:00:00`) scheduled in minutes. R3 is a 5-to-40 min job.
 
 ## Caveats to carry into the write-up
 
-- **Agentic LOO is Option A**, the faithful tool-calling flow over the *recorded* store. The store at
-  round r is reconstructed from the documents the run recorded through round r (`iteration <= r`), not
-  the full growing store (that is not saved). Say this plainly. It is the only tractable faithful
-  attribution of the existing run.
-- **DeepSeek agentic original run is degenerate**, 84% empty answers, because it was served with
-  `max_tokens=512`, which truncated DeepSeek-R1's long reasoning before the final answer. The fix,
-  confirmed by smoke (empty rate 92% -> 17%), is `--reasoning-parser deepseek_r1 --tool-call-parser
-  hermes --enable-auto-tool-choice` plus `max_tokens=4096`. The re-run (64025428) uses it.
-- **R3 Search splits 3/4-null** across models, with DeepSeek the lone positive and lower-confidence
-  (reasoning traces inflate the change score). Replace-One is the robust headline (all four models,
-  effect grows under controls).
-- **The over-citation ratio is partly a prefilter artifact.** The top-2 overlap gate over-selects
-  self-gen by ancestry (2-2.9x). Lead the §6 rewrite with the counterfactual and R7, not the raw share.
+- **Agentic LOO is Option A**, the faithful tool-calling flow over the recorded store. The store at round
+  r is reconstructed from the documents the run recorded through round r, not the full growing store
+  (that is not saved). Say this plainly. It is the only tractable faithful attribution of the existing run.
+- **The over-citation ratio is partly a prefilter artifact.** The top-2 overlap gate over-selects self-gen
+  by ancestry (2 to 2.9x). Lead the §6 rewrite with the counterfactual and R7, not the raw share.
+- **Rerank neutralizes the per-doc effect; paraphrase does not.** Rerank pooled ratio ≈1.0 and null R3
+  self_gen; paraphrase over-citation survives and grows under controls on both Replace-One and Search.
+  This is the mitigation contrast to lead with.
 
 ## Last step for the whole markdown pass
 
-`docs/citation_attribution_spec.md` is the one markdown file not yet deslopped (it was still being
-appended to). Once Option B results are folded in and it is stable, deslop it per the poteto writing
-standard (remove long dashes and mid-sentence colon connectors, split run-ons), preserving every
-number, path, and table. That closes the "deslop every markdown file" task.
+`docs/citation_attribution_spec.md` is the one markdown file not yet deslopped. Once the DeepSeek agentic
+cells are folded in and it is stable, deslop it per the poteto writing standard (remove long dashes and
+mid-sentence colon connectors, split run-ons), preserving every number, path, and table. That closes the
+"deslop every markdown file" task. The Option B sections added this session are already written clean, so
+the deslop is mostly the older top half of the file.
 
 ## Environment notes
 
