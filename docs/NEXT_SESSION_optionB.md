@@ -39,9 +39,26 @@ DeepSeek's original agentic run was degenerate (84% empty answers) because it wa
 `max_tokens=512`, which truncated DeepSeek-R1's long reasoning before the final answer. So a full agentic
 re-run comes first, then the agentic LOO pass over that re-run.
 
-**Dependency.** Job `64025428` (`~/run_deepseek_agentic_rerun.sh`) is producing
-`~/deepseek_agentic_rerun.json`. As of this handoff it has ~1 day of walltime left. The user is watching
-it. Do not start the steps below until it prints its done marker and the JSON is complete.
+**The re-run is sharded across 8 parallel jobs.** A single 400-question agentic_rag run needs ~80 to 150h
+for 30 rounds and `pipeline.py` writes its output only once at the end (no checkpointing), so a single job
+cannot fit the 48h gpu wall. The first attempt (job 64025428) was killed at iter 17/30 with no output for
+exactly this reason. Because each question owns an independent retrieval store ([pipeline.py:686](../pipeline.py)),
+the run is split into 8 shards of 50 questions and submitted in parallel. Each shard runs the full 30
+rounds in ~10 to 19h, well inside 48h. Dataset shards are `~/ds_agentic_shard_00..07.jsonl`, the job is
+`~/run_ds_agentic_shard.sh` (submitted as `sbatch --export=ALL,SHARD=NN`), jobs **64057656 to 64057663**.
+Each shard uses the validated 2-GPU setup (DeepSeek answer server + Qwen2.5-7B doc server) with the
+`max_tokens 4096` fix already in the pipeline call, unique ports derived from the job id, and a
+served-name readiness check on both servers.
+
+**Dependency — Phase R (run).** Wait until all 8 shards print `### shard NN done ###` and write
+`~/deepseek_agentic_rerun_shard{00..07}.json`. Verify each is clean (out file prints
+`server <port> up serving deepseek-r1-distill-qwen-7b`, `does not exist` 404 count 0). Then merge into the
+single 400-question run:
+```
+python3 ~/merge_shards.py ~/deepseek_agentic_rerun.json ~/deepseek_agentic_rerun_shard{00,01,02,03,04,05,06,07}.json
+```
+(`~/merge_shards.py` concatenates the disjoint `questions` arrays and keeps one metadata block; confirm it
+reports 400 questions.) Only then run the agentic LOO pass below.
 
 ### Step 1 — patch the max_tokens truncation (critical, do not skip)
 
@@ -61,7 +78,8 @@ this session, see below) and change:
 - serve line: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`, `--served-model-name deepseek-r1-distill-qwen-7b`,
   and the DeepSeek flags `--reasoning-parser deepseek_r1 --enable-auto-tool-choice --tool-call-parser hermes`.
 - `SERVED=deepseek-r1-distill-qwen-7b` (so the readiness check greps the right name).
-- run JSON = `$HOME/deepseek_agentic_rerun.json` (the re-run output, NOT the old all_experiments file).
+- run JSON = `$HOME/deepseek_agentic_rerun.json` (the merged 400q run from the shard merge above, NOT the
+  old all_experiments file).
 - out = `$HOME/loo_cite_deepseek_agentic.json`.
 - keep `--max-model-len 16384`, the unique `PORT=$((20000 + SLURM_JOB_ID % 10000))`, and the `/v1/models`
   readiness check unchanged. Keep `-t 48:00:00`.
