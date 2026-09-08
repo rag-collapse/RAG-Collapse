@@ -7,11 +7,28 @@ license: MIT
 # NOTE (fill before public release): the code is MIT (LICENSE); the data is CC-BY-4.0
 # (DATA_LICENSE.md). CFF has one `license` field, so it names the code license here.
 
-# TODO before release: replace the authors block below with the FULL author list from the
-# paper, in the correct order. Do not ship this file with a partial or guessed list.
 authors:
-  - family-names: "TODO"
-    given-names: "TODO — fill from the paper author list, in order"
+  - family-names: Fatima
+    given-names: Fabeha
+    email: ffatima@umass.edu
+  - family-names: Yilmazel
+    given-names: Ozel
+    email: oyilmazel@umass.edu
+  - family-names: Rastogi
+    given-names: Rati
+    email: ratirastogi@umass.edu
+  - family-names: Senapati
+    given-names: Riddhimaan
+    email: rsenapati@umass.edu
+  - family-names: Druck
+    given-names: Gregory
+    email: greg@graphitehq.com
+  - family-names: Zeng
+    given-names: Chang
+    email: changzeng@umass.edu
+  - family-names: Smith
+    given-names: Ethan
+    email: ethan@graphitehq.com
 
 # Optional: add the venue once known.
 # preferred-citation:
