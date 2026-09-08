@@ -1034,12 +1034,18 @@ concrete pointer:
 2. **Source run for §6.2.** I used `…/all_experiments/graphite/baseline/replace_one/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_replace_one.json`
    (`citations_enabled=true`, `citation_top_m=2`, `max_docs=6`, `change_threshold=0.18`;
    ffatima's canonical run). → Confirm this is the reported run/version.
-3. **§6.3/§6.5 analysis script (BLOCKER).** Not in repo (grepped all `.py` + notebooks).
-   Produces self=0.281 / AI-written=0.123 / human=0.078 and the linear-model +0.154. → Where
-   is the script/notebook (Rati's scratch? local? `collapse-randomness-research` repo)?
-4. **Its inputs (BLOCKER).** The per-doc **GPTZero** labels for round-1 originals (the "30%
-   AI" figure) and the **8 quality-dimension** LLM-judge scores. → Saved anywhere (CSV/JSON),
-   or recomputed each run?
+3. **§6.3/§6.5 analysis script (RESOLVED).** Found in the `collapse-randomness-research` repo
+   (`model_collapse/workshop_paper/`, authored by Greg Druck) and verified against its committed README,
+   which states self=0.281 / AI-written=0.123 / human=0.078 and the OLS +0.154 exactly. Ported into this
+   repo at `scripts/camera_ready/provenance/` (`build_qwen_scoring_input.py` → `score_references_qwen.py`
+   → `provenance_regression.py`, plus `provenance_full.py`, `eval_metrics.py`, `search_twoway.py`). R6 no
+   longer blocks on this.
+4. **Its inputs (RESOLVED, one gap).** The per-doc **GPTZero** labels are vendored at
+   `scripts/camera_ready/provenance/ai_detector.csv` (batch `January_2026`, 10,417 URLs, loads clean). The
+   **8 quality-dimension** LLM-judge scores (`qwen_round1_scored.jsonl`) are an LLM-judge output and are
+   **not** vendored. Regenerate them with `score_references_qwen.py` (needs `ANTHROPIC_API_KEY`), or drop
+   in a saved copy. Only `provenance_regression.py` needs them; `provenance_full.py` and `eval_metrics.py`
+   do not.
 5. **"Citation rate" denominator (§6.3/§6.5).** Confirm per-reference: fraction of the round's
    10 runs that cite a given reference, averaged within a provenance group — distinct from
    §6.2's share-of-all-citations. (Whatever code computes it is presumably in #3.)
