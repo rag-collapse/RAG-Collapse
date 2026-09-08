@@ -29,22 +29,18 @@ experiment_outputs/    evaluation_outputs/        entity_extraction_output/
 | [`docs/entity_extraction_comparison.md`](docs/entity_extraction_comparison.md) | Entity-extraction code vs the `collapse-randomness-research` repo |
 | [`docs/pipeline_comparison.md`](docs/pipeline_comparison.md) | Full pipeline (baselines + metrics) vs `collapse-randomness-research` |
 | [`docs/misinfo_error_compounding.md`](docs/misinfo_error_compounding.md) | Misinformation error-compounding experiment (HotpotQA) + `scripts/hotpot-misinfo/` |
-| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) | Round-0 distractor experiments (`diverse_synth`, `equal_diverse_synth`, `shuffled_diverse_synth`) with 3-variant collapse results, metric definitions, and figures. Plots via [`distractor_sweep_visualization.ipynb`](distractor_sweep_visualization.ipynb). |
-| [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) | `cross-model-baseline`. A main model reads documents synthesized from a *different* (side) model's answers, plus the GPU-scheduling hack (`bf16` constraint + `DOC_ON_MAIN` 2-GPU mode) that got it to run on Unity. |
 | [`visualization_outputs/README.md`](visualization_outputs/README.md) | Plots and how to regenerate them |
 
 ### Interactive HTML docs
 
-Open these locally, or serve the `docs/` folder.
+Standalone HTML result pages. Open them locally, or serve the `docs/` folder.
 
-| Doc |
-|---|
-| [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) |
-| [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) (diverse / equal / shuffled) |
-| [`docs/distractor_experiment.html`](docs/distractor_experiment.html) |
-| [`docs/hotpotqa_experiments.html`](docs/hotpotqa_experiments.html) |
-| [`docs/hotpotqa_smoke_results.html`](docs/hotpotqa_smoke_results.html) |
-| [`docs/experiment_tracker.html`](docs/experiment_tracker.html) |
+- [`docs/experiment_tracker.html`](docs/experiment_tracker.html) is the live-status tracker and a hub linking the other pages.
+- [`docs/hotpotqa_experiments.html`](docs/hotpotqa_experiments.html) covers the HotpotQA collapse loop and its variants.
+- [`docs/distractor_experiment.html`](docs/distractor_experiment.html) covers the round-0 distractor experiment.
+- [`docs/hotpotqa_diverse_synth.html`](docs/hotpotqa_diverse_synth.html) is the round-0 distractor sweep (`diverse_synth` / `equal_diverse_synth` / `shuffled_diverse_synth`) with 3-variant collapse results and figures.
+- [`docs/cross_model_baseline.html`](docs/cross_model_baseline.html) shows a main model reading documents synthesized from a *different* side model's answers, plus the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack.
+- [`docs/hotpotqa_smoke_results.html`](docs/hotpotqa_smoke_results.html) is the end-to-end smoke and validation log.
 
 ## Setup
 
