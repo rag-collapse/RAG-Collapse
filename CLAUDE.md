@@ -159,7 +159,7 @@ The notebook's `_resolve()` tolerates either, and empty groups skip without over
 ## Documentation index
 
 - `handoff.md`: **fresh-start context** for the HotpotQA / distractor work. Covers the `all_experiments` data folder, the three HotpotQA experiments (misinfo, synthetic distractor, native paper-replication), and hard-won Unity lessons. Read first when resuming this line of work.
-- `docs/experiment_tracker.html`: live-status tracker (cross-model rerun + shuffled sweep) plus a hub linking all published artifacts. Artifact: 
+- `docs/experiment_tracker.html`: live-status tracker (cross-model rerun + shuffled sweep) plus a hub linking the HTML docs.
 - `README.md`: setup and full workflow.
 - `docs/unity_setup.md`: Unity scratch and job submission.
 - `docs/gepa_prompt_optimization_plan.md`, `docs/gepa_flowchart.md`: the GEPA subsystem.
@@ -167,8 +167,8 @@ The notebook's `_resolve()` tolerates either, and empty groups skip without over
 - `docs/entity_extraction_comparison.md`, `docs/pipeline_comparison.md`: comparison vs `collapse-randomness-research`.
 - `docs/misinfo_error_compounding.md`: misinformation error-compounding experiment (HotpotQA), `scripts/hotpot-misinfo/`. Also covers the round-0 synthetic distractors (Option B) and the **native paper-replication distractor setting (Option A)**.
 - `base_hotpotqa_distractors/README.md`: standalone round-0 distractor experiment package. Synthetic wrong-answer sweep plus the native **2-gold/8-distractor paper replication** (Yang et al., EMNLP 2018) vs gold-only control.
-- `docs/hotpotqa_diverse_synth.html`: round-0 distractor experiments (`diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth`). Artifact: 
-- `docs/cross_model_baseline.html`: `cross-model-baseline` (`scripts/cross_model_baseline/`, main reads docs written from a side model's answers) plus the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack. Artifact: 
+- `docs/hotpotqa_diverse_synth.html`: round-0 distractor experiments (`diverse_synth` + `equal_diverse_synth` + `shuffled_diverse_synth`).
+- `docs/cross_model_baseline.html`: `cross-model-baseline` (`scripts/cross_model_baseline/`, main reads docs written from a side model's answers) plus the `bf16`/`DOC_ON_MAIN` GPU-scheduling hack.
   Outputs are keyed `cross-model-baseline/<main-org>/<main-model>/<side>/<variant>/{experiment,evaluation}_outputs/` (the side dimension is added so DeepSeek/Llama/Mistral side models don't collide). Entity diagrams for cross-model live in `cross_model_baseline_visualizations/` (from `cross-model-baseline-visualization.ipynb`).
 - `visualization_outputs/README.md`: plots.
 - `workshop-entity-visualization.ipynb` + `workshop_entity_visualizations/README.md`: workshop entity re-run view (see section above).
