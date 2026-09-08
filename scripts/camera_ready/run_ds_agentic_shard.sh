@@ -12,7 +12,9 @@ set -eo pipefail
 source /modules/opt/linux-ubuntu24.04-x86_64/miniforge3/24.7.1/etc/profile.d/conda.sh
 conda activate ragenv
 export HF_HOME=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache
-export HF_HUB_CACHE="$HF_HOME"; export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 VLLM_LOGGING_LEVEL=WARNING
+# VLLM_USE_DEEP_GEMM=0 avoids the FP8 DeepGEMM kernel path on Hopper GPUs (uri-gpu009 etc.), where
+# `deep_gemm` is not installed and the engine crashes at init. This bf16 7B does not need FP8 kernels.
+export HF_HUB_CACHE="$HF_HOME"; export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 VLLM_LOGGING_LEVEL=WARNING VLLM_USE_DEEP_GEMM=0 VLLM_MOE_USE_DEEP_GEMM=0
 cd ~/RAG-Collapsement-on-Self-Refined-Generation
 
 : "${SHARD:?pass SHARD=NN via --export=ALL,SHARD=NN}"
