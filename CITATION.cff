@@ -11,24 +11,31 @@ authors:
   - family-names: Fatima
     given-names: Fabeha
     email: ffatima@umass.edu
+    affiliation: University of Massachusetts Amherst
   - family-names: Yilmazel
     given-names: Ozel
     email: oyilmazel@umass.edu
+    affiliation: University of Massachusetts Amherst
   - family-names: Rastogi
     given-names: Rati
     email: ratirastogi@umass.edu
+    affiliation: University of Massachusetts Amherst
   - family-names: Senapati
     given-names: Riddhimaan
     email: rsenapati@umass.edu
+    affiliation: University of Massachusetts Amherst
   - family-names: Druck
     given-names: Gregory
     email: greg@graphitehq.com
+    affiliation: Graphite Growth, Inc.
   - family-names: Zeng
     given-names: Chang
     email: changzeng@umass.edu
+    affiliation: University of Massachusetts Amherst
   - family-names: Smith
     given-names: Ethan
     email: ethan@graphitehq.com
+    affiliation: Graphite Growth, Inc.
 
 # Optional: add the venue once known.
 # preferred-citation:
