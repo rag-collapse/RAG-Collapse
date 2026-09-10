@@ -1,0 +1,9 @@
+loading all-MiniLM-L6-v2 ...
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights:  22%|██▏       | 23/103 [00:00<00:00, 220.60it/s]Loading weights:  54%|█████▍    | 56/103 [00:00<00:00, 266.73it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 333.91it/s]
+=== R3 deepseek_agentic (rows=99387) ===
+   A self_gen = +0.1255 (t=26.1)
+   B self_gen = +0.1756 (t=23.3) | qcos +0.070 redund -0.639
+   attenuation -40%
+
+### r3_from_sidecar done ###
+### job done ###

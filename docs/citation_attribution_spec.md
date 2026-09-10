@@ -939,16 +939,18 @@ readiness check that verifies the expected served name. Qwen also needed `--max-
 landing on a small vram40 card where the default 32k context left too little KV cache. The re-run is
 clean (0 model-404s, verified served name).
 
-**R3 on the agentic citations (done, job 64038912).** self_gen coefficient, raw (A) → controlled (B):
+**R3 on the agentic citations (done, jobs 64038912 and 64218111 for DeepSeek).** self_gen coefficient,
+raw (A) → controlled (B):
 
 | variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
 |---|---|---|---|---|
-| Agentic RAG (A→B) | +0.043 → **+0.074** (t=5.7) | +0.037 → **+0.082** (t=6.0) | −0.004 → +0.021 (n.s.) | (running, job 64218111) |
+| Agentic RAG (A→B) | +0.043 → **+0.074** (t=5.7) | +0.037 → **+0.082** (t=6.0) | −0.004 → +0.021 (n.s.) | +0.126 → **+0.176** (t=23.3) |
 
-Qwen and Mistral over-cite self-gen per-doc and the effect grows under the query-alignment controls
-(controlled t≥5.7). Llama is null both raw and controlled (n.s.). So the round-1 ratio (1.75 to 1.82) is
-carried by the round-1 concentration; per-doc under controls the agentic over-citation holds for 2 of
-the 3 models and washes to null for Llama.
+Qwen, Mistral, and DeepSeek over-cite self-gen per-doc and the effect grows under the query-alignment
+controls, with DeepSeek the strongest (controlled +0.176, t=23.3, and +0.07 to +0.08 for Qwen/Mistral).
+Llama is the lone null (n.s. raw and controlled). So per-doc under controls the agentic over-citation
+holds for 3 of the 4 models; for Llama the round-1 ratio (1.76) is carried by the round-1 concentration
+alone.
 
 **DeepSeek agentic (done).** Its original run was degenerate under `max_tokens=512` (84% empty answers,
 `deepseek_r1` truncated its reasoning before the answer). Both the re-run and the LOO were rebuilt with
