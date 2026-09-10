@@ -911,18 +911,22 @@ n.s.) at λ=0.1/0.5/0.7.
   here because the baseline coefficient sits at ≈0.
 - Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
-## Option B Phase 2b — agentic LOO cross-model (Qwen/Llama/Mistral done, DeepSeek re-running)
+## Option B Phase 2b — agentic LOO cross-model (all four models done)
 
 Real agentic LOO (Option A, the faithful tool-calling flow over the recorded store, `~/agentic_loo.py`)
-ran for Qwen, Llama, and Mistral (jobs 64031581/552/553, all COMPLETED, ~4h each, sidecar empty rates
-1/10/2%). Ratios in `camera_ready_outputs/loo_citations/overcite_ratio_agentic.tsv`. Round-1
-over-citation ratio (cited self-gen share / context self-gen share):
+ran for all four models. Qwen, Llama, and Mistral used the recorded all_experiments runs (jobs
+64031581/552/553, ~4h each, sidecar empty rates 1/10/2%). DeepSeek used a fresh clean re-run (see below)
+and its LOO was sharded 8 ways at 50 questions each (`run_agloo_deepseek_shard.sh`), all COMPLETED,
+sidecar 0% empty. Ratios in `camera_ready_outputs/loo_citations/overcite_ratio_agentic.tsv` and
+`overcite_ratio_deepseek_agentic.tsv`. Round-1 over-citation ratio (cited self-gen share / context
+self-gen share):
 
 | variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
 |---|---|---|---|---|
-| Agentic RAG (round-1) | 1.82 | 1.75 | 1.76 | (re-running) |
+| Agentic RAG (round-1) | 1.82 | 1.75 | 1.76 | 2.04 |
 
-Pooled over all rounds the ratio is 1.00 to 1.03, so the self-gen citation skew concentrates at round 1
+Pooled over all rounds the ratio is 1.00 to 1.10 (DeepSeek highest at 1.10), so the self-gen citation
+skew concentrates at round 1
 and washes out as the growing store saturates. Round-1 context self-gen share is ~18%, higher than the
 plain-RAG variants (~11 to 14%) because the agent retrieves from a growing store that already holds some
 generated docs by round 1.
@@ -939,17 +943,20 @@ clean (0 model-404s, verified served name).
 
 | variant | Qwen2.5-14B | Mistral-7B | Llama-3.1-8B | DeepSeek-R1-7B |
 |---|---|---|---|---|
-| Agentic RAG (A→B) | +0.043 → **+0.074** (t=5.7) | +0.037 → **+0.082** (t=6.0) | −0.004 → +0.021 (n.s.) | (re-running) |
+| Agentic RAG (A→B) | +0.043 → **+0.074** (t=5.7) | +0.037 → **+0.082** (t=6.0) | −0.004 → +0.021 (n.s.) | (running, job 64218111) |
 
 Qwen and Mistral over-cite self-gen per-doc and the effect grows under the query-alignment controls
 (controlled t≥5.7). Llama is null both raw and controlled (n.s.). So the round-1 ratio (1.75 to 1.82) is
 carried by the round-1 concentration; per-doc under controls the agentic over-citation holds for 2 of
 the 3 models and washes to null for Llama.
 
-**Still open under Option B:** DeepSeek agentic. Its original run was degenerate under `max_tokens=512`,
-so a full re-run comes first (job 64025428, ~1 day left), then `agentic_loo.py` over that run with the
-fixed serving (`--reasoning-parser deepseek_r1 --tool-call-parser hermes`, `max_tokens=4096`). HotpotQA
-stays optional-and-caveated (short answers make the change score near-degenerate).
+**DeepSeek agentic (done).** Its original run was degenerate under `max_tokens=512` (84% empty answers,
+`deepseek_r1` truncated its reasoning before the answer). Both the re-run and the LOO were rebuilt with
+`max_tokens=4096`, and because DeepSeek-R1's long reasoning makes each generation slow, both were sharded
+8 ways at 50 questions each so a shard fits the 48h wall (a single 400-question job was on pace for ~8
+days). The re-run is 7.5% empty and the LOO sidecar 0% empty, both clean. That closes the last cell of
+the cross-model table. HotpotQA stays optional-and-caveated (short answers make the change score
+near-degenerate).
 
 ---
 
