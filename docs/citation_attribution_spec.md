@@ -1,4 +1,4 @@
-# Citation attribution — full spec & reviewer responses (C1–C3)
+# Citation attribution spec and reviewer responses (C1–C3)
 
 Grounding for the §6 over-citation analysis, verified against code and against the
 **reported** run outputs on Unity. Written to answer reviewer points C1, C2, C3.
@@ -10,9 +10,9 @@ Key files:
 
 ---
 
-## C1 — Full spec of the citation attribution
+## C1. Full spec of the citation attribution
 
-**Terminology fix:** the mechanism is **not** "overlap-based attribution." It is a
+**Terminology fix.** The mechanism is **not** "overlap-based attribution." It is a
 **leave-one-out (LOO) counterfactual** attribution with lexical overlap used only as a
 candidate *prefilter*. Reported-run hyperparameters (read from `experiment_metadata`):
 `citation_top_m = 2`, `citation_max_docs = 6`, `citation_change_threshold = 0.18`.
@@ -21,34 +21,34 @@ For each answer `a` produced from that round's document pool:
 
 1. **Tokenization** (`pipeline.py:56–57`). Token = regex `[A-Za-z0-9']+`, lowercased,
    keeping only tokens of **≥ 4 characters** (crude stopword removal), taken as a **set**
-   (deduplicated). Unit of overlap = **word-type token** — not n-gram, not sentence.
-2. **Overlap score** (`:60–63`): `overlap(a, d) = |tokens(a) ∩ tokens(d)| / |tokens(a)|`
-   — coverage of the *answer's* tokens by document `d`. Denominator = number of distinct
+   (deduplicated). Unit of overlap = **word-type token**, not n-gram, not sentence.
+2. **Overlap score** (`:60–63`). `overlap(a, d) = |tokens(a) ∩ tokens(d)| / |tokens(a)|` is the
+   coverage of the *answer's* tokens by document `d`. Denominator = number of distinct
    ≥4-char answer tokens. **This is not Jaccard** (the union is not the denominator).
-3. **Candidate prefilter** (`:76–98`): rank the round's documents by `overlap(a, d)` and
+3. **Candidate prefilter** (`:76–98`). Rank the round's documents by `overlap(a, d)` and
    keep the **top-M = 2**.
-4. **LOO counterfactual** (`:101–143`): for each of the 2 candidates, regenerate the
+4. **LOO counterfactual** (`:101–143`). For each of the 2 candidates, regenerate the
    answer with that document removed from context, giving `a_{-d}`. The change score is
    `change(d) = 1 − overlap(a, a_{-d})` (`:66–73`). Document `d` is **cited by `a`** iff
    `change(d) ≥ 0.18`, up to a cap of **6** citations.
-5. **Ties / multi-document** (`:125–143`): candidates are evaluated in overlap-descending
-   order and selected in that order until the cap. **Fallback:** if no candidate clears
+5. **Ties / multi-document** (`:125–143`). Candidates are evaluated in overlap-descending
+   order and selected in that order until the cap. **Fallback.** If no candidate clears
    the 0.18 threshold, keep the up-to-2 documents with the highest *positive* change.
-6. **Agentic RAG** (`:824–832`): the candidate pool is the union of retrieved chunks
+6. **Agentic RAG** (`:824–832`). The candidate pool is the union of retrieved chunks
    across the round's runs rather than a fixed prompt-doc list.
 
 ### Denominators used in §6
 
 Two *different* quantities appear in §6; keep them distinct:
 
-- **"Citation share" (§6.2)** — the share of *all citations* going to a provenance group.
+- **"Citation share" (§6.2)** is the share of *all citations* going to a provenance group.
   Computed as (`evaluation.py:41–62`):
   `citation_share(group, round) = (# citation entries whose doc is in group) / (total citation entries)`,
   **pooled across the round's 10 runs and all questions**. A "citation entry" = one element
   of a run's `citations` list, i.e. one document the LOO test kept for that answer.
   The **context share** it is compared against = `(# docs in group) / (total docs in the round)`.
   The §6.2 ratio = citation_share / context_share.
-- **"Citation rate" (§6.3, §6.5)** — a *per-reference* quantity: for a given reference,
+- **"Citation rate" (§6.3, §6.5)** is a *per-reference* quantity. For a given reference,
   the fraction of the round's runs (answers) that cite it, then averaged within a
   provenance group. This is a different denominator (per-reference, not per-citation).
 
@@ -59,7 +59,7 @@ A cited document is **self-generated (AI)** iff **any** of:
 `iteration > 0 and doc_id` does **not** start with `ref_`. This is **tag-based**
 (document provenance), not the AI-content detector.
 
-### Empirical check — the spec reproduces the paper
+### Empirical check. The spec reproduces the paper
 
 Reconstructing §6.2 directly from the reported Qwen2.5-14B Replace-One run:
 
@@ -69,13 +69,13 @@ Reconstructing §6.2 directly from the reported Qwen2.5-14B Replace-One run:
 | 2 | 23.0 | 47.2 | 2.05 | — |
 | 5 | 57.4 | 75.2 | 1.31 | — |
 
-Matches within rounding. (The small 27.4 vs 26.5 gap is an aggregation choice —
+Matches within rounding. (The small 27.4 vs 26.5 gap is an aggregation choice,
 pooled-over-citations vs mean-over-questions; confirm which the paper uses so the exact
 number is defensible. The mechanism and denominators are settled.)
 
 ---
 
-## C2 — The two implementations agree in magnitude
+## C2. The two implementations agree in magnitude
 
 There are two attribution implementations; the reported §6 numbers use the **current LOO**
 one (metadata carries `citation_top_m/max_docs/change_threshold`). The **earlier** version
@@ -93,12 +93,12 @@ Citation self-generated **share** by round, Replace-One, **matched aggregation**
 | 5 | 70.3% | 74.6% |
 | 10 | 78.0% | 100.0% |
 
-**Conclusion:** both methods show the same over-citation effect at consistent magnitudes —
-citation self-gen share ≈ 2× context share at round 1 (context share ≈ 12%), rising toward
+**Conclusion.** Both methods show the same over-citation effect at consistent magnitudes. Citation
+self-gen share ≈ 2× context share at round 1 (context share ≈ 12%), rising toward
 near-total self-citation as the context saturates. This supports presenting §6 as **one
 effect measured two ways**, not two independent effects.
 
-**Caveat:** the explicit vs LOO table above is *not* controlled — different answer models
+**Caveat.** The explicit vs LOO table above is *not* controlled, with different answer models
 (7B vs 14B) and sample sizes (50 vs 400 q). See the controlled comparison below.
 
 ### Controlled same-answers comparison: LOO vs overlap (Qwen2.5-14B, Replace-One)
@@ -119,7 +119,7 @@ Self-generated citation share by round (mean over questions):
 **On the same answers, LOO and overlap give near-identical self-gen shares** (within ~1–3
 points every round) and pick largely the same documents (80–92% of LOO citations are in the
 overlap top-2). So the §6.2 over-citation magnitude (~2× at round 1) is robust to the
-attribution method — the reviewer's "it's overlap" mental model yields the same headline
+attribution method. The reviewer's "it's overlap" mental model yields the same headline
 number as the actual LOO. This is the strongest available same-run evidence and it is
 fully reproducible from stored outputs (`~/explicit_vs_overlap.py`).
 
@@ -133,25 +133,25 @@ LOO≈overlap result above shows the attribution mechanism is not what drives th
 
 ---
 
-## C3 — What the logs kept per answer
+## C3. What the logs kept per answer
 
 For the reported (citation-enabled) runs, each round stores everything R1/T1 need:
 
-- `iteration.documents` — the round's full document pool, each with `doc_id`, `url`,
+- `iteration.documents` is the round's full document pool, each with `doc_id`, `url`,
   `iteration`, **and full `text`** (not just IDs).
-- `iteration.citation_index` — the per-round list mapping `citation_id → {doc_id, url, iteration}`
+- `iteration.citation_index` is the per-round list mapping `citation_id → {doc_id, url, iteration}`
   for the documents that round's answers were scored against.
 - Each `run` has `answer`, `citation_ids`, and resolved `citations`.
 
 Provenance is recoverable from the tags (`gen_`/`ref_`, `url`). Therefore the exact
 document set each answer saw is **reconstructible**:
-- **Replace-All / Replace-One:** directly — no retrieval, so every run saw the stored `documents`.
-- **Search / Agentic:** the per-run retrieved subset is captured via `citation_index`
+- **Replace-All / Replace-One** are direct, with no retrieval, so every run saw the stored `documents`.
+- **Search / Agentic.** The per-run retrieved subset is captured via `citation_index`
   (present in these runs), so the concern that Search stores only IDs does **not** apply here.
 
-**One thing to verify per experiment:** `experiment_metadata.citations_enabled`. In the
+**One thing to verify per experiment.** `experiment_metadata.citations_enabled`. In the
 consolidated data it is `true` for the Qwen2.5-14B and Mistral baseline runs but `false`
-for several DeepSeek/Llama and all agentic runs — those lack the per-run `citations`
+for several DeepSeek/Llama and all agentic runs, which lack the per-run `citations`
 and `citation_index`, though they still store full `documents` (so pools are reconstructible,
 but the per-run retrieved subset under Search is not).
 
@@ -159,11 +159,11 @@ but the per-run retrieved subset under Search is not).
 
 Verified on `…/oyilmazel_umass_edu/experiment_outputs/hotpotqa/Qwen/Qwen2.5-14B-Instruct/hotpot_{search,replace_one,replace_all}.json`:
 
-- **Document text IS stored** — each round's `documents` carries `doc_id`, `url`, (`title`,)
+- **Document text IS stored.** Each round's `documents` carries `doc_id`, `url`, (`title`,)
   `text` (full, ~300–2400 chars). So **pools are reconstructible and T1 is feasible**
   (the (question, round, context) triples exist with text, ready to re-prompt).
 - **No `citations`, no `citation_index`, `citations_enabled` unset**; runs store only
-  `run_id` + `answer`. The citation attribution was never run on HotpotQA (expected — §6
+  `run_id` + `answer`. The citation attribution was never run on HotpotQA (expected, since §6
   over-citation is entity-dataset only; HotpotQA is for downstream F1).
 - **No per-run retrieval metadata** (rank, score, query cosine, position). For **R3** on the
   Search variant these covariates must be **recomputed** by re-embedding docs+query with
@@ -176,17 +176,17 @@ Verified on `…/oyilmazel_umass_edu/experiment_outputs/hotpotqa/Qwen/Qwen2.5-14
 
 Note the citation reanalysis (R1/R2/R3) targets the **entity/graphite** runs, where
 Qwen2.5-14B and Mistral have `citations_enabled=true` (with `citation_index` per round) but
-DeepSeek/Llama do **not** — so R1–R3 on those two models would need the attribution re-run.
+DeepSeek/Llama do **not**, so R1–R3 on those two models would need the attribution re-run.
 
 ---
 
-## R1 + R2 — placebo & threshold reanalysis (Qwen2.5-14B, entity data)
+## R1 + R2. Placebo and threshold reanalysis (Qwen2.5-14B, entity data)
 
 Both computed from stored answers + documents, no regeneration
 (`~/r1_r2.py`; overlap rule = cite `d` iff `overlap(a,d) ≥ τ`). The tables below
 are the **Replace-One** variant; the **Search** variant is the last subsection.
 
-### R2 — over-citation ratio vs overlap threshold τ (Replace-One)
+### R2. Over-citation ratio vs overlap threshold τ (Replace-One)
 
 | τ | ctx self-gen % | cited self-gen % | ratio (r1) | ratio (r2) | ratio (r5) |
 |---|---|---|---|---|---|
@@ -202,7 +202,7 @@ shape used for the paper gives ≈2.2 (§6.2). A threshold rule cites many low-o
 (diluting the self-gen concentration); top-k concentrates on the highest-overlap docs, which
 skew self-gen. §6.2 should state the rule shape, because the headline 2.2 belongs to top-2, not to a threshold.
 
-### R1 — placebo false-positive rate, Replace-One (docs never in the answer's context)
+### R1. Placebo false-positive rate, Replace-One (docs never in the answer's context)
 
 FP = the overlap rule fires (`overlap ≥ τ`) on a document the answer never saw:
 
@@ -216,25 +216,25 @@ FP = the overlap rule fires (`overlap ≥ τ`) on a document the answer never sa
 (Round 1; rounds 2 and 5 are within ~3 points.) **This confirms NbXB's concern for a pure
 overlap rule:** a self-generated document that was *never in the answer's context* is matched
 **80–98% of the time**, purely because it is a descendant of the same question's answers and
-shares wording by lineage — vs **~25–55%** for out-of-context documents from *other* questions.
+shares wording by lineage, vs **~25–55%** for out-of-context documents from *other* questions.
 The false-positive rate is heavily **provenance-skewed toward self-generated content**, so a
 pure-overlap attribution is not provenance-neutral and **would inflate the self-gen citation count.**
 
 **Why this argues *for* the method the paper actually uses (LOO), not against it.** LOO cites a
 document only if *removing it changes the answer* (counterfactual necessity), not if it merely
 shares words. A redundant self-gen descendant that overlaps by lineage but wasn't needed would
-**not** change the answer on removal, so LOO does not credit it — exactly the failure mode R1
+**not** change the answer on removal, so LOO does not credit it, exactly the failure mode R1
 exposes for overlap. This is the strongest reason to (a) describe the method as **LOO, not
 overlap** (W1), and (b) present R1 as evidence that LOO is the right choice.
 
-**Honest limits:** LOO cannot be placebo-tested directly — you can't "leave out" a document that
-isn't in the context — so R1 bounds the *overlap* rule's inflation and motivates LOO rather than
+**Honest limits.** LOO cannot be placebo-tested directly, because you can't "leave out" a document that
+isn't in the context, so R1 bounds the *overlap* rule's inflation and motivates LOO rather than
 measuring LOO's own false-positive rate. And C2 shows LOO ≈ overlap-top-2 on *in-context* shares,
 so any residual descent inflation on in-context docs is shared by both; **R3 (query-alignment
 covariates) is the necessary complementary control** for the "self-gen docs are simply more
 query-aligned" confound, which neither R1 nor the attribution method addresses.
 
-### R1/R2 — Search (Qwen2.5-14B, Search variant, entity data)
+### R1/R2. Search (Qwen2.5-14B, Search variant, entity data)
 
 Same `~/r1_r2.py` reanalysis on the Search run
 (`…/all_experiments/graphite/baseline/search/experiment_outputs/Qwen/Qwen2.5-14B-Instruct/local_search.json`,
@@ -280,7 +280,7 @@ skew is a bit larger than Replace-One because the cross-question baseline drops 
 under retrieval (the cross-Q docs are retrieved neighbours, so they overlap less with
 an unrelated answer's wording).
 
-### R3 — query-alignment control (Qwen2.5-14B + Mistral-7B, Replace-One + Search)
+### R3. Query-alignment control (Qwen2.5-14B + Mistral-7B, Replace-One + Search)
 
 Run with `~/r3_qalign.py`. For each (question, round, context-doc) row, `y` = citation
 rate = the fraction of the round's runs whose LOO citations include that doc. Covariates:
@@ -321,7 +321,7 @@ variant does not show over-citation at the per-doc level; self-gen docs are cite
 and note the sign flip in §6. This is a caveat the full §6.5 model (with Rati's
 quality-dimension scores) should revisit.
 
-**Second model — Mistral-7B** (the other graphite baseline with `citations_enabled=true`;
+**Second model, Mistral-7B** (the other graphite baseline with `citations_enabled=true`;
 DeepSeek/Llama graphite runs store no citations, so they can't be added without a re-run).
 Same `~/r3_qalign.py`, run on `…/mistralai/Mistral-7B-Instruct-v0.3/para_off/local_{replace_one,search}_nopara.json`
 (job 63967441, archived in `~/rag_rebuttal_scripts/r3_mistral_63967441.out`).
@@ -332,33 +332,33 @@ Same `~/r3_qalign.py`, run on `…/mistralai/Mistral-7B-Instruct-v0.3/para_off/l
 | Search | Mistral-7B | −0.0522 (t=−2.9) | +0.0274 (**t=1.4, n.s.**) | +0.7068 (t=4.9) | −1.3042 (t=−11.9) |
 
 Mistral reproduces the Qwen pattern on **both** variants:
-- **Replace-One:** the self-gen effect *grows* under the query-alignment controls
+- **Replace-One.** The self-gen effect *grows* under the query-alignment controls
   (+0.083 → +0.167), just as for Qwen (+0.068 → +0.131). Two independent models now show
-  over-citation is **not** explained away by query alignment — a robust answer to hAN7.
-- **Search:** the raw effect is slightly negative and the controlled effect is
+  over-citation is **not** explained away by query alignment, a robust answer to hAN7.
+- **Search.** The raw effect is slightly negative and the controlled effect is
   indistinguishable from zero (+0.027, t=1.4). Like Qwen-Search, there is **no positive
   per-doc over-citation under retrieval**; if anything it attenuates to null. Report the
   Replace-One result as the headline (2/2 models) and the Search result as the honest
   retrieval-side caveat (Qwen: −0.056 sig; Mistral: ~0 n.s.).
 
-**Caveats to carry:** R3's embedder is **all-MiniLM-L6-v2** (what the graphite pipeline
-actually used via `make_embed_fn_local`), **not E5** — E5 is the HotpotQA retriever.
+**Caveats to carry.** R3's embedder is **all-MiniLM-L6-v2** (what the graphite pipeline
+actually used via `make_embed_fn_local`), **not E5**. E5 is the HotpotQA retriever.
 This is the W4 config discrepancy in the camera-ready plan; reconcile in §3/App-B. To
 rerun R3 with E5 for robustness, swap the model in `~/r3_qalign.py` (E5 is on /work
 hf_cache; use `query:` / `passage:` prefixes). R3 is the *query-alignment* control only;
 it does not include the 8 quality dimensions, which live in Rati's §6.3/§6.5 script.
 **Now cross-checked on the other dataset with its own retriever:** the HotpotQA
 reconstruction in R3b below runs the query-alignment analysis with **E5** (the HotpotQA
-retriever), so the W4 embedder concern is covered on both datasets — all-MiniLM on
+retriever), so the W4 embedder concern is covered on both datasets, all-MiniLM on
 graphite (R3), E5 on HotpotQA (R3b).
 
-### R3b — HotpotQA retrieval alignment (E5, reconstructed) — Search / Replace-One / Replace-All
+### R3b. HotpotQA retrieval alignment (E5, reconstructed), Search / Replace-One / Replace-All
 
 This is hAN7's control on the **HotpotQA** Search variant, and it is where retriever
 provenance matters most. The runs' per-round documents are logged with full text, but
 the per-run retrieval log (rank/score of each retrieved chunk) was **deleted for disk
 space** and never re-saved (confirmed with Ozel, who owns those runs). So the retrieval
-covariates hAN7 asked for — query-document similarity and rank — are **reconstructed
+covariates hAN7 asked for, query-document similarity and rank, are **reconstructed
 from the actual E5 index**, not the raw log, and no runs are reproduced.
 
 Script `~/r_hotpot_retrieval.py` (CPU job 63965590, archived in `~/rag_rebuttal_scripts/`).
@@ -384,18 +384,18 @@ Three things, all pointing the same way:
 
 1. **Self-gen docs are more query-aligned than the human docs in context** at every round
    (Δ > 0, +0.027 early, narrowing to +0.008 late as the human pool shrinks to a
-   selected, already-aligned residual). So hAN7's *premise* is descriptively true — this
+   selected, already-aligned residual). So hAN7's *premise* is descriptively true. This
    analysis does **not** deny that AI docs are more query-aligned.
 2. **The scale-free result is the decisive one:** `frac(self ≥ h_top10) = 1.000` at every
-   round — virtually every self-generated document out-scores the retriever's own
+   round. Virtually every self-generated document out-scores the retriever's own
    **10th-best real-corpus document**, and mean `self_qsim` meets or exceeds `h_top1`
    (0.881), the single best passage E5 finds among 5.2M real docs. This is mechanical:
-   the AI docs were generated *from that query*, so they are maximally query-aligned — more
+   the AI docs were generated *from that query*, so they are maximally query-aligned, more
    than any real passage. (Lead with this ranking statement, not the raw cosine deltas: E5
    cosines are compressed into a narrow high band, so ±0.01 is meaningful on its scale but
    the "beats every real top-10 doc" framing is what travels.)
 3. **This reframes hAN7 rather than conceding it.** The query-alignment is not a confound
-   that explains collapse *away* — it **is the pump**. Because a self-gen doc out-ranks
+   that explains collapse *away*. It **is the pump**. Because a self-gen doc out-ranks
    every human doc, it is retrieved deterministically and never evicted, so the store
    collapses to AI content: `n_self` grows 1229 → 12412 while `n_human` decays 12771 →
    1588 over the 29 rounds. Retrieval-space view of the same collapse the text metrics show.
@@ -418,7 +418,7 @@ query-aligned than the human docs in context, until the human pool empties:
 
 The human_qsim rises to meet self_qsim exactly at round 9 (the last human docs are the most
 query-aligned survivors). The key contrast with Search: `frac(self ≥ h_top10)` is ≈**0.886**
-here, vs **1.000** under Search. That gap is mechanistically informative — **Search *retrieves*
+here, vs **1.000** under Search. That gap is mechanistically informative. **Search *retrieves*
 self-gen docs**, so it selects the most query-aligned ones (every retained self-gen doc out-ranks
 the real top-10 by construction); **Replace-One *inserts* a self-gen doc into a slot regardless
 of score**, so ~11% of inserted self-gen docs are *not* more aligned than the retriever's 10th
@@ -429,13 +429,13 @@ self-gen from round 1 onward (`n_human` = 0 every round), so `human_qsim`/Δ are
 the query-alignment comparison does not apply. Self-gen `qsim` sits at ≈0.876 and `frac(self ≥
 h_top10)` ≈ 0.887 at every round (same level as Replace-One's inserted docs). The distinctive
 signal is redundancy: it is **already saturated at round 1** (self_redund ≈ 0.956, vs Replace-One
-which climbs 0.82 → 0.96 over 10 rounds and Search over ~20) and stays flat — Replace-All floods
+which climbs 0.82 → 0.96 over 10 rounds and Search over ~20) and stays flat. Replace-All floods
 the whole context with restatements of one answer in a single step, the retrieval-space image of
 its one-round collapse. So Replace-All contributes the redundancy-saturation endpoint, not a
 query-alignment story.
 
 **Caveats.** (a) This is a **retrieval-level** analysis; the HotpotQA runs log no citations
-(§C3), so unlike graphite R3 there is no per-doc citation outcome to regress — it answers
+(§C3), so unlike graphite R3 there is no per-doc citation outcome to regress. It answers
 "are self-gen docs more query-aligned and would they outrank gold?" (yes), not "are they
 cited more, controlling for that?". (b) The index is IVFFlat with nprobe=64 (approximate),
 so `h_top1/h_top10` are lower bounds on the true top scores; this can only *understate* how
@@ -445,13 +445,13 @@ matching how the pipeline embeds generated docs.
 
 ---
 
-## R4 — collapse vs contamination fraction (NbXB)
+## R4. Collapse vs contamination fraction (NbXB)
 
 The three regimes reach a given **contamination fraction** (share of the context that is
 AI-generated) at very different rounds: Replace-All saturates in one round, Replace-One
 ramps ~linearly, Search ramps gradually. Plotting collapse against *round* therefore
 compares regimes at unequal saturation. This re-plots the already-logged metrics with
-contamination on the x-axis so the regimes are compared at **equivalent saturation** —
+contamination on the x-axis so the regimes are compared at **equivalent saturation**,
 a pure re-plot, no recomputation (`scripts/camera_ready/r4_contamination_replot.py`,
 figures in `camera_ready_outputs/R4/`).
 
@@ -464,7 +464,7 @@ figures in `camera_ready_outputs/R4/`).
   count is monotone in collapse.
 
 **Finding (Qwen2.5-14B, entity dataset).** Aligned by contamination, the regimes do *not*
-collapse identically — Search retains substantially more diversity at every matched
+collapse identically. Search retains substantially more diversity at every matched
 contamination level:
 
 | contamination ≈ | Replace-All | Replace-One | Search |
@@ -474,17 +474,17 @@ contamination level:
 | 0.6 | — | 2.5 | 4.6 |
 | 0.9–1.0 | 1.0 | 1.1 | 2.3 |
 
-(mean unique entities / round). Replace-All occupies only ~0 and ~1 contamination — it
-traverses the whole axis in a single round — so its line is that 0→1 jump, not a
+(mean unique entities / round). Replace-All occupies only ~0 and ~1 contamination. It
+traverses the whole axis in a single round, so its line is that 0→1 jump, not a
 trajectory. Replace-One and Replace-All bottom out near 1 unique entity once fully
 contaminated; **Search still holds ~2.3 at 0.92 contamination.** So Search's slower
-collapse is not only that its contamination grows slower — at *equal* contamination it is
+collapse is not only that its contamination grows slower. At *equal* contamination it is
 genuinely more diverse, because it retrieves from a growing pool rather than overwriting a
 small fixed context. That is the honest answer to NbXB: on a saturation-matched x-axis the
 regimes are comparable in shape but Search has a higher diversity floor. All four models
 are in the 2×2 panels; the pattern holds (Search above the two replace regimes).
 
-## R5 — downstream harm as per-model effect sizes (all reviewers)
+## R5. Downstream harm as per-model effect sizes (all reviewers)
 
 Per-question ΔF1 = F1(final round) − F1(round 0) on HotpotQA, mean with a 95% bootstrap CI
 over the 1400 questions, per model × regime (`scripts/camera_ready/r5_delta_f1.py`, forest
@@ -506,11 +506,11 @@ plot `camera_ready_outputs/R5/delta_f1_forest.png`). F1 is `avg_f1` (mean over t
 | Replace-All | Mistral-7B | **+0.062** | [+0.049, +0.075] | yes |
 | Replace-All | DeepSeek-R1-7B | +0.012 | [+0.001, +0.023] | yes |
 
-**Honest reading — this deviates from the plan's expected framing.** The plan anticipated
+**Honest reading.** This deviates from the plan's expected framing. The plan anticipated
 "directionally consistent, significant in one of four, underpowered." The data is *not*
 directionally consistent: downstream F1 change is **model-specific and mixed**. Significant
-*degradation* appears **only for Qwen2.5-14B**, and in all three regimes (−0.018 to −0.024)
-— which confirms the earlier "robust only for Qwen2.5-14B" statement with effect sizes and
+*degradation* appears **only for Qwen2.5-14B**, and in all three regimes (−0.018 to −0.024),
+which confirms the earlier "robust only for Qwen2.5-14B" statement with effect sizes and
 CIs. The other models do not degrade: **Mistral-7B significantly improves** (+0.044 to
 +0.062), Llama-3.1-8B is flat (n.s.), DeepSeek-R1-7B is a negligible positive.
 
@@ -520,19 +520,19 @@ correctness. A weak model that emits verbose round-0 answers scores low on token
 loop collapses its outputs toward short, repeated forms, F1 can *rise* mechanically even
 though nothing was learned. So ΔF1 conflates quality with format, and for low-baseline
 models (Mistral 0.26, DeepSeek 0.19) collapse toward terse modal answers reads as a gain.
-The safe camera-ready statement: **downstream harm is not universal — it is significant only
+The safe camera-ready statement is this. **Downstream harm is not universal, and it is significant only
 for the strongest model (Qwen2.5-14B) across all regimes, while lower-baseline models show
 flat-to-positive ΔF1 on an underpowered, verbosity-sensitive short-answer metric.** Do not
 claim uniform downstream harm; report the per-model effect sizes above and let them stand.
 
 ---
 
-## F1 — number-consistency sweep (§6, mitigation, abstract, intro)
+## F1. Number-consistency sweep (§6, mitigation, abstract, intro)
 
 Run against the paper LaTeX. **Caveat: this pass used the version pasted into the earlier
 session (recovered from the transcript, ~93 KB); re-verify against the current Overleaf**
 (Ozel shared the final version) since numbers may have moved. Headline result: **the
-reanalysis overturns nothing** — every §6 number is internally consistent and the reanalysis
+reanalysis overturns nothing.** Every §6 number is internally consistent and the reanalysis
 either reproduces or corroborates it.
 
 | Claim (paper) | Location | Reanalysis | Status |
@@ -546,12 +546,12 @@ either reproduces or corroborates it.
 | Search contamination 0%→~90% over 30 rounds | §5 HotpotQA | R3b/R4 Search: 0→0.92 | ✅ consistent |
 
 **Flags to fix when R1–R5 land in the manuscript:**
-1. **Search round-1 context self-gen %**: paper 14.8% vs measured 17.8% — likely a denominator/round-definition difference; confirm which is correct and make §6.2 agree.
+1. **Search round-1 context self-gen %**: paper 14.8% vs measured 17.8%, likely a denominator/round-definition difference; confirm which is correct and make §6.2 agree.
 2. **Mistral honesty**: the paper says the non-Qwen models "do not exhibit degradation." R5 shows Mistral **significantly improves** (+0.044…+0.062). If R5's per-model numbers are added, state the positive ΔF1 explicitly (with the token-F1/verbosity caveat), don't round it to "no change."
 3. **Figure overlap**: R4's contamination-x-axis plot overlaps the existing `fig:qwen-hotpot-airef` (AI-reference fraction). Decide whether R4 supplements or replaces it; don't ship two near-duplicate contamination figures.
 4. Standard proof pass: once §6 figures move, re-check the abstract and intro restatements (they currently give no §6 numbers, so low risk) and every table/appendix value against the §6 body.
 
-## F2 — hAN7's four revision conditions
+## F2. hAN7's four revision conditions
 
 | # | Condition | Mapped task | Status |
 |---|---|---|---|
@@ -564,14 +564,14 @@ Of hAN7's four, **condition 3 is fully met (R3)** and 1–2 have all their mater
 
 ---
 
-## T1 — both attribution methods on the same items (NbXB)
+## T1. Both attribution methods on the same items (NbXB)
 
 Re-prompted 300 stored `(question, round, context)` triples from the reported Qwen-14B
 Replace-One run with a **direct citation-elicitation** prompt (the model answers using the
 numbered documents, then emits `CITED: [n, …]`), served by vLLM on an A100 at temperature 0
 (job 63967793; `scripts/camera_ready/t1_{sample,generate,compare}.py`). All 300 answers
 produced a parseable `CITED:` line. This puts the **direct** method and the stored **LOO**
-method on identical items — C2's cross-version agreement as a statistic computed here, not a
+method on identical items. This is C2's cross-version agreement as a statistic computed here, not a
 pointer to the earlier version.
 
 Over-citation ratio = (self-gen share of citations) / (self-gen share of context), same items:
@@ -584,14 +584,14 @@ Over-citation ratio = (self-gen share of citations) / (self-gen share of context
 Doc-level agreement (pooled): Jaccard 0.346; direct precision/recall vs the LOO union 0.429 / 0.725;
 ≈5.04 direct citations/item vs LOO's 1.27 per run.
 
-**Reading.** At **round 1 — the exact condition §6.2 reports — the two independent attribution
-methods agree tightly: LOO 2.57 and direct 2.49**, both ≈ the paper's stated **2.2**. That is the
+**Reading.** At **round 1, the exact condition §6.2 reports, the two independent attribution
+methods agree tightly, LOO 2.57 and direct 2.49**, both ≈ the paper's stated **2.2**. That is the
 cleanest possible form of the C2 claim: one over-citation effect, measured two ways, on the same
 items, ~2.5× in both. The **pooled** ratios (1.06 / 1.34) look weaker only because they average over
 rounds where the context is already 64% self-gen; as the context saturates, *any* rule's ratio is
 mechanically compressed toward 1 (you cannot cite self-gen at 2× its share when it is already 90% of
-the context), so the pooled number understates the round-1 effect and is not the quantity to quote —
-report the round-1 ratios against §6.2. Where the two methods *do* differ is verbosity, not
+the context), so the pooled number understates the round-1 effect and is not the quantity to quote.
+Report the round-1 ratios against §6.2. Where the two methods *do* differ is verbosity, not
 direction: direct elicitation lists ≈4× more documents per answer than the strict LOO counterfactual
 (5.04 vs 1.27) and recovers 72.5% of LOO's cited docs while adding its own, so their doc-level
 overlap is moderate (Jaccard 0.35) even though their self-gen *skew* coincides.
@@ -603,7 +603,7 @@ set to firm up the number beyond the 100 round-1 items in this sample.)
 
 ---
 
-## Mediator vs confounder — why prior-answer similarity must not be a covariate
+## Mediator vs confounder. Why prior-answer similarity must not be a covariate
 
 A reviewer-facing subtlety worth stating explicitly, because it looks like a control we skipped
 but is one we must **not** add.
@@ -611,10 +611,10 @@ but is one we must **not** add.
 The data-generating structure is a **chain, not a fork**: `A₁ → D₁ → A₂`. A round's answer `A₁`
 is rewritten into a synthetic document `D₁`, which is fed as context and shapes the next answer
 `A₂`. If self-generated references are genuinely influential, **`D₁` is the channel by which `A₁`
-reaches `A₂`** — its similarity to the prior answer is the **mediator**, i.e. it lies *on* the
+reaches `A₂`**. Its similarity to the prior answer is the **mediator**, i.e. it lies *on* the
 causal path. Conditioning on a mediator removes the very effect you are trying to measure, so
 adding "overlap with the prior answer" as a regression covariate would **subtract the collapse
-signal itself** and drive the estimate to zero — wrongly.
+signal itself** and drive the estimate to zero, wrongly.
 
 This distinguishes two similarity covariates that look alike but sit in different causal positions:
 
@@ -623,11 +623,11 @@ This distinguishes two similarity covariates that look alike but sit in differen
 | **query–document similarity** (query `Q → D`, `Q → A₂`) | **confounder** (common cause) | **adjust** — closes a backdoor path, isolates `D → A₂`. This is what **R3** does (query-cosine). |
 | **prior-answer overlap** (`A₁ → D → A₂`) | **mediator** (on the path) | **do not adjust** — closes the front door, nets out the effect. |
 
-The reviewer worry — "maybe `D` is just similar to the prior answer, not influential" — conflates
+The reviewer worry, "maybe `D` is just similar to the prior answer, not influential", conflates
 these. When `D` is a **faithful restatement** of `A₁`, that similarity *is* the mechanism of
 influence; the two hypotheses (influence vs. mere ancestry) are **observationally equivalent** on
 overlap, so no regression on the same data can separate them. **What separates them is contrast,
-not adjustment** — and our design already uses it in two places, with a third available:
+not adjustment**, and our design already uses it in two places, with a third available:
 
 1. **The cite decision is a counterfactual regeneration, not a regression on overlap.** For each
    answer the method takes the top 2 documents by lexical overlap with that answer
@@ -642,7 +642,7 @@ not adjustment** — and our design already uses it in two places, with a third 
    leave-one-out over all n references. It reruns 2 candidates per answer, not n.
 2. **R1 (placebo) is the difference-in-differences** the objection calls for: the same document,
    scored when it was in context vs. when it never was. Ancestry is present in both arms; influence
-   is possible only in the exposed arm; the difference is influence — nothing is subtracted from the
+   is possible only in the exposed arm; the difference is influence, and nothing is subtracted from the
    treated measurement.
 3. **Novelty restriction (proposed next analysis; call it R7/T3).** Restrict to material `D₁`
    *introduced* that `A₁` did not contain (the document generator's hallucinated entities/specifics),
@@ -653,13 +653,13 @@ not adjustment** — and our design already uses it in two places, with a third 
    generator hallucinates entities … and the answer generator conditions on these fabricated facts").
 
 One honest flag on R3's covariate set: `redund` (mean cosine to the round's *other* context docs)
-is the one covariate to defend carefully — it measures duplication among neighbours, not similarity
+is the one covariate to defend carefully. It measures duplication among neighbours, not similarity
 to the specific ancestral answer, so it is a retrieval nuisance rather than the `A₁→D→A₂` mediator;
 keep it, but be ready to show the effect survives without it. **Principle: never adjust for anything
 on the path from document to answer; find where the two stories predict different things, and measure
 there.**
 
-## Prefilter provenance bias — the over-citation ratio is largely gate selection (measured)
+## Prefilter provenance bias. The over-citation ratio is largely gate selection (measured)
 
 Running the mediator logic against the code turned up a real problem, and it is measured, not
 argued (`scripts/camera_ready/prefilter_bias.py`, on the reported Qwen-14B Replace-One run).
@@ -688,7 +688,7 @@ width (round 1): top-1 3.69×, top-2 2.86×, top-4 1.83×, top-8 1.14×, all-doc
   (only) because they influence it. This is the ancestry/overlap confound made numeric, and it is
   the same phenomenon R1 found as the within-question descendant false-positive rate. **Do not
   present the raw citation share as clean evidence of influence.**
-- The **cite decision does not add this bias — it slightly corrects it.** The eligible set is 32.8%
+- The **cite decision does not add this bias, it slightly corrects it.** The eligible set is 32.8%
   self-gen at round 1; the *cited* set (§6.2) is 26.5%. The leave-one-out change test therefore
   removes some ancestry-selected self-gen docs (plausibly the redundant ones, whose removal does not
   move the answer). So the counterfactual step is the honest part of the pipeline, the prefilter is
@@ -697,13 +697,13 @@ width (round 1): top-1 3.69×, top-2 2.86×, top-4 1.83×, top-8 1.14×, all-doc
   gated citation-rate on `self_gen` while controlling for *query* cosine, but not for *answer* overlap
   (the mediator). So R3 sharpens the story without fully escaping the confound either.
 
-**Consequence for the plan.** The only analysis that is immune to this — because it does not go
-through overlap at all — is the **novelty-restriction** measure (R7/T3 above): does `A₂` adopt
+**Consequence for the plan.** The only analysis that is immune to this, because it does not go
+through overlap at all, is the **novelty-restriction** measure (R7/T3 above). Does `A₂` adopt
 material `D₁` introduced that `A₁` never contained. That is now the **load-bearing influence
 evidence, not an optional extra.** It should be built, and §6.2 should lead with the counterfactual
 and the novelty result, not the raw citation share.
 
-## R7 — novelty-restriction influence (token-level, done; entity-level next)
+## R7. Novelty-restriction influence (token-level, done; entity-level next)
 
 Built and run on the reported Qwen-14B Replace-One run (`scripts/camera_ready/r7_novelty.py`, no
 generation). The document `gen_k_0` is generated from answer `A_{k-1}` (verified: `gen_1_0` covers
@@ -744,8 +744,8 @@ entities per round, and the next answer adopts them **almost never**.
 **This is a near-null, and it is the cleanest influence measure we have.** The over-citation effect
 does **not** translate into propagation of the document's invented entities. What little adoption
 happens is question-specific (cross-Q is exactly 0, so it does require the document), but the
-magnitude is under 1%. The implication is that entity collapse on this dataset is **ancestry-driven**
-— answers re-stating and narrowing the entity set that is already present — not the answer injecting
+magnitude is under 1%. The implication is that entity collapse on this dataset is **ancestry-driven**,
+with answers re-stating and narrowing the entity set that is already present, not the answer injecting
 the document generator's hallucinated entities. This does not contradict §5's "the answer generator
 conditions on these fabricated facts", because that line is about HotpotQA F1, a different dataset and
 mechanism. It does mean the entity-dataset over-citation should be described as ancestry and
@@ -801,7 +801,7 @@ row is degenerate and excluded from the reading above.
 
 These are the overlap-family results.
 
-## Option B — real LOO citations cross-model (Phase 2a: baselines, done)
+## Option B. Real LOO citations cross-model (Phase 2a baselines, done)
 
 `loo_attribution.py` regenerates citations with the paper's exact method (top_m=2, change threshold
 0.18, temperature 0.7) by serving each run's own model and re-answering with each top-2 candidate
@@ -842,7 +842,7 @@ query-alignment control now runs on all four models. self_gen coefficient, raw (
   Replace-One as the headline (4/4) and Search as the honest split (3/4 null, DeepSeek positive).
 - Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
-## Option B Phase 2c — paraphrase + rerank cross-model (ratio done, R3 running)
+## Option B Phase 2c. Paraphrase + rerank cross-model (ratio and R3 done)
 
 Real LOO citations were regenerated for the paraphrase and rerank mitigations across all four models,
 same method as Phase 2a (top_m=2, change threshold 0.18, temperature 0.7, served per model). The
@@ -911,7 +911,7 @@ n.s.) at λ=0.1/0.5/0.7.
   here because the baseline coefficient sits at ≈0.
 - Replace-All is R3-not-applicable (context is 100% self-gen, so self_gen has no variation).
 
-## Option B Phase 2b — agentic LOO cross-model (all four models done)
+## Option B Phase 2b. Agentic LOO cross-model (all four models done)
 
 Real agentic LOO (Option A, the faithful tool-calling flow over the recorded store, `~/agentic_loo.py`)
 ran for all four models. Qwen, Llama, and Mistral used the recorded all_experiments runs (jobs
@@ -1056,7 +1056,7 @@ concrete pointer:
    in a saved copy. Only `provenance_regression.py` needs them; `provenance_full.py` and `eval_metrics.py`
    do not.
 5. **"Citation rate" denominator (§6.3/§6.5).** Confirm per-reference: fraction of the round's
-   10 runs that cite a given reference, averaged within a provenance group — distinct from
+   10 runs that cite a given reference, averaged within a provenance group, distinct from
    §6.2's share-of-all-citations. (Whatever code computes it is presumably in #3.)
 6. **Explicit per-answer data.** Explicit citations survive only as aggregates in
    `evaluation_outputs/Qwen/citations/Qwen2.5-7B-Instruct_local_replace_one_eval.json`
@@ -1068,7 +1068,7 @@ concrete pointer:
    prefilter; paper/reviewers say "overlap". → Should the paper describe it as LOO, or is
    there a separate pure-overlap attribution that generated the numbers?
 
-**For Ozel** (`oyilmazel@umass.edu`) — HotpotQA logging (see the C3-for-HotpotQA section):
-the runs store full `documents` text (pools reconstructible; T1 OK) but no citations /
+**For Ozel** (`oyilmazel@umass.edu`), HotpotQA logging (see the C3-for-HotpotQA section). The
+runs store full `documents` text (pools reconstructible; T1 OK) but no citations /
 citation_index / per-run retrieval metadata, so R3's retrieval-rank + query-cosine covariates
 must be recomputed from the E5 index. Confirm no richer per-run retrieval log exists elsewhere.
