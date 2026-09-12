@@ -10,8 +10,10 @@ Figures are organized **one folder per side model**:
 ```
 cross_model_baseline_visualizations/
 ├── deepseek-r1-distill-qwen-7b/   text metrics (7) + entity (3)
-├── llama-3.1-8b/                  text metrics (7)
-└── mistral-7b/                    text metrics (7)
+├── llama-3.1-8b/                  text metrics (7) + entity (3)
+├── mistral-7b/                    text metrics (7) + entity (3)
+├── _side_comparison/              text metrics, 3 sides overlaid per variant
+└── _writer_comparison/            entity metrics, Qwen-self vs the 3 writers (self-preference control)
 ```
 
 ## Text metrics (all 3 sides, from `evaluation.py`)
@@ -27,28 +29,36 @@ that side's replace_all / replace_one / search, one metric averaged across quest
 - `ai_reference_percentage_per_round.png`: AI-reference %
 - `all_metrics_per_round.png`: combined grid
 
-## Entity metrics (DeepSeek side only)
+## Entity metrics (all 3 sides, all 3 variants)
 
-The dump only has cross-model entity data for the **DeepSeek side**, replace_all + replace_one (Qwen main,
-GPT-5.2-tagged). These land in `deepseek-r1-distill-qwen-7b/`, matching `entity_extraction.py` and
-`visualization.ipynb`:
+Cross-model entity data (Qwen main, gpt-5.4-mini extraction + gpt-5.2 canonicalization) for **all three
+side writers** and replace_all + replace_one + search, read from the gitignored `cross_model_entity_logs/`
+(`model_collapse_log_xm_<side>_<variant>.entities_by_round.jsonl`). One folder per side, matching
+`entity_extraction.py` and `visualization.ipynb`:
 
 - `unique_entities_per_round.png`: union of canonical entities across the 10 runs, averaged over questions
 - `entity_similarity_per_round.png`: mean pairwise cosine similarity of binary entity-mention vectors
 - `collapse_by_simulation.png`: % of question-rounds where all 10 runs share one entity set. Error bars
   are **95% Wilson CIs**.
 
-(Llama/Mistral sides and the `search` variant have no cross-model entity files yet, so those are text
-metrics only.)
+## Writer comparison (self-preference control)
+
+`_writer_comparison/` overlays Qwen answering its **own** documents (from the entity re-run dump) against
+Qwen answering each **foreign** writer's documents, per variant. The same-model baseline sits within the
+cross-model spread rather than above it, so collapse is not primarily self-preference:
+
+- `cmp_unique_entities.png`, `cmp_entity_similarity.png`: 1x3 panels (RA/RO/Search), 4 writers overlaid.
+- `cmp_collapse_end_by_writer.png`: end-round collapse % grouped by variant, Qwen-self outlined.
 
 ## Regenerating
 
 1. Download the per-side eval JSONs from Unity into `../cross-model-baseline/evaluation_outputs/<side>/`
    (gitignored): `local_<variant>_eval.json`, needed for the text-metric charts.
-2. Unzip the entity re-run dump into the repo root as `entity re-run for workshop paper-<ts>/` (from the
-   command line, not Explorer, see `CLAUDE.md`), needed for the DeepSeek entity charts. The cross-model
-   files are `model_collapse_log_graphite_cross_model_<variant>_Qwen_Qwen2.5-14B-Instruct_local_<variant>.entities_by_round.jsonl`.
-3. Run all cells of `../cross-model-baseline-visualization.ipynb`.
+2. Put the cross-model entity JSONLs in `../cross_model_entity_logs/` (gitignored), named
+   `model_collapse_log_xm_<side>_<variant>.entities_by_round.jsonl`, needed for the per-side entity charts.
+3. Unzip the entity re-run dump into the repo root as `entity re-run for workshop paper-<ts>/` (from the
+   command line, not Explorer, see `CLAUDE.md`), needed only for the Qwen-self baseline in `_writer_comparison/`.
+4. Run all cells of `../cross-model-baseline-visualization.ipynb`.
 
-**Extensible:** `SIDES` and `VARIANTS` in the notebook drive everything, and missing eval files or entity
-files are skipped. Add a side's eval JSONs (or the search entity file) and re-run, and the plots pick them up.
+**Extensible:** `SIDES` and `VARIANTS` in the notebook drive everything, and missing eval or entity files
+are skipped. Add a side's files and re-run, and the plots pick them up.

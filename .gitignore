@@ -229,3 +229,6 @@ baseline-DeepSeek-R1-Distill-Qwen-7B/
 # cross-model-baseline raw experiment outputs (downloaded data, not code)
 /cross-model-baseline/
 /shuffled_distractor_sweep/
+
+# cross-model entity tagger JSONLs (large; PNGs are committed, source is not)
+cross_model_entity_logs/
