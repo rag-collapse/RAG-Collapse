@@ -1,4 +1,4 @@
-# RAG-Collapsement-on-Self-Refined-Generation
+# RAG-Collapse
 
 Studies **RAG collapse**: a model answers from retrieved context, its answers are turned back
 into "documents" and fed in as context for the next round, and over many rounds the answers
@@ -265,7 +265,7 @@ If you use this code or data, cite the paper. GitHub's "Cite this repository" bu
   author    = {Senapati, Riddhimaan and Druck, Gregory and Fatima, Fabeha and Yilmazel, Ozel and Rastogi, Rati and Zeng, Chang and Smith, Ethan},
   booktitle = {Proceedings of the Grounding Language Models (GroundLM) Workshop at EMNLP 2026},
   year      = {2026},
-  url       = {https://github.com/rag-collapse/RAG-Collapsement-on-Self-Refined-Generation}
+  url       = {https://github.com/rag-collapse/RAG-Collapse}
 }
 ```
 

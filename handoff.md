@@ -5,7 +5,7 @@ full-scale HotpotQA runs. This doc covers three things to know, in order. First 
 data folder. Second the HotpotQA experiments. Third working with Unity. The repo and code map and the
 next steps follow.
 
-- Repo: `RAG-Collapsement-on-Self-Refined-Generation`. Research on inference-time RAG collapse. A model
+- Repo: `RAG-Collapse`. Research on inference-time RAG collapse. A model
   answers from retrieved docs, its answers become "documents" fed back next round, and over rounds the
   answers degenerate and drift. Read `CLAUDE.md` for the repo map, `docs/misinfo_error_compounding.md`
   for the experiment, and `docs/hotpotqa_smoke_results.html` for the beginner primer and all smoke results.

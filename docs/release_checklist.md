@@ -22,7 +22,7 @@ was run. Status as of the R4/R5 pass (branch `citation-attribution-spec`).
 
 1. **No LICENSE file** (`gh repo view` reports `licenseInfo: null`). A code+data release needs an
    explicit license. **Blocking.** Decision required (see "Open decisions").
-2. **Repo is PRIVATE** (`rag-collapse/RAG-Collapsement-on-Self-Refined-Generation`). Going
+2. **Repo is PRIVATE** (`rag-collapse/RAG-Collapse`). Going
    public exposes the **entire git history**, not just the current tree. **Blocking**, and
    see the history audit below before flipping.
 

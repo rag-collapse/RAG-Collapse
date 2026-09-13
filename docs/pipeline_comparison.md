@@ -4,7 +4,7 @@ A detailed compare-and-contrast of the two RAG-collapse experiment pipelines, fo
 
 | | This repo | Reference repo |
 |---|---|---|
-| Name | `RAG-Collapsement-on-Self-Refined-Generation` | `collapse-randomness-research` (graphite-growth) |
+| Name | `RAG-Collapse` | `collapse-randomness-research` (graphite-growth) |
 | Baseline driver | `pipeline.py::run_pipeline` | `model_collapse/core/model_collapse.py::main` → `model_collapse/core/simulation.py::run_simulation` |
 | Metrics | split: `evaluation.py` (text metrics) + `entity_extraction.py` (entity metrics), run as **separate programs** | `randomness/core/metrics.py::simulation_metrics` (+ entity fns), computed **inline** during the sim loop |
 | Generation models | **open / local** (Mistral-7B, Qwen2.5-14B, Llama-3.1-8B, DeepSeek-R1-7B) via vLLM | **frontier APIs** (`gpt-5.2-chat-latest`, Claude, Gemini) via OpenAI Responses API |

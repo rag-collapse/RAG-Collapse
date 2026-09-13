@@ -15,7 +15,7 @@ export HF_HOME=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umas
 # VLLM_USE_DEEP_GEMM=0 avoids the FP8 DeepGEMM kernel path on Hopper GPUs (uri-gpu009 etc.), where
 # `deep_gemm` is not installed and the engine crashes at init. This bf16 7B does not need FP8 kernels.
 export HF_HUB_CACHE="$HF_HOME"; export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 VLLM_LOGGING_LEVEL=WARNING VLLM_USE_DEEP_GEMM=0 VLLM_MOE_USE_DEEP_GEMM=0
-cd ~/RAG-Collapsement-on-Self-Refined-Generation
+cd ~/RAG-Collapse
 
 : "${SHARD:?pass SHARD=NN via --export=ALL,SHARD=NN}"
 DATASET=$HOME/ds_agentic_shard_${SHARD}.jsonl

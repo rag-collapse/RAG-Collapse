@@ -144,8 +144,8 @@ the deslop is mostly the older top half of the file.
 
 - `ssh unity` works. Activate the env with
   `source /modules/opt/linux-ubuntu24.04-x86_64/miniforge3/24.7.1/etc/profile.d/conda.sh; conda activate ragenv`.
-- Scripts that import the repo (`agentic_loo.py`) run from `~/RAG-Collapsement-on-Self-Refined-Generation`
-  with `export PYTHONPATH=$HOME/RAG-Collapsement-on-Self-Refined-Generation`.
+- Scripts that import the repo (`agentic_loo.py`) run from `~/RAG-Collapse`
+  with `export PYTHONPATH=$HOME/RAG-Collapse`.
 - HF cache: `export HF_HOME=/work/pi_dagarwal_umass_edu/project_4/file_storage/rsenapati_umass_edu/hf_cache`
   with `HF_HUB_OFFLINE=1`.
 - The agent cannot push from Unity. Commit and push from the laptop. Never commit API keys.

@@ -45,7 +45,7 @@ git push origin misinfo-error-compounding
 Then on Unity (in the repo clone), authenticate and pull (HTTPS needs your PAT, see the earlier
 note; do this in your own Unity shell):
 ```bash
-cd ~/RAG-Collapsement-on-Self-Refined-Generation
+cd ~/RAG-Collapse
 git fetch origin && git checkout misinfo-error-compounding && git pull origin misinfo-error-compounding
 mkdir -p logs
 python -m pytest tests/test_misinfo.py -q     # 15 tests, ~2s, sanity that the module loads in ragenv
@@ -54,7 +54,7 @@ python -m pytest tests/test_misinfo.py -q     # 15 tests, ~2s, sanity that the m
 ## Step 1. Start the two GPU servers
 
 ```bash
-cd ~/RAG-Collapsement-on-Self-Refined-Generation
+cd ~/RAG-Collapse
 sbatch scripts/hotpot-misinfo/server_answer.sh
 sbatch scripts/hotpot-misinfo/server_docgen.sh
 squeue --me                     # wait until both are RUNNING
