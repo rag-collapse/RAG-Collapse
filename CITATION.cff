@@ -6,8 +6,17 @@ repository-code: "https://github.com/rag-collapse/RAG-Collapsement-on-Self-Refin
 license: MIT
 # NOTE (fill before public release): the code is MIT (LICENSE); the data is CC-BY-4.0
 # (DATA_LICENSE.md). CFF has one `license` field, so it names the code license here.
+# Author order matches the camera-ready paper.
 
 authors:
+  - family-names: Senapati
+    given-names: Riddhimaan
+    email: rsenapati@umass.edu
+    affiliation: University of Massachusetts Amherst
+  - family-names: Druck
+    given-names: Gregory
+    email: greg@graphitehq.com
+    affiliation: Graphite Growth, Inc.
   - family-names: Fatima
     given-names: Fabeha
     email: ffatima@umass.edu
@@ -20,14 +29,6 @@ authors:
     given-names: Rati
     email: ratirastogi@umass.edu
     affiliation: University of Massachusetts Amherst
-  - family-names: Senapati
-    given-names: Riddhimaan
-    email: rsenapati@umass.edu
-    affiliation: University of Massachusetts Amherst
-  - family-names: Druck
-    given-names: Gregory
-    email: greg@graphitehq.com
-    affiliation: Graphite Growth, Inc.
   - family-names: Zeng
     given-names: Chang
     email: changzeng@umass.edu
@@ -41,6 +42,14 @@ preferred-citation:
   type: conference-paper
   title: "Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?"
   authors:
+    - family-names: Senapati
+      given-names: Riddhimaan
+      email: rsenapati@umass.edu
+      affiliation: University of Massachusetts Amherst
+    - family-names: Druck
+      given-names: Gregory
+      email: greg@graphitehq.com
+      affiliation: Graphite Growth, Inc.
     - family-names: Fatima
       given-names: Fabeha
       email: ffatima@umass.edu
@@ -53,14 +62,6 @@ preferred-citation:
       given-names: Rati
       email: ratirastogi@umass.edu
       affiliation: University of Massachusetts Amherst
-    - family-names: Senapati
-      given-names: Riddhimaan
-      email: rsenapati@umass.edu
-      affiliation: University of Massachusetts Amherst
-    - family-names: Druck
-      given-names: Gregory
-      email: greg@graphitehq.com
-      affiliation: Graphite Growth, Inc.
     - family-names: Zeng
       given-names: Chang
       email: changzeng@umass.edu

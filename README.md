@@ -254,8 +254,23 @@ matching `$MODEL` subdirectory.
   outputs and the 10-runs-per-round design. For deterministic reruns set `temperature=0` and a
   `seed` in the sampling params.
 
+## Citation
+
+If you use this code or data, cite the paper. GitHub's "Cite this repository" button reads
+[`CITATION.cff`](CITATION.cff) and emits APA or BibTeX with the camera-ready author order.
+
+```bibtex
+@inproceedings{senapati2026ragcollapse,
+  title     = {Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?},
+  author    = {Senapati, Riddhimaan and Druck, Gregory and Fatima, Fabeha and Yilmazel, Ozel and Rastogi, Rati and Zeng, Chang and Smith, Ethan},
+  booktitle = {Proceedings of the Grounding Language Models (GroundLM) Workshop at EMNLP 2026},
+  year      = {2026},
+  url       = {https://github.com/rag-collapse/RAG-Collapsement-on-Self-Refined-Generation}
+}
+```
+
 ## License
 
 Source **code** is released under the MIT License (`LICENSE`). **Data** (the datasets and the
 citation-label / evaluation outputs) is released under CC-BY-4.0 (`DATA_LICENSE.md`). See
-`docs/release_checklist.md` for the release audit and remaining steps. To cite, see `CITATION.cff`.
+`docs/release_checklist.md` for the release audit and remaining steps.
