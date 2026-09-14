@@ -10,12 +10,12 @@ End-to-end workflow:
 
 ```mermaid
 flowchart TD
-    P["pipeline.py<br/>run the collapse loop"] --> EO[("experiment_outputs/")]
-    EO --> EV["evaluation.py<br/>text-similarity metrics"]
-    EO --> EN["entity_extraction.py<br/>entity-collapse metrics"]
+    P["pipeline.py<br>run the collapse loop"] --> EO[("experiment_outputs/")]
+    EO --> EV["evaluation.py<br>text-similarity metrics"]
+    EO --> EN["entity_extraction.py<br>entity-collapse metrics"]
     EV --> EVO[("evaluation_outputs/")]
     EN --> ENO[("entity_extraction_output/")]
-    EVO --> VIZ["visualization.ipynb<br/>agentic-rag-visualization.ipynb"]
+    EVO --> VIZ["visualization.ipynb<br>agentic-rag-visualization.ipynb"]
     ENO --> VIZ
 ```
 
