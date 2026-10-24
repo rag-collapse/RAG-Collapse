@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Collapse | GroundLM @ EMNLP 2026</title>
+<meta name="description" content="Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents? GroundLM Workshop at EMNLP 2026.">
+<meta property="og:title" content="Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?">
+<meta property="og:description" content="Across three contamination simulations and four open LLMs, RAG answers collapse as models retrieve their own generations. GroundLM @ EMNLP 2026.">
+<meta property="og:image" content="static/figures/contamination_simulations.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230D0D0D'/%3E%3Cpath d='M9 22a9 9 0 1 1 14 0' fill='none' stroke='%2342CA80' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23E3DCC8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0D0D0D; --panel: #171717; --panel-2: #1F1F1F; --line: #333333;
+    --cream: #E3DCC8; --muted: #A79F8C; --green: #42CA80; --orange: #E8763A;
+    --sim-all: #1F77B4; --sim-one: #FF7F0E; --sim-search: #2CA02C;
+    --maxw: 1080px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--ink); color: var(--cream);
+    font: 17px/1.65 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .eyebrow { font: 500 13px/1 "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+
+  header.hero { padding: 72px 0 40px; border-bottom: 1px solid var(--line); }
+  .hero h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1.08; letter-spacing: -.02em; font-weight: 700; margin: 18px 0 28px; max-width: 22ch; }
+  .hero h1 em { font-style: normal; color: var(--green); }
+  .authors { font-size: 18px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  .authors sup { color: var(--green); font-weight: 500; margin-left: 1px; }
+  .affil { color: var(--muted); margin-top: 8px; font-size: 16px; }
+  .affil sup { color: var(--green); }
+  .links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; border: 1.5px solid var(--line); color: var(--cream); font: 500 14px/1 "IBM Plex Mono", monospace; letter-spacing: .03em; background: var(--panel); }
+  .btn:hover { border-color: var(--green); text-decoration: none; }
+  .btn.primary { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+  .btn svg { width: 16px; height: 16px; }
+
+  section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+  section h2 { font-size: 30px; letter-spacing: -.01em; margin: 10px 0 22px; }
+  section h3 { font-size: 21px; margin: 40px 0 12px; }
+  p { margin: 0 0 16px; }
+  .lead { font-size: 19px; max-width: 70ch; }
+  .muted { color: var(--muted); }
+
+  figure { margin: 26px 0; }
+  .card-img { background: #fff; border-radius: 14px; padding: 12px; }
+  .card-img img { display: block; width: 100%; height: auto; }
+  figcaption { color: var(--muted); font-size: 14.5px; margin-top: 10px; line-height: 1.55; }
+  figcaption b { color: var(--cream); }
+  .grid { display: grid; gap: 18px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 760px) { .g2, .g3 { grid-template-columns: 1fr; } }
+
+  .tldr { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 8px; }
+  @media (max-width: 760px) { .tldr { grid-template-columns: 1fr; } }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .tile .k { font: 700 40px/1 Inter, sans-serif; color: var(--green); letter-spacing: -.02em; }
+  .tile h4 { margin: 12px 0 6px; font-size: 17px; }
+  .tile p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .callout { background: #10241A; border: 1.5px solid var(--green); border-radius: 14px; padding: 20px 24px; font-size: 18px; }
+  .callout b { color: #fff; }
+
+  .sims { display: grid; gap: 12px; margin: 20px 0; }
+  .sim { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .sim .tag { border-radius: 8px; padding: 12px; text-align: center; color: #fff; font-weight: 700; line-height: 1.3; }
+  .sim .tag small { display: block; font: 400 13px "IBM Plex Mono", monospace; opacity: .9; }
+  @media (max-width: 560px) { .sim { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 15.5px; }
+  th, td { padding: 11px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { font: 500 12.5px "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  td.num { font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+  .up { color: var(--green); font-weight: 600; }
+  .down { color: var(--orange); font-weight: 600; }
+  .ns { color: var(--muted); }
+  .ci { color: var(--muted); font-size: 13px; }
+
+  .rule { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .rule:last-child { border-bottom: 0; }
+  .rule .x { color: var(--orange); font: 700 22px/1.2 Inter, sans-serif; }
+  .rule .ok { width: 14px; height: 14px; background: var(--green); margin-top: 7px; border-radius: 3px; }
+  .rule h4 { margin: 0 0 4px; font-size: 17px; }
+  .rule p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  .bars { margin: 6px 0 4px; }
+  .bar { display: grid; grid-template-columns: 130px 1fr 54px; gap: 10px; align-items: center; font-size: 14px; margin: 6px 0; }
+  .bar span:first-child { text-align: right; color: var(--muted); }
+  .bar i { display: block; height: 14px; border-radius: 3px; }
+  .bar b { font-variant-numeric: tabular-nums; }
+
+  .eq { font: 500 19px "IBM Plex Mono", monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; display: inline-block; margin: 6px 0 14px; }
+
+  pre { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; overflow-x: auto; font: 13.5px/1.6 "IBM Plex Mono", monospace; color: var(--cream); }
+  .copy { position: absolute; top: 12px; right: 12px; background: var(--panel-2); color: var(--cream); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: 12px "IBM Plex Mono", monospace; cursor: pointer; }
+  .copy:hover { border-color: var(--green); }
+
+  footer { padding: 40px 0 60px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">GroundLM Workshop · EMNLP 2026 · Budapest</div>
+    <h1>Does Retrieval Augmented Generation <em>Collapse</em> When It Retrieves AI-Generated Documents?</h1>
+    <div class="authors">
+      <span>Riddhimaan Senapati<sup>1</sup></span>
+      <span>Gregory Druck<sup>2</sup></span>
+      <span>Fabeha Fatima<sup>1</sup></span>
+      <span>Ozel Yilmazel<sup>1</sup></span>
+      <span>Rati Rastogi<sup>1</sup></span>
+      <span>Chang Zeng<sup>1</sup></span>
+      <span>Ethan Smith<sup>2</sup></span>
+    </div>
+    <div class="affil"><sup>1</sup>University of Massachusetts Amherst &nbsp;&nbsp; <sup>2</sup>Graphite</div>
+    <div class="links">
+      <a class="btn primary" href="https://github.com/rag-collapse/RAG-Collapse">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        Code &amp; data
+      </a>
+      <a class="btn" href="#bibtex">BibTeX</a>
+      <a class="btn" href="#findings">Key findings</a>
+    </div>
+  </div>
+</header>
+
+<main>
+<section>
+  <div class="wrap">
+    <figure>
+      <div class="card-img"><img src="static/figures/contamination_simulations.png" alt="Diagram of the three contamination simulations: Replace-All, Replace-One and Search" loading="eager"></div>
+      <figcaption>The three contamination simulations. From top to bottom: <b>Replace-All</b> (the entire context is replaced with generated documents after round 1), <b>Replace-One</b> (one reference is replaced per round), and <b>Search</b> (self-generated documents are gradually added to the question's reference pool and compete during retrieval).</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="abstract">
+  <div class="wrap">
+    <div class="eyebrow">Abstract</div>
+    <h2>Collapse at inference time, with no retraining</h2>
+    <p class="lead">AI-generated text now constitutes a substantial and growing fraction of indexed web content, creating a feedback loop in which AI assistants may retrieve and condition on their own prior generations. Prior work shows that recursive <em>training</em> on model generations causes <b>model collapse</b>: a loss of output diversity and distributional drift. We ask whether a similar collapse emerges at <em>inference</em> time, when LLMs retrieve their own generations via RAG without any parameter updates.</p>
+    <p class="lead">We measure collapse as the progressive convergence of responses to a narrow set across recursive retrieval rounds. Across three contamination simulations and four open-source LLMs, collapse is rapid and consistent under direct contamination, but partial and model-dependent under competitive retrieval. Collapse can also degrade downstream accuracy on factual multi-hop QA, though the effect is inconsistent across models. We further show that the self-generated documents we introduce are cited far above their share of the context, an effect that is not fully explained by document quality, writing style, AI authorship, or self-preference. Finally, we propose and evaluate mitigation strategies at both the retrieval and generation stages, none of which reliably prevent collapse. As AI-generated content continues to populate the open web, collapse-resistant retrieval design is necessary for trustworthy AI assistants.</p>
+  </div>
+</section>
+
+<section id="findings">
+  <div class="wrap">
+    <div class="eyebrow">Key findings</div>
+    <h2>What we found</h2>
+    <div class="tldr">
+      <div class="tile"><div class="k">66.8%</div><h4>Collapse is fast under direct contamination</h4><p>of entity-comparison questions are fully collapsed by the final round under Replace-All (Qwen2.5-14B-Instruct), up from 28.2% at the start.</p></div>
+      <div class="tile"><div class="k">2.2×</div><h4>Self-generated references are over-cited</h4><p>At round 1 they are 12.0% of the context but receive 26.5% of citations under Replace-One.</p></div>
+      <div class="tile"><div class="k">±F1</div><h4>Accuracy effects depend on the model</h4><p>On HotpotQA only Qwen2.5-14B-Instruct declines significantly; Mistral-7B-Instruct-v0.3 improves as answers converge on a consensus.</p></div>
+      <div class="tile"><div class="k">0 / 4</div><h4>No mitigation reliably prevents it</h4><p>Paraphrasing and agentic retrieval slow collapse, re-ranking is not effective, and GEPA prompt optimization did not beat the baseline.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="wrap">
+    <div class="eyebrow">Method</div>
+    <h2>A recursive retrieval loop</h2>
+    <p class="lead">Each round, the model retrieves documents, answers the question 10 times, and its answers are rewritten into web-style articles (by Qwen2.5-7B-Instruct) that re-enter the retrieval pool. Questions are simulated independently, following the design of Druck and Smith (2026).</p>
+    <div class="sims">
+      <div class="sim"><div class="tag" style="background:var(--sim-all)">Replace-All<small>10 rounds</small></div><div>The entire context is replaced with AI-generated documents after the first round, isolating collapse driven by the retrieval loop itself.</div></div>
+      <div class="sim"><div class="tag" style="background:var(--sim-one)">Replace-One<small>20 rounds</small></div><div>One original reference per round is replaced with a self-generated document, so synthetic content accumulates gradually.</div></div>
+      <div class="sim"><div class="tag" style="background:var(--sim-search)">Search<small>30 rounds</small></div><div>One self-generated document per round is added to the question's pool of original references, so self-generated and original documents compete during retrieval.</div></div>
+      <div class="sim"><div class="tag" style="background:#6B4FA0">Agentic RAG<small>30 rounds</small></div><div>Like Search, but the model decides what to retrieve by issuing its own <span class="mono">retrieve(query)</span> calls before answering.</div></div>
+    </div>
+    <div class="grid g3">
+      <div class="tile"><h4>Datasets</h4><p>400 non-factoid entity-comparison questions (e.g. “What are the best restaurants in the Bay Area?”) and the first 1400 HotpotQA dev questions.</p></div>
+      <div class="tile"><h4>Models</h4><p>Qwen2.5-14B-Instruct, Mistral-7B-Instruct-v0.3, Llama-3.1-8B-Instruct and DeepSeek-R1-Distill-Qwen-7B, all at temperature 0.7.</p></div>
+      <div class="tile"><h4>Metrics</h4><p>Pairwise ROUGE-L, unique entities, collapse rate (every response mentions the same set of canonical entities), and token-level F1 on HotpotQA.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <div class="eyebrow">Results</div>
+    <h2>Answers converge as the context fills with AI text</h2>
+    <div class="grid g3">
+      <figure><div class="card-img"><img src="static/figures/entity_unique_qwen14b.png" alt="Unique entities per round" loading="lazy"></div><figcaption>(a) Unique entities per round</figcaption></figure>
+      <figure><div class="card-img"><img src="static/figures/entity_collapse_qwen14b.png" alt="Collapse by simulation" loading="lazy"></div><figcaption>(b) Collapse by simulation</figcaption></figure>
+      <figure><div class="card-img"><img src="static/figures/entity_rougeL_qwen14b.png" alt="Pairwise ROUGE-L per round" loading="lazy"></div><figcaption>(c) Pairwise ROUGE-L per round</figcaption></figure>
+    </div>
+    <p>With Qwen2.5-14B-Instruct, unique entities fall and responses grow more similar as the context becomes AI-generated. Replace-All converges immediately, Replace-One more gradually, and Search most slowly, because self-generated and original references compete.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Simulation</th><th>Collapsed at start</th><th>Collapsed at end</th><th>95% Wilson CI</th></tr></thead>
+      <tbody>
+        <tr><td>Replace-All</td><td class="num">28.2%</td><td class="num up">66.8%</td><td class="num ci">[62.0, 71.2]</td></tr>
+        <tr><td>Replace-One</td><td class="num">29.8%</td><td class="num up">59.8%</td><td class="num ci">[54.9, 64.4]</td></tr>
+        <tr><td>Search</td><td class="num">31.5%</td><td class="num up">48.0%</td><td class="num ci">[43.1, 52.9]</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted">The same pattern holds for Llama-3.1-8B, Mistral-7B and DeepSeek-R1-7B, most clearly under direct contamination.</p>
+
+    <h3>HotpotQA: the accuracy effect depends on the model</h3>
+    <p>HotpotQA answers are short factual spans, so response diversity is low to begin with and there is little room for collapse to cause an accuracy drop.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ΔF1 (round 0 → final)</th><th>Replace-All</th><th>Replace-One</th><th>Search</th></tr></thead>
+      <tbody>
+        <tr><td>Qwen2.5-14B</td><td class="num down">−0.018</td><td class="num down">−0.024</td><td class="num down">−0.018</td></tr>
+        <tr><td>Mistral-7B</td><td class="num up">+0.062</td><td class="num up">+0.044</td><td class="num up">+0.058</td></tr>
+        <tr><td>Llama-3.1-8B</td><td class="num ns">+0.007</td><td class="num ns">+0.008</td><td class="num ns">+0.016</td></tr>
+        <tr><td>DeepSeek-R1-7B</td><td class="num up">+0.012</td><td class="num ns">−0.002</td><td class="num ns">+0.011</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted"><span class="down">Orange</span>: significant decline. <span class="up">Green</span>: significant improvement. Grey: 95% bootstrap CI (over 1400 questions) includes zero. Mistral's gain is consistent with collapse onto a consensus answer that raises token overlap for a low-baseline model; with 1400 questions the nulls are small effects, not a lack of statistical power.</p>
+    <figure><div class="card-img"><img src="static/figures/hotpot_delta_f1.png" alt="Forest plot of the change in F1 per model and simulation" loading="lazy"></div><figcaption>Round-0 to final-round change in token-level F1 per model, with 95% bootstrap CIs.</figcaption></figure>
+  </div>
+</section>
+
+<section id="causes">
+  <div class="wrap">
+    <div class="eyebrow">Analysis</div>
+    <h2>What causes RAG collapse?</h2>
+    <div class="callout"><b>An answer-derived preference:</b> the model conditions disproportionately on documents derived from model answers. AI authorship, writing style, answer quality and self-preference do not account for it.</div>
+
+    <h3>Evidence</h3>
+    <div class="rule"><div class="ok"></div><div><h4>Collapse begins before full contamination</h4><p>Under Replace-One, unique words fall from 64.0 to 51.3 between rounds 1 and 9, while roughly half of the context is still original references.</p></div></div>
+    <div class="rule"><div class="ok"></div><div><h4>Self-generated references are over-cited</h4><p>At round 1 they are 12.0% of the context but receive 26.5% of citations under Replace-One (ratio 2.2), and 14.8% vs 24.0% under Search (ratio 1.6). A reference is credited only when regenerating the answer without it changes the answer. The effect survives a query-alignment control and replicates across all four models and the agentic setting.</p></div></div>
+
+    <h3>Ruled-out explanations</h3>
+    <div class="rule"><div class="x">✕</div><div><h4>AI authorship</h4><p>About 30% of the original references are themselves AI-written (GPTZero), yet they are cited far less than self-generated ones.</p>
+      <div class="bars" aria-label="Mean citation rate by reference type">
+        <div class="bar"><span>self-generated</span><i style="width:100%;background:var(--green)"></i><b>0.281</b></div>
+        <div class="bar"><span>AI-written</span><i style="width:43.8%;background:var(--muted)"></i><b>0.123</b></div>
+        <div class="bar"><span>human-written</span><i style="width:27.8%;background:#6B6556"></i><b>0.078</b></div>
+      </div></div></div>
+    <div class="rule"><div class="x">✕</div><div><h4>Writing style</h4><p>Paraphrasing the original references into AI style before round 1 slows collapse but does not stop it: stylistic uniformity accelerates collapse but is not its sole cause.</p></div></div>
+    <div class="rule"><div class="x">✕</div><div><h4>Reference quality</h4><p>Among references scored 5/5 on directness, organization and relevance, self-generated ones are still cited 2.1× as often. Controlling for eight quality dimensions, the self-generation effect is +0.154 (p &lt; 0.001).</p></div></div>
+    <div class="rule"><div class="x">✕</div><div><h4>Self-preference</h4><p>When the fed-back documents are built from a different model's answers, collapse persists at a rate statistically indistinguishable from Qwen's own answers.</p></div></div>
+    <figure style="max-width:720px"><div class="card-img"><img src="static/figures/crossmodel_collapse.png" alt="End-round collapse rate by source model" loading="lazy"></div><figcaption>End-round collapse when the fed-back documents come from Qwen2.5-14B-Instruct's own answers vs. other models' answers.</figcaption></figure>
+  </div>
+</section>
+
+<section id="mitigations">
+  <div class="wrap">
+    <div class="eyebrow">Mitigations</div>
+    <h2>Collapse is robust to every mitigation we tried</h2>
+    <div class="grid g2">
+      <div>
+        <h3 style="margin-top:0">Re-ranking</h3>
+        <p>Penalize likely-AI documents between retrieval and generation:</p>
+        <div class="eq">s′ = s · (1 − λ · P<sub>AI</sub>(D))</div>
+        <p>Even with an oracle detector it fails, because re-ranking can only reorder what retrieval returns. By the final round the oracle retrieves on average only one original document out of ten.</p>
+      </div>
+      <figure style="margin-top:0"><div class="card-img"><img src="static/figures/hotpot_airef_rerank_qwen14b.png" alt="AI reference percentage per round with re-ranking" loading="lazy"></div><figcaption>AI reference % per round with re-ranking (HotpotQA, λ = 0.7, Qwen2.5-14B-Instruct).</figcaption></figure>
+    </div>
+    <div class="grid g2">
+      <div>
+        <h3>Agentic RAG</h3>
+        <p>Ends at <b>27.2%</b> collapsed vs 48.0–66.8% for the baselines, but it also starts much lower (7.2%) and makes about 1.01 tool calls per round, so we can't attribute the gain to iterative retrieval rather than its richer system prompt. Promising, but prompt-sensitive.</p>
+        <h3>Paraphrasing &amp; GEPA</h3>
+        <p>Paraphrasing slows recursive self-reinforcement without preventing it. GEPA prompt optimization converged immediately: no candidate improved on the baseline prompt.</p>
+      </div>
+      <figure><div class="card-img"><img src="static/figures/agentic_unique_qwen14b.png" alt="Agentic RAG versus baselines, unique entities per round" loading="lazy"></div><figcaption>Agentic RAG preserves more unique entities than the three baseline simulations.</figcaption></figure>
+    </div>
+    <div class="callout" style="margin-top:28px"><b>Takeaway.</b> Preventing collapse will likely require filtering self-generated references <em>before</em> retrieval and directly countering the answer-derived preference.</div>
+  </div>
+</section>
+
+<section id="bibtex">
+  <div class="wrap">
+    <div class="eyebrow">Citation</div>
+    <h2>BibTeX</h2>
+<pre><button class="copy" type="button" data-copy="bib">Copy</button><code id="bib">@inproceedings{senapati2026ragcollapse,
+  title     = {Does Retrieval Augmented Generation Collapse When It Retrieves AI-Generated Documents?},
+  author    = {Senapati, Riddhimaan and Druck, Gregory and Fatima, Fabeha and Yilmazel, Ozel and Rastogi, Rati and Zeng, Chang and Smith, Ethan},
+  booktitle = {Proceedings of the Grounding Language Models (GroundLM) Workshop at EMNLP 2026},
+  year      = {2026},
+  url       = {https://github.com/rag-collapse/RAG-Collapse}
+}</code></pre>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    Computational resources were provided by the Unity Research Computing Platform, a multi-institutional cluster led by the University of Massachusetts and the University of Rhode Island.
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = document.getElementById(btn.dataset.copy).innerText;
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
+        });
+      } catch (e) { btn.textContent = 'Select & copy'; }
+    });
+  });
+</script>
+</body>
+</html>

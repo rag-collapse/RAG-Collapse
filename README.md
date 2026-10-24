@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="https://rag-collapse.github.io/RAG-Collapse/">Project page</a> ·
   <a href="#citation">Citation</a> ·
   <a href="#key-findings">Key findings</a> ·
   <a href="#reproducing-the-paper">Reproduce</a> ·
