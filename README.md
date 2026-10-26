@@ -74,7 +74,7 @@ We use the controlled recursive-feedback design of Druck and Smith (2026). Each 
   </tr>
 </table>
 
-As the context becomes AI-generated, unique entities fall and responses grow more similar. Replace-All converges immediately, Replace-One more gradually, and Search most slowly, because self-generated and original references compete.
+As the context becomes AI-generated, unique entities fall and responses grow more similar. Collapse is rapid and consistent under direct contamination (Replace-All, Replace-One), but partial under competitive retrieval (Search), even though Search runs for 30 rounds versus 10 and 20.
 
 | Qwen2.5-14B-Instruct | Collapsed at start | Collapsed at end (95% Wilson CI) |
 |---|---|---|
@@ -88,9 +88,9 @@ The same pattern holds for the other three models, most clearly under direct con
 
 HotpotQA answers are short factual spans, so response diversity is low to begin with and there is little room for collapse to cause an accuracy drop.
 
-<p align="center"><img src="camera_ready_outputs/R5/delta_f1_forest.png" width="760" alt="Round-0 to final-round change in F1 per model"></p>
+<p align="center"><img src="camera_ready_outputs/R5/delta_f1_forest.png" width="760" alt="Change in F1 between the first and final rounds, per model"></p>
 
-| ΔF1 (round 0 → final) | Replace-All | Replace-One | Search |
+| ΔF1 (first → final round) | Replace-All | Replace-One | Search |
 |---|---|---|---|
 | Qwen2.5-14B | **−0.018** | **−0.024** | **−0.018** |
 | Mistral-7B | **+0.062** | **+0.044** | **+0.058** |
